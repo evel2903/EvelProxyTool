@@ -1,5 +1,6 @@
 import { createTraditionalMessages } from './traditional';
 import { jaOverrides } from './ja';
+import { viOverrides } from './vi';
 import { en } from './locales/en';
 import { zhCN, type MessageKey } from './locales/zh-CN';
 
@@ -9,3 +10,4 @@ export type MessageVariables = Record<string, string | number>;
 
 export const zhTW: Record<MessageKey, string> = createTraditionalMessages(zhCN);
 export const ja: Record<MessageKey, string> = { ...en, ...jaOverrides };
+export const vi: Record<MessageKey, string> = { ...en, ...viOverrides };

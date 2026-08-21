@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "EasyCLIProxyAPI",
+  "productName": "EvelProxyTool",
   "identifier": "com.cpa.gui",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "EasyCLIProxyAPI",
+        "title": "EvelProxyTool",
         "width": 1531,
         "height": 891,
         "minWidth": 640,

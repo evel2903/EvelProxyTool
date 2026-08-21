@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { en, ja, zhCN, zhTW, type MessageKey, type MessageVariables } from './resources';
+import { en, ja, vi, zhCN, zhTW, type MessageKey, type MessageVariables } from './resources';
 
-export type AppLocale = 'zh-CN' | 'zh-TW' | 'ja' | 'en';
+export type AppLocale = 'zh-CN' | 'zh-TW' | 'ja' | 'vi' | 'en';
 
 export const languageOptions: ReadonlyArray<{
   value: AppLocale;
@@ -11,14 +11,15 @@ export const languageOptions: ReadonlyArray<{
   { value: 'zh-CN', nativeLabel: '简体中文' },
   { value: 'zh-TW', nativeLabel: '繁體中文' },
   { value: 'ja', nativeLabel: '日本語' },
+  { value: 'vi', nativeLabel: 'Tiếng Việt' },
   { value: 'en', nativeLabel: 'English' },
 ];
 
-const STORAGE_KEY = 'easy-cli-proxy-api.locale';
-const resources = { 'zh-CN': zhCN, 'zh-TW': zhTW, ja, en } as const;
+const STORAGE_KEY = 'evel-proxy-tool.locale';
+const resources = { 'zh-CN': zhCN, 'zh-TW': zhTW, ja, vi, en } as const;
 let currentLocale: AppLocale = 'zh-CN';
 
-export const supportedLocales: readonly AppLocale[] = ['zh-CN', 'zh-TW', 'ja', 'en'];
+export const supportedLocales: readonly AppLocale[] = ['zh-CN', 'zh-TW', 'ja', 'vi', 'en'];
 
 export function getCurrentLocale(): AppLocale {
   return currentLocale;
@@ -28,6 +29,7 @@ export function normalizeLocale(value: string | null | undefined): AppLocale {
   const normalized = value?.trim().toLowerCase() ?? '';
   if (normalized.startsWith('en')) return 'en';
   if (normalized.startsWith('ja')) return 'ja';
+  if (normalized.startsWith('vi')) return 'vi';
   if (
     normalized === 'zh-tw'
     || normalized === 'zh-hk'

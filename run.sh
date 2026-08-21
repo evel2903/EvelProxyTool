@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_BIN="$ROOT_DIR/bin-work/EasyCLIProxyAPI"
+APP_BIN="$ROOT_DIR/bin-work/EvelProxyTool"
 
 if [ ! -x "$APP_BIN" ]; then
   echo "Executable not found: $APP_BIN"

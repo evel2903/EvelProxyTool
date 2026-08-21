@@ -130,7 +130,7 @@ jobs:
         env:
           APP_VERSION: ${{ needs.version.outputs.version }}
         run: |
-          echo "stem=EasyCLIProxyAPI-v${APP_VERSION}-${{ matrix.display_os }}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+          echo "stem=EvelProxyTool-v${APP_VERSION}-${{ matrix.display_os }}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
           echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
       - name: Install Linux dependencies
         if: matrix.os == 'linux'
@@ -160,7 +160,7 @@ jobs:
         run: |
           $updateDir = "release/update-${{ matrix.arch }}"
           New-Item -ItemType Directory -Force -Path $updateDir | Out-Null
-          Copy-Item -LiteralPath "release/${{ steps.package.outputs.stem }}/EasyCLIProxyAPI.exe" -Destination $updateDir
+          Copy-Item -LiteralPath "release/${{ steps.package.outputs.stem }}/EvelProxyTool.exe" -Destination $updateDir
           Copy-Item -LiteralPath "release/${{ steps.package.outputs.stem }}/portable-app.json" -Destination $updateDir
       - name: Build signed macOS DMG
         if: matrix.os == 'darwin'
@@ -235,14 +235,14 @@ jobs:
           env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD \
             bun tauri bundle --bundles app --ci --config src-tauri/tauri.dmg.conf.json
 
-          app_path="$bundle_dir/macos/EasyCLIProxyAPI.app"
+          app_path="$bundle_dir/macos/EvelProxyTool.app"
 
           rm -rf "$staging_dir"
           mkdir -p "$staging_dir"
-          ditto "$app_path" "$staging_dir/EasyCLIProxyAPI.app"
+          ditto "$app_path" "$staging_dir/EvelProxyTool.app"
           ln -s /Applications "$staging_dir/Applications"
           hdiutil create \
-            -volname "EasyCLIProxyAPI" \
+            -volname "EvelProxyTool" \
             -srcfolder "$staging_dir" \
             -format UDZO \
             -ov \
@@ -262,7 +262,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path "release/${{ steps.package.outputs.stem }}" -DestinationPath "${{ steps.package.outputs.stem }}.zip"
-          $updateArchive = "EasyCLIProxyAPI-update-v${{ steps.package.outputs.version }}-Windows-${{ matrix.arch }}.zip"
+          $updateArchive = "EvelProxyTool-update-v${{ steps.package.outputs.version }}-Windows-${{ matrix.arch }}.zip"
           Compress-Archive -Path "release/update-${{ matrix.arch }}/*" -DestinationPath $updateArchive
       - uses: actions/upload-artifact@v7
         with:
@@ -274,7 +274,7 @@ jobs:
         if: matrix.os == 'windows'
         with:
           name: portable-updater-windows-${{ matrix.arch }}
-          path: EasyCLIProxyAPI-update-v${{ steps.package.outputs.version }}-Windows-${{ matrix.arch }}.zip
+          path: EvelProxyTool-update-v${{ steps.package.outputs.version }}-Windows-${{ matrix.arch }}.zip
           if-no-files-found: error
           retention-days: 14
   publish:
@@ -328,7 +328,7 @@ jobs:
           esac
 
           prerelease="$MANUAL_PRERELEASE"
-          release_args=(--title "EasyCLIProxyAPI $RELEASE_TAG" --generate-notes)
+          release_args=(--title "EvelProxyTool $RELEASE_TAG" --generate-notes)
           if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
             if [[ "$RELEASE_TAG" == *-* ]]; then
               prerelease=true

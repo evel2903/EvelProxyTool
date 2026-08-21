@@ -76,7 +76,7 @@ if (verification && verification.actual !== verification.expected) {
 }
 
 await mkdir(output, { recursive: true });
-const outputBinary = join(output, targetOS === 'windows' ? 'EasyCLIProxyAPI.exe' : 'EasyCLIProxyAPI');
+const outputBinary = join(output, targetOS === 'windows' ? 'EvelProxyTool.exe' : 'EvelProxyTool');
 const legacyOutputBinary = join(output, targetOS === 'windows' ? 'cpa-gui.exe' : 'cpa-gui');
 await rm(legacyOutputBinary, { force: true });
 await copyFile(binary, outputBinary);
@@ -84,7 +84,7 @@ if (targetOS !== 'windows') await chmod(outputBinary, 0o755);
 await copyFile(join(root, 'core-version.txt'), join(output, 'core-version.txt'));
 await writeFile(join(output, 'portable-app.json'), `${JSON.stringify({
   schemaVersion: 1,
-  application: 'EasyCLIProxyAPI',
+  application: 'EvelProxyTool',
   version: appVersion,
   platform: targetOS,
   arch: targetArch,

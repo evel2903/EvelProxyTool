@@ -57,12 +57,12 @@ type ModelAliasSource = ThinkingAliasSource & {
 };
 
 const effortOptions = [
-  { value: 'low', label: 'Low', hintKey: 'aliases.effort.low' },
-  { value: 'medium', label: 'Medium', hintKey: 'aliases.effort.medium' },
-  { value: 'high', label: 'High', hintKey: 'aliases.effort.high' },
-  { value: 'xhigh', label: 'XHigh', hintKey: 'aliases.effort.xhigh' },
-  { value: 'max', label: 'Max', hintKey: 'aliases.effort.max' },
-] as const satisfies ReadonlyArray<{ value: PresetThinkingEffort; label: string; hintKey: string }>;
+  { value: 'low', labelKey: 'aliases.effortLabel.low', hintKey: 'aliases.effort.low' },
+  { value: 'medium', labelKey: 'aliases.effortLabel.medium', hintKey: 'aliases.effort.medium' },
+  { value: 'high', labelKey: 'aliases.effortLabel.high', hintKey: 'aliases.effort.high' },
+  { value: 'xhigh', labelKey: 'aliases.effortLabel.xhigh', hintKey: 'aliases.effort.xhigh' },
+  { value: 'max', labelKey: 'aliases.effortLabel.max', hintKey: 'aliases.effort.max' },
+] as const satisfies ReadonlyArray<{ value: PresetThinkingEffort; labelKey: string; hintKey: string }>;
 
 export const combineModelAliasEntries = (
   thinkingEntries: ThinkingAliasEntry[],
@@ -577,7 +577,7 @@ export function ThinkingAliasesPage() {
                   disabled={Boolean(busyAlias) || Boolean(selectedSource && !selectedSource.supportsReasoning)}
                   title={t(option.hintKey)}
                 >
-                  {option.label}
+                  {t(option.labelKey)}
                 </button>
               ))}
               <button
@@ -629,7 +629,7 @@ export function ThinkingAliasesPage() {
               </div>
               <label className={`thinking-fast-option${fastEnabled ? ' active' : ''}`}>
                 <span className="thinking-fast-option-copy">
-                  <span><Zap size={15} /> Fast</span>
+                  <span><Zap size={15} /> {t('aliases.fast.label')}</span>
                   <small>{fastEnabled ? t('aliases.fast.enabled') : t('aliases.fast.disabled')}</small>
                 </span>
                 <span className="switch-control thinking-fast-switch">

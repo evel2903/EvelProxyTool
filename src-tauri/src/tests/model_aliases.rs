@@ -186,7 +186,7 @@ fn thinking_alias_rejects_duplicate_client_visible_name() {
     assert!(
         add_model_alias_to_yaml(input, &source, "GPT-5.5-HIGH", "high", false)
             .unwrap_err()
-            .contains("已存在")
+            .contains("already exists")
     );
 }
 

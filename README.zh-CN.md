@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <img src="src/assets/logo.jpg" width="112" alt="EasyCLIProxyAPI Logo">
+  <img src="src/assets/logo.jpg" width="112" alt="EvelProxyTool Logo">
 </p>
 
-<h1 align="center">EasyCLIProxyAPI</h1>
+<h1 align="center">EvelProxyTool</h1>
 
 <p align="center">
   CLIProxyAPI 的便携桌面控制台。<br>
@@ -17,7 +17,7 @@
 
 ## 项目简介
 
-EasyCLIProxyAPI 是基于 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
+EvelProxyTool 是基于 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
 构建的图形化桌面管理工具。它将内核生命周期管理、OAuth 授权、API Provider 聚合、协议转换、
 凭证管理、配额查询、使用记录、模型别名和智能体客户端配置集中到一个界面中。
 
@@ -51,7 +51,7 @@ OAuth 页面集中管理支持的浏览器授权登录：
 - Kimi OAuth
 - xAI OAuth
 
-EasyCLIProxyAPI 会自动打开浏览器授权页面；当浏览器无法自动跳转回来时，也支持手动完成回调流程。
+EvelProxyTool 会自动打开浏览器授权页面；当浏览器无法自动跳转回来时，也支持手动完成回调流程。
 
 ### API 接入与 Provider 聚合
 
@@ -112,10 +112,10 @@ API 接入页面按照协议或 Provider 管理上游 API 凭证和服务地址�
 
 ## 快速开始
 
-1. 前往 [GitHub Releases](https://github.com/router-for-me/EasyCLIProxyAPI/releases/latest)
+1. 前往 [GitHub Releases](https://github.com/router-for-me/EvelProxyTool/releases/latest)
    下载对应操作系统的发行包。
 2. 解压 Windows 或 Linux 压缩包，macOS 用户打开 DMG。
-3. 启动 EasyCLIProxyAPI。
+3. 启动 EvelProxyTool。
 4. 打开 **版本管理** 页面，安装内置版本或最新版本的 CLIProxyAPI 内核。
 5. 返回 **首页** 启动内核，然后复制所需的本地 API 地址，或配置 OAuth/API Provider。
 
@@ -127,7 +127,7 @@ API 接入页面按照协议或 Provider 管理上游 API 凭证和服务地址�
 
 现有 Linux 和 macOS 安装需要先手动升级一次，安装带有跨平台自动更新标识的版本；成功启动该版本后，后续即可使用应用内自动升级。
 
-如果当前版本是 v0.2.5 或更早版本，请执行一次手动迁移：退出 EasyCLIProxyAPI，下载最新版对应架构的完整 Windows ZIP，将 ZIP 顶层目录内的内容复制到现有安装目录并覆盖同名文件。不要先删除现有安装目录；`config.toml`、`oauth` 和 `cpa-core/config.yaml` 等用户数据会被保留。启动新版后，后续版本即可继续使用应用内自动升级。
+如果当前版本是 v0.2.5 或更早版本，请执行一次手动迁移：退出 EvelProxyTool，下载最新版对应架构的完整 Windows ZIP，将 ZIP 顶层目录内的内容复制到现有安装目录并覆盖同名文件。不要先删除现有安装目录；`config.toml`、`oauth` 和 `cpa-core/config.yaml` 等用户数据会被保留。启动新版后，后续版本即可继续使用应用内自动升级。
 
 ## 支持的平台
 

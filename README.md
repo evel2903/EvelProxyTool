@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <img src="src/assets/logo.jpg" width="112" alt="EasyCLIProxyAPI Logo">
+  <img src="src/assets/logo.jpg" width="112" alt="EvelProxyTool Logo">
 </p>
 
-<h1 align="center">EasyCLIProxyAPI</h1>
+<h1 align="center">EvelProxyTool</h1>
 
 <p align="center">
   A portable desktop console for CLIProxyAPI.<br>
@@ -17,7 +17,7 @@
 
 ## Overview
 
-EasyCLIProxyAPI is a graphical desktop management tool built on
+EvelProxyTool is a graphical desktop management tool built on
 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI). It brings core lifecycle management,
 OAuth authorization, API provider aggregation, protocol conversion, credential management,
 quota inspection, usage records, model aliases, and agent client configuration into one interface.
@@ -53,7 +53,7 @@ The OAuth page centralizes browser-based authorization for supported providers:
 - Kimi OAuth
 - xAI OAuth
 
-EasyCLIProxyAPI opens the authorization page in the browser and supports completing the callback
+EvelProxyTool opens the authorization page in the browser and supports completing the callback
 flow when an automatic redirect is unavailable.
 
 ### API provider aggregation
@@ -118,9 +118,9 @@ previous configuration.
 ## Quick Start
 
 1. Download the package for your operating system from
-   [GitHub Releases](https://github.com/router-for-me/EasyCLIProxyAPI/releases/latest).
+   [GitHub Releases](https://github.com/router-for-me/EvelProxyTool/releases/latest).
 2. Extract the Windows or Linux archive, or open the macOS DMG.
-3. Launch EasyCLIProxyAPI.
+3. Launch EvelProxyTool.
 4. Open **Version Management** and install the bundled or latest CLIProxyAPI core.
 5. Return to **Home**, start the core, then copy the required local endpoint or configure an OAuth/API provider.
 
@@ -132,7 +132,7 @@ Current Windows, Linux, and macOS release packages support in-app automatic upda
 
 Existing Linux and macOS installations need one manual upgrade to a release that includes the cross-platform auto-update marker. In-app updates are available after that release has been launched once.
 
-If you are running v0.2.5 or earlier, perform one manual migration: exit EasyCLIProxyAPI, download the latest complete Windows ZIP for your architecture, then copy the contents of its top-level directory over the existing installation directory. Do not delete the existing directory first; user data such as `config.toml`, `oauth`, and `cpa-core/config.yaml` will remain in place. After launching the new version, later releases can use in-app automatic updates.
+If you are running v0.2.5 or earlier, perform one manual migration: exit EvelProxyTool, download the latest complete Windows ZIP for your architecture, then copy the contents of its top-level directory over the existing installation directory. Do not delete the existing directory first; user data such as `config.toml`, `oauth`, and `cpa-core/config.yaml` will remain in place. After launching the new version, later releases can use in-app automatic updates.
 
 ## Supported Platforms
 

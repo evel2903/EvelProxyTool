@@ -13,7 +13,7 @@ pub(crate) struct MacosTrayClickState {
 #[cfg(target_os = "macos")]
 pub(crate) fn set_macos_dock_visible(app_handle: &tauri::AppHandle, visible: bool) {
     if let Err(error) = app_handle.set_dock_visibility(visible) {
-        eprintln!("更新 Dock 图标状态失败: {error}");
+        eprintln!("Failed to update Dock icon visibility: {error}");
     }
 }
 
@@ -24,17 +24,17 @@ pub(crate) fn show_main_window_on_main_thread(app_handle: &tauri::AppHandle) {
     };
     set_macos_dock_visible(app_handle, true);
     if let Err(error) = window.show() {
-        eprintln!("显示主窗口失败: {error}");
+        eprintln!("Failed to show the main window: {error}");
         set_macos_dock_visible(app_handle, false);
         return;
     }
     if window.is_minimized().unwrap_or(false) {
         if let Err(error) = window.unminimize() {
-            eprintln!("恢复主窗口失败: {error}");
+            eprintln!("Failed to restore the main window: {error}");
         }
     }
     if let Err(error) = window.set_focus() {
-        eprintln!("聚焦主窗口失败: {error}");
+        eprintln!("Failed to focus the main window: {error}");
     }
 }
 
@@ -49,7 +49,7 @@ pub(crate) fn show_main_window(app_handle: &tauri::AppHandle) {
     if let Err(error) = app_handle.clone().run_on_main_thread(move || {
         show_main_window_on_main_thread(&app_handle);
     }) {
-        eprintln!("调度主窗口显示失败: {error}");
+        eprintln!("Failed to schedule showing the main window: {error}");
     }
 }
 
@@ -67,7 +67,7 @@ pub(crate) fn show_macos_tray_menu<R: tauri::Runtime>(tray: &TrayIcon<R>) {
     });
 
     if let Err(error) = result {
-        eprintln!("显示托盘菜单失败: {error}");
+        eprintln!("Failed to show the tray menu: {error}");
     }
 }
 
@@ -123,7 +123,7 @@ pub(crate) fn setup_macos_tray(app: &mut tauri::App<tauri::Wry>) -> tauri::Resul
 
             let now = Instant::now();
             let Ok(mut state) = click_state.lock() else {
-                eprintln!("读取托盘点击状态失败");
+                eprintln!("Failed to read tray click state");
                 return;
             };
             state.sequence += 1;
@@ -154,7 +154,7 @@ pub(crate) fn setup_macos_tray(app: &mut tauri::App<tauri::Wry>) -> tauri::Resul
                     }
                     Ok(_) => false,
                     Err(_) => {
-                        eprintln!("读取托盘点击状态失败");
+                        eprintln!("Failed to read tray click state");
                         false
                     }
                 };
@@ -226,26 +226,26 @@ pub(crate) fn windows_tray_presentation(
     let tooltip = if busy {
         locale_text(
             locale,
-            "EasyCLIProxyAPI · 内核处理中",
-            "EasyCLIProxyAPI · Core working",
+            "EvelProxyTool · 内核处理中",
+            "EvelProxyTool · Core working",
         )
     } else if !status.installed {
         locale_text(
             locale,
-            "EasyCLIProxyAPI · 内核未安装",
-            "EasyCLIProxyAPI · Core not installed",
+            "EvelProxyTool · 内核未安装",
+            "EvelProxyTool · Core not installed",
         )
     } else if status.running {
         locale_text(
             locale,
-            "EasyCLIProxyAPI · 内核运行中",
-            "EasyCLIProxyAPI · Core running",
+            "EvelProxyTool · 内核运行中",
+            "EvelProxyTool · Core running",
         )
     } else {
         locale_text(
             locale,
-            "EasyCLIProxyAPI · 内核已停止",
-            "EasyCLIProxyAPI · Core stopped",
+            "EvelProxyTool · 内核已停止",
+            "EvelProxyTool · Core stopped",
         )
     };
 
@@ -296,7 +296,7 @@ impl WindowsTrayState {
         ];
         for (item, label) in labels {
             if let Err(error) = item.set_text(label) {
-                eprintln!("更新 Windows 托盘语言失败: {error}");
+                eprintln!("Failed to update the Windows tray language: {error}");
             }
         }
     }
@@ -316,19 +316,19 @@ impl WindowsTrayState {
             "内核状态：处理中",
             "Core status: Working",
         )) {
-            eprintln!("更新 Windows 托盘内核状态失败: {error}");
+            eprintln!("Failed to update the Windows tray core status: {error}");
         }
         if let Err(error) =
             self.toggle_core_item
                 .set_text(locale_text(&locale, "处理中...", "Working..."))
         {
-            eprintln!("更新 Windows 托盘操作文本失败: {error}");
+            eprintln!("Failed to update the Windows tray action text: {error}");
         }
         if let Err(error) = self.toggle_core_item.set_enabled(false) {
-            eprintln!("更新 Windows 托盘操作状态失败: {error}");
+            eprintln!("Failed to update the Windows tray action state: {error}");
         }
         if let Err(error) = self.restart_core_item.set_enabled(false) {
-            eprintln!("更新 Windows 托盘重启状态失败: {error}");
+            eprintln!("Failed to update the Windows tray restart state: {error}");
         }
         true
     }
@@ -341,25 +341,25 @@ impl WindowsTrayState {
         let presentation =
             windows_tray_presentation(status, self.busy.load(Ordering::Acquire), &self.locale());
         if let Err(error) = self.status_item.set_text(presentation.status_text.clone()) {
-            eprintln!("更新 Windows 托盘内核状态失败: {error}");
+            eprintln!("Failed to update the Windows tray core status: {error}");
         }
         if let Err(error) = self
             .toggle_core_item
             .set_text(presentation.toggle_text.clone())
         {
-            eprintln!("更新 Windows 托盘操作文本失败: {error}");
+            eprintln!("Failed to update the Windows tray action text: {error}");
         }
         if let Err(error) = self
             .toggle_core_item
             .set_enabled(presentation.toggle_enabled)
         {
-            eprintln!("更新 Windows 托盘操作状态失败: {error}");
+            eprintln!("Failed to update the Windows tray action state: {error}");
         }
         if let Err(error) = self
             .restart_core_item
             .set_enabled(presentation.restart_enabled)
         {
-            eprintln!("更新 Windows 托盘重启状态失败: {error}");
+            eprintln!("Failed to update the Windows tray restart state: {error}");
         }
         presentation.tooltip
     }
@@ -376,7 +376,7 @@ impl WindowsTrayState {
             _ => format!("操作失败：{summary}"),
         };
         if let Err(update_error) = self.status_item.set_text(text) {
-            eprintln!("更新 Windows 托盘错误状态失败: {update_error}");
+            eprintln!("Failed to update the Windows tray error state: {update_error}");
         }
     }
 }
@@ -387,16 +387,16 @@ pub(crate) fn show_windows_main_window(app_handle: &tauri::AppHandle) {
         return;
     };
     if let Err(error) = window.show() {
-        eprintln!("显示主窗口失败: {error}");
+        eprintln!("Failed to show the main window: {error}");
         return;
     }
     if window.is_minimized().unwrap_or(false) {
         if let Err(error) = window.unminimize() {
-            eprintln!("恢复主窗口失败: {error}");
+            eprintln!("Failed to restore the main window: {error}");
         }
     }
     if let Err(error) = window.set_focus() {
-        eprintln!("聚焦主窗口失败: {error}");
+        eprintln!("Failed to focus the main window: {error}");
     }
 }
 
@@ -409,7 +409,7 @@ pub(crate) fn update_windows_tray_status(app_handle: &tauri::AppHandle, status: 
 
     if let Some(tray) = app_handle.tray_by_id(WINDOWS_TRAY_ID) {
         if let Err(error) = tray.set_tooltip(Some(&tooltip)) {
-            eprintln!("更新 Windows 托盘提示失败: {error}");
+            eprintln!("Failed to update the Windows tray tooltip: {error}");
         }
     }
 }
@@ -428,7 +428,7 @@ pub(crate) fn update_windows_tray_locale(
 
 #[cfg(target_os = "windows")]
 pub(crate) fn show_windows_tray_action_error(app_handle: &tauri::AppHandle, error: &str) {
-    eprintln!("Windows 托盘内核操作失败: {error}");
+    eprintln!("Windows tray core action failed: {error}");
     let locale = app_handle
         .try_state::<WindowsTrayState>()
         .map(|state| state.locale())
@@ -439,10 +439,10 @@ pub(crate) fn show_windows_tray_action_error(app_handle: &tauri::AppHandle, erro
     if let Some(tray) = app_handle.tray_by_id(WINDOWS_TRAY_ID) {
         if let Err(update_error) = tray.set_tooltip(Some(locale_text(
             &locale,
-            "EasyCLIProxyAPI · 内核操作失败",
-            "EasyCLIProxyAPI · Core operation failed",
+            "EvelProxyTool · 内核操作失败",
+            "EvelProxyTool · Core operation failed",
         ))) {
-            eprintln!("更新 Windows 托盘错误提示失败: {update_error}");
+            eprintln!("Failed to update the Windows tray error tooltip: {update_error}");
         }
     }
 }
@@ -461,10 +461,10 @@ pub(crate) fn run_windows_tray_core_action(
     if let Some(tray) = app_handle.tray_by_id(WINDOWS_TRAY_ID) {
         if let Err(error) = tray.set_tooltip(Some(locale_text(
             &tray_state.locale(),
-            "EasyCLIProxyAPI · 内核处理中",
-            "EasyCLIProxyAPI · Core working",
+            "EvelProxyTool · 内核处理中",
+            "EvelProxyTool · Core working",
         ))) {
-            eprintln!("更新 Windows 托盘处理中提示失败: {error}");
+            eprintln!("Failed to update the Windows tray working tooltip: {error}");
         }
     }
 
@@ -579,7 +579,7 @@ pub(crate) fn setup_windows_tray(app: &mut tauri::App<tauri::Wry>) -> tauri::Res
                 .cloned()
                 .expect("application icon is required for the tray"),
         )
-        .tooltip("EasyCLIProxyAPI")
+        .tooltip("EvelProxyTool")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(move |app_handle, event| match event.id().as_ref() {

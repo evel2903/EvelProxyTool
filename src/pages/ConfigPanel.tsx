@@ -26,6 +26,12 @@ import { useCoreRuntime, type CoreStatus } from '../coreRuntime';
 import { useI18n } from '../i18n';
 import { webUiManagementUrl } from '../services/clientAccess';
 import { ThinkingAliasesPage } from './ThinkingAliasesPage';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 type CoreConfigSettings = {
   apiKeys: CoreApiKey[];
@@ -96,6 +102,41 @@ const ROUTING_OPTIONS = [
   { value: 'round-robin', labelKey: 'config.routing.roundRobin' },
   { value: 'fill-first', labelKey: 'config.routing.fillFirst' },
 ] as const;
+
+function ConfigSwitch({
+  checked,
+  disabled,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative h-[21px] w-[38px] shrink-0 rounded-full border transition-colors disabled:opacity-50',
+        checked ? 'border-primary bg-primary' : 'border-input bg-muted',
+      )}
+    >
+      <span
+        className={cn(
+          'absolute top-[2px] size-[15px] rounded-full bg-card shadow transition-[left]',
+          checked ? 'left-[19px]' : 'left-[2px]',
+        )}
+      />
+    </button>
+  );
+}
 
 export function ConfigPanelPage() {
   const { t } = useI18n();
@@ -624,209 +665,129 @@ export function ConfigPanelPage() {
   const managementSecretBusy = busyAction === 'management-secret';
 
   return (
-    <section className="page config-page">
-      <div className="agent-subpage-tabs config-subpage-tabs" role="tablist" aria-label={t('config.tabs.label')}>
-        <button
-          type="button"
-          id="config-subpage-tab-general"
-          role="tab"
-          className={activeSubpage === 'general' ? 'active' : ''}
-          aria-selected={activeSubpage === 'general'}
-          aria-controls="config-subpage-panel-general"
-          tabIndex={activeSubpage === 'general' ? 0 : -1}
-          onClick={() => setActiveSubpage('general')}
-        >
-          {t('config.tabs.general')}
-        </button>
-        <button
-          type="button"
-          id="config-subpage-tab-network"
-          role="tab"
-          className={activeSubpage === 'network' ? 'active' : ''}
-          aria-selected={activeSubpage === 'network'}
-          aria-controls="config-subpage-panel-network"
-          tabIndex={activeSubpage === 'network' ? 0 : -1}
-          onClick={() => setActiveSubpage('network')}
-        >
-          {t('config.tabs.network')}
-        </button>
-        <button
-          type="button"
-          id="config-subpage-tab-aliases"
-          role="tab"
-          className={activeSubpage === 'aliases' ? 'active' : ''}
-          aria-selected={activeSubpage === 'aliases'}
-          aria-controls="config-subpage-panel-aliases"
-          tabIndex={activeSubpage === 'aliases' ? 0 : -1}
-          onClick={() => setActiveSubpage('aliases')}
-        >
-          {t('app.nav.thinkingAliases')}
-        </button>
-        <button
-          type="button"
-          id="config-subpage-tab-software"
-          role="tab"
-          className={activeSubpage === 'software' ? 'active' : ''}
-          aria-selected={activeSubpage === 'software'}
-          aria-controls="config-subpage-panel-software"
-          tabIndex={activeSubpage === 'software' ? 0 : -1}
-          onClick={() => setActiveSubpage('software')}
-        >
-          {t('config.tabs.software')}
-        </button>
+    <section className="grid gap-4">
+      <div className="inline-flex w-fit gap-0.5 rounded-lg bg-muted p-0.5" role="tablist" aria-label={t('config.tabs.label')}>
+        {([
+          ['general', t('config.tabs.general')],
+          ['network', t('config.tabs.network')],
+          ['aliases', t('app.nav.thinkingAliases')],
+          ['software', t('config.tabs.software')],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            id={`config-subpage-tab-${id}`}
+            role="tab"
+            className={cn(
+              'rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+              activeSubpage === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+            aria-selected={activeSubpage === id}
+            aria-controls={`config-subpage-panel-${id}`}
+            tabIndex={activeSubpage === id ? 0 : -1}
+            onClick={() => setActiveSubpage(id)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {activeSubpage === 'general' ? (
         <div
-          className="config-subpage-panel"
+          className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start"
           id="config-subpage-panel-general"
           role="tabpanel"
           aria-labelledby="config-subpage-tab-general"
         >
-        <section className="panel config-keys-panel">
-          <div className="config-panel-heading">
-            <div className="config-heading-title">
-              <KeyRound size={18} aria-hidden="true" />
-              <h2>{t('config.keys.title')}</h2>
-            </div>
-            <div className="config-heading-actions">
-              <span className="config-count" aria-label={t('config.keys.count')}>
-                {settings?.apiKeys.length ?? 0}
+        <Card className="gap-0 p-0">
+          <div className="flex items-center justify-between gap-3 p-4 pb-3">
+            <div className="flex items-center gap-2">
+              <KeyRound size={17} aria-hidden="true" className="text-muted-foreground" />
+              <h2 className="text-base font-semibold">{t('config.keys.title')}</h2>
+              <span className="text-sm text-muted-foreground" aria-label={t('config.keys.count')}>
+                · {settings?.apiKeys.length ?? 0}
               </span>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={openAddDialog}
-                disabled={controlsDisabled}
-                title={t('config.keys.add')}
-                aria-label={t('config.keys.add')}
-              >
-                <Plus size={18} aria-hidden="true" />
-              </button>
             </div>
+            <Button type="button" size="icon-sm" onClick={openAddDialog} disabled={controlsDisabled} title={t('config.keys.add')} aria-label={t('config.keys.add')}>
+              <Plus size={16} aria-hidden="true" />
+            </Button>
           </div>
 
-          <div className="config-key-list" aria-busy={loading || undefined}>
+          <div aria-busy={loading || undefined}>
             {loading ? (
               Array.from({ length: 5 }, (_, index) => (
-                <div className="config-key-row skeleton" key={index} aria-hidden="true">
-                  <span />
-                  <span />
+                <div className="flex items-center gap-3 border-t px-4 py-3" key={index} aria-hidden="true">
+                  <span className="h-8 flex-1 animate-pulse rounded-md bg-muted" />
                 </div>
               ))
             ) : loadError ? (
-              <div className="config-unavailable">
-                <AlertCircle size={24} aria-hidden="true" />
-                <strong>{t('config.unavailable')}</strong>
-                <span title={loadError}>{loadError}</span>
-                <button type="button" className="secondary-button compact-button" onClick={() => void loadSettings()}>
-                  <RefreshCw size={16} aria-hidden="true" />
+              <div className="grid justify-items-center gap-2 border-t px-4 py-8 text-center">
+                <AlertCircle size={22} aria-hidden="true" className="text-destructive" />
+                <strong className="text-sm font-semibold">{t('config.unavailable')}</strong>
+                <span className="max-w-xs truncate text-xs text-muted-foreground" title={loadError}>{loadError}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => void loadSettings()}>
+                  <RefreshCw size={14} aria-hidden="true" />
                   {t('common.retry')}
-                </button>
+                </Button>
               </div>
             ) : settings && settings.apiKeys.length > 0 ? (
               settings.apiKeys.map((entry, index) => (
-                <div className="config-key-row" key={`${index}-${entry.apiKey}`}>
-                  <div className="config-key-identity">
-                    <span className="config-key-index">{String(index + 1).padStart(2, '0')}</span>
-                    <div className="config-key-details">
-                      <div className="config-key-label-line">
-                        <strong title={entry.remark || t('config.keys.noRemark')}>
-                          {entry.remark || t('config.keys.noRemark')}
-                        </strong>
-                      </div>
-                      <code title={maskApiKey(entry.apiKey)}>{maskApiKey(entry.apiKey)}</code>
-                    </div>
+                <div className="flex items-center gap-3 border-t px-4 py-2.5" key={`${index}-${entry.apiKey}`}>
+                  <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
+                  <div className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-medium" title={entry.remark || t('config.keys.noRemark')}>
+                      {entry.remark || t('config.keys.noRemark')}
+                    </strong>
+                    <code className="block truncate font-mono text-xs text-muted-foreground" title={maskApiKey(entry.apiKey)}>{maskApiKey(entry.apiKey)}</code>
                   </div>
-                  <div className="config-key-actions">
-                    <button
-                      type="button"
-                      className="icon-button quiet"
-                      onClick={() => void copyApiKey(entry.apiKey, index)}
-                      disabled={controlsDisabled}
-                      title={t('config.keys.copy')}
-                      aria-label={t('config.keys.copyNth', { number: index + 1 })}
-                    >
-                      {copiedIndex === index ? (
-                        <Check size={16} aria-hidden="true" />
-                      ) : (
-                        <Copy size={16} aria-hidden="true" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button quiet"
-                      onClick={() => openEditDialog(entry)}
-                      disabled={controlsDisabled}
-                      title={t('config.keys.edit')}
-                      aria-label={t('config.keys.editNth', { number: index + 1 })}
-                    >
-                      <Pencil size={16} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button danger"
-                      onClick={() => setDeleteIndex(index)}
-                      disabled={controlsDisabled}
-                      title={t('config.keys.delete')}
-                      aria-label={t('config.keys.deleteNth', { number: index + 1 })}
-                    >
-                      <Trash2 size={16} aria-hidden="true" />
-                    </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => void copyApiKey(entry.apiKey, index)} disabled={controlsDisabled} title={t('config.keys.copy')} aria-label={t('config.keys.copyNth', { number: index + 1 })}>
+                      {copiedIndex === index ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => openEditDialog(entry)} disabled={controlsDisabled} title={t('config.keys.edit')} aria-label={t('config.keys.editNth', { number: index + 1 })}>
+                      <Pencil size={15} aria-hidden="true" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteIndex(index)} disabled={controlsDisabled} title={t('config.keys.delete')} aria-label={t('config.keys.deleteNth', { number: index + 1 })}>
+                      <Trash2 size={15} aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="config-empty-list">
-                <KeyRound size={26} aria-hidden="true" />
-                <strong>{t('config.keys.empty')}</strong>
+              <div className="grid justify-items-center gap-2 border-t px-4 py-8 text-center">
+                <KeyRound size={24} aria-hidden="true" className="text-muted-foreground" />
+                <strong className="text-sm font-semibold">{t('config.keys.empty')}</strong>
               </div>
             )}
           </div>
-        </section>
-        <section className="panel config-management-panel">
-          <div className="config-panel-heading">
-            <div className="config-heading-title">
-              <ShieldCheck size={18} aria-hidden="true" />
-              <h2>{t('config.webuiKey.title')}</h2>
+        </Card>
+        <Card className="gap-0 p-0">
+          <div className="flex items-center justify-between gap-3 p-4 pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={17} aria-hidden="true" className="text-muted-foreground" />
+              <h2 className="text-base font-semibold">{t('config.webuiKey.title')}</h2>
             </div>
-            <div className="config-heading-actions">
-              {!loading && settings ? (
-                <span
-                  className={`state-pill ${settings.managementSecretConfigured ? 'success' : ''}`}
-                >
-                  {settings.managementSecretConfigured
-                    ? t('config.webuiKey.configured')
-                    : t('config.webuiKey.unconfigured')}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                className="secondary-button compact-button"
-                disabled={loading || settings === null}
-                onClick={() => void openWebUi()}
-                title={settings ? webUiManagementUrl(settings.port) : undefined}
-              >
-                {t('config.webuiKey.open')}
-              </button>
-            </div>
+            {!loading && settings ? (
+              <Badge variant={settings.managementSecretConfigured ? 'success' : 'secondary'}>
+                {settings.managementSecretConfigured
+                  ? t('config.webuiKey.configured')
+                  : t('config.webuiKey.unconfigured')}
+              </Badge>
+            ) : null}
           </div>
 
-          <div className="config-management-content">
-            <div className="config-management-description">
-              <strong>{t('config.webuiKey.heading')}</strong>
-              <p>{t('config.webuiKey.description')}</p>
-              <small>{t('config.webuiKey.securityHint')}</small>
+          <div className="grid gap-4 px-4 pb-4">
+            <div>
+              <strong className="text-sm font-semibold">{t('config.webuiKey.heading')}</strong>
+              <p className="mt-1 text-sm text-muted-foreground">{t('config.webuiKey.description')}</p>
+              <small className="mt-1 block text-xs text-muted-foreground">{t('config.webuiKey.securityHint')}</small>
             </div>
 
-            <form
-              className="config-management-form"
-              onSubmit={(event) => void saveManagementSecret(event)}
-            >
-              <label className="config-management-field">
-                <span>{t('config.webuiKey.newKey')}</span>
-                <div className="config-secret-input">
-                  <input
+            <form className="grid gap-3" onSubmit={(event) => void saveManagementSecret(event)}>
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.webuiKey.newKey')}</span>
+                <div className="relative">
+                  <Input
                     type={showManagementSecret ? 'text' : 'password'}
                     autoComplete="new-password"
                     maxLength={512}
@@ -834,32 +795,30 @@ export function ConfigPanelPage() {
                     disabled={controlsDisabled}
                     aria-invalid={Boolean(managementSecretError)}
                     placeholder={t('config.webuiKey.placeholder')}
+                    className="pr-9"
                     onChange={(event) => {
                       setManagementSecretDraft(event.currentTarget.value);
                       setManagementSecretError('');
                     }}
                   />
-                  <button
+                  <Button
                     type="button"
-                    className="icon-button quiet"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="absolute top-1/2 right-1 -translate-y-1/2"
                     disabled={controlsDisabled}
                     onClick={() => setShowManagementSecret((value) => !value)}
                     title={showManagementSecret ? t('config.keys.hide') : t('config.keys.show')}
                     aria-label={showManagementSecret ? t('config.keys.hide') : t('config.keys.show')}
                   >
-                    {showManagementSecret ? (
-                      <EyeOff size={16} aria-hidden="true" />
-                    ) : (
-                      <Eye size={16} aria-hidden="true" />
-                    )}
-                  </button>
+                    {showManagementSecret ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
+                  </Button>
                 </div>
               </label>
 
-              <label className="config-management-field">
-                <span>{t('config.webuiKey.confirmKey')}</span>
-                <input
-                  className="config-dialog-text-input"
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.webuiKey.confirmKey')}</span>
+                <Input
                   type={showManagementSecret ? 'text' : 'password'}
                   autoComplete="new-password"
                   maxLength={512}
@@ -874,132 +833,103 @@ export function ConfigPanelPage() {
                 />
               </label>
 
-              <div className="config-management-form-footer">
-                <span
-                  className={`config-management-error ${managementSecretError ? 'visible' : ''}`}
-                  role="alert"
-                >
+              <div className="flex items-center justify-between gap-3">
+                <span className={cn('text-xs text-destructive', !managementSecretError && 'invisible')} role="alert">
                   {managementSecretError || ' '}
                 </span>
-                <div className="config-management-actions">
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
-                  disabled={controlsDisabled}
-                  onClick={generateManagementSecret}
-                >
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" disabled={controlsDisabled} onClick={generateManagementSecret}>
                     {t('config.webuiKey.generate')}
-                  </button>
-                  <button
-                    type="submit"
-                    className="primary-button compact-button"
-                    disabled={controlsDisabled || !managementSecretDraft.trim()}
-                  >
-                    <Check size={16} aria-hidden="true" />
+                  </Button>
+                  <Button type="submit" size="sm" disabled={controlsDisabled || !managementSecretDraft.trim()}>
+                    <Check size={15} aria-hidden="true" />
                     {managementSecretBusy ? t('common.saving') : t('config.webuiKey.save')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </form>
           </div>
-        </section>
+        </Card>
         </div>
       ) : activeSubpage === 'network' ? (
         <div
-          className="config-subpage-panel config-network-subpage"
           id="config-subpage-panel-network"
           role="tabpanel"
           aria-labelledby="config-subpage-tab-network"
         >
-      <section className="panel config-network-panel">
-        <div className="config-panel-heading">
-          <div className="config-heading-title">
-            <Network size={18} aria-hidden="true" />
-            <h2>{t('config.network.title')}</h2>
+      <Card className="gap-0 p-0">
+        <div className="flex items-center justify-between gap-3 p-4 pb-3">
+          <div className="flex items-center gap-2">
+            <Network size={17} aria-hidden="true" className="text-muted-foreground" />
+            <h2 className="text-base font-semibold">{t('config.network.title')}</h2>
           </div>
-          <div className="config-heading-actions">
+          <div className="flex items-center gap-2.5">
             {networkStatusLabel ? (
-              <span className={`state-pill ${networkStatusIsSaved ? 'success' : ''}`}>
-                {networkStatusLabel}
-              </span>
+              <Badge variant={networkStatusIsSaved ? 'success' : 'secondary'}>{networkStatusLabel}</Badge>
             ) : null}
-            <button
-              type="button"
-              className="primary-button compact-button"
-              disabled={controlsDisabled || !networkRoutingDirty}
-              onClick={() => void saveNetworkRoutingSettings()}
-            >
-              <Check size={16} aria-hidden="true" />
-              {busyAction === 'network'
-                ? t('config.network.saving')
-                : t('config.network.confirmSave')}
-            </button>
+            <Button type="button" size="sm" disabled={controlsDisabled || !networkRoutingDirty} onClick={() => void saveNetworkRoutingSettings()}>
+              <Check size={15} aria-hidden="true" />
+              {busyAction === 'network' ? t('config.network.saving') : t('config.network.confirmSave')}
+            </Button>
           </div>
         </div>
 
-        <div className="config-network-sections">
-          <section className="config-network-section" aria-labelledby="config-network-section-title">
-            <div className="config-network-section-heading">
-              <Network size={16} aria-hidden="true" />
+        <div>
+          <section className="border-t px-4 py-4" aria-labelledby="config-network-section-title">
+            <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <Network size={13} aria-hidden="true" />
               <h3 id="config-network-section-title">{t('config.network.networkSection')}</h3>
             </div>
-            <div className="config-network-grid">
-              <label className="config-network-field config-network-port-field">
-            <span>{t('config.network.port')}</span>
-            <input
-              className={`config-network-input ${portError ? 'error' : ''}`}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={5}
-              value={portDraft}
-              disabled={controlsDisabled}
-              aria-invalid={Boolean(portError)}
-              title={portError || t('config.network.portHint')}
-              onChange={(event) => {
-                markDraftDirty('port');
-                setPortDraft(event.currentTarget.value.replace(/\D/g, '').slice(0, 5));
-                setPortError('');
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape' && settings) {
-                  clearDraftDirty('port');
-                  setPortDraft(String(settings.port));
-                  setPortError('');
-                  event.currentTarget.blur();
-                }
-              }}
-            />
-            <small>{t('config.network.portHint')}</small>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.network.port')}</span>
+                <Input
+                  className="font-mono"
+                  aria-invalid={Boolean(portError)}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={5}
+                  value={portDraft}
+                  disabled={controlsDisabled}
+                  title={portError || t('config.network.portHint')}
+                  onChange={(event) => {
+                    markDraftDirty('port');
+                    setPortDraft(event.currentTarget.value.replace(/\D/g, '').slice(0, 5));
+                    setPortError('');
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape' && settings) {
+                      clearDraftDirty('port');
+                      setPortDraft(String(settings.port));
+                      setPortError('');
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+                <small className="text-xs text-muted-foreground">{t('config.network.portHint')}</small>
               </label>
 
-              <div className="config-network-field config-network-toggle">
-                <div>
-                  <span>{t('config.network.allowLan')}</span>
-                  <small>{t('config.network.allowLanHint')}</small>
-                </div>
-                <label className="switch-control" title={t('config.network.allowLan')}>
-                  <input
-                    type="checkbox"
-                    aria-label={t('config.network.allowLan')}
-                    checked={allowLanDraft}
-                    disabled={controlsDisabled}
-                    onChange={(event) => {
-                      markDraftDirty('allowLan');
-                      setAllowLanDraft(event.currentTarget.checked);
-                    }}
-                  />
-                  <span className="switch-track" />
-                </label>
+              <div className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.network.allowLan')}</span>
+                <ConfigSwitch
+                  checked={allowLanDraft}
+                  disabled={controlsDisabled}
+                  label={t('config.network.allowLan')}
+                  onChange={(checked) => {
+                    markDraftDirty('allowLan');
+                    setAllowLanDraft(checked);
+                  }}
+                />
+                <small className="text-xs text-muted-foreground">{t('config.network.allowLanHint')}</small>
               </div>
 
-              <label className="config-network-field">
-                <span className="config-network-label">
-                  <Link2 size={15} aria-hidden="true" />
+              <label className="grid gap-1.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium">
+                  <Link2 size={13} aria-hidden="true" />
                   {t('config.network.proxyUrl')}
                 </span>
-                <input
-                  className="config-network-input"
+                <Input
                   type="text"
                   value={proxyUrlDraft}
                   disabled={controlsDisabled}
@@ -1016,44 +946,37 @@ export function ConfigPanelPage() {
                     }
                   }}
                 />
-                <small>{t('config.network.proxyHint')}</small>
+                <small className="text-xs text-muted-foreground">{t('config.network.proxyHint')}</small>
               </label>
             </div>
           </section>
 
-          <section className="config-network-section" aria-labelledby="config-routing-section-title">
-            <div className="config-network-section-heading">
-              <Route size={16} aria-hidden="true" />
+          <section className="border-t px-4 py-4" aria-labelledby="config-routing-section-title">
+            <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <Route size={13} aria-hidden="true" />
               <h3 id="config-routing-section-title">{t('config.network.routingSection')}</h3>
             </div>
-            <div className="config-network-grid">
-              <div className="config-network-field config-network-toggle">
-                <div>
-                  <span>{t('config.network.sessionAffinity')}</span>
-                  <small>{t('config.network.sessionAffinityHint')}</small>
-                </div>
-                <label className="switch-control" title={t('config.network.sessionAffinity')}>
-                  <input
-                    type="checkbox"
-                    aria-label={t('config.network.sessionAffinity')}
-                    checked={sessionAffinityDraft}
-                    disabled={controlsDisabled}
-                    onChange={(event) => {
-                      markDraftDirty('sessionAffinity');
-                      setSessionAffinityDraft(event.currentTarget.checked);
-                    }}
-                  />
-                  <span className="switch-track" />
-                </label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.network.sessionAffinity')}</span>
+                <ConfigSwitch
+                  checked={sessionAffinityDraft}
+                  disabled={controlsDisabled}
+                  label={t('config.network.sessionAffinity')}
+                  onChange={(checked) => {
+                    markDraftDirty('sessionAffinity');
+                    setSessionAffinityDraft(checked);
+                  }}
+                />
+                <small className="text-xs text-muted-foreground">{t('config.network.sessionAffinityHint')}</small>
               </div>
 
-              <label className="config-network-field">
-                <span className="config-network-label">
-                  <Clock3 size={15} aria-hidden="true" />
+              <label className="grid gap-1.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium">
+                  <Clock3 size={13} aria-hidden="true" />
                   {t('config.network.sessionTtl')}
                 </span>
-                <input
-                  className="config-network-input"
+                <Input
                   type="text"
                   value={sessionTtlDraft}
                   disabled={controlsDisabled}
@@ -1070,20 +993,23 @@ export function ConfigPanelPage() {
                     }
                   }}
                 />
-                <small>{t('config.network.sessionTtlHint')}</small>
+                <small className="text-xs text-muted-foreground">{t('config.network.sessionTtlHint')}</small>
               </label>
 
-              <div className="config-network-field config-network-routing-field">
-                <span className="config-network-label">
-                  <Route size={15} aria-hidden="true" />
+              <div className="grid gap-1.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium">
+                  <Route size={13} aria-hidden="true" />
                   {t('config.routing.title')}
                 </span>
-                <div className="routing-segmented" role="group" aria-label={t('config.routing.title')}>
+                <div className="flex gap-0.5 rounded-md bg-muted p-0.5" role="group" aria-label={t('config.routing.title')}>
                   {ROUTING_OPTIONS.map((option) => (
                     <button
                       type="button"
                       key={option.value}
-                      className={settings?.routingStrategy === option.value ? 'active' : ''}
+                      className={cn(
+                        'flex-1 rounded-sm py-1.5 text-xs font-medium transition-colors',
+                        settings?.routingStrategy === option.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      )}
                       aria-pressed={settings?.routingStrategy === option.value}
                       disabled={controlsDisabled}
                       onClick={() => void changeRoutingStrategy(option.value)}
@@ -1093,7 +1019,7 @@ export function ConfigPanelPage() {
                     </button>
                   ))}
                 </div>
-                <small title={settings?.routingStrategy || undefined}>
+                <small className="text-xs text-muted-foreground" title={settings?.routingStrategy || undefined}>
                   {loading
                     ? t('common.loading')
                     : settings === null
@@ -1104,23 +1030,23 @@ export function ConfigPanelPage() {
             </div>
           </section>
 
-          <section className="config-network-section" aria-labelledby="config-retry-section-title">
-            <div className="config-network-section-heading">
-              <RefreshCw size={16} aria-hidden="true" />
+          <section className="border-t px-4 py-4" aria-labelledby="config-retry-section-title">
+            <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <RefreshCw size={13} aria-hidden="true" />
               <h3 id="config-retry-section-title">{t('config.network.retrySection')}</h3>
             </div>
-            <div className="config-network-grid">
-              <label className="config-network-field">
-                <span>{t('config.network.requestRetry')}</span>
-                <input
-                  className={`config-network-input ${retryError ? 'error' : ''}`}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.network.requestRetry')}</span>
+                <Input
+                  className="font-mono"
+                  aria-invalid={Boolean(retryError)}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={10}
                   value={requestRetryDraft}
                   disabled={controlsDisabled}
-                  aria-invalid={Boolean(retryError)}
                   onChange={(event) => {
                     markDraftDirty('requestRetry');
                     setRequestRetryDraft(event.currentTarget.value.replace(/\D/g, '').slice(0, 10));
@@ -1135,20 +1061,20 @@ export function ConfigPanelPage() {
                     }
                   }}
                 />
-                <small>{t('config.network.requestRetryHint')}</small>
+                <small className="text-xs text-muted-foreground">{t('config.network.requestRetryHint')}</small>
               </label>
 
-              <label className="config-network-field">
-                <span>{t('config.network.maxRetryCredentials')}</span>
-                <input
-                  className={`config-network-input ${retryError ? 'error' : ''}`}
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.network.maxRetryCredentials')}</span>
+                <Input
+                  className="font-mono"
+                  aria-invalid={Boolean(retryError)}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={10}
                   value={maxRetryCredentialsDraft}
                   disabled={controlsDisabled}
-                  aria-invalid={Boolean(retryError)}
                   onChange={(event) => {
                     markDraftDirty('maxRetryCredentials');
                     setMaxRetryCredentialsDraft(event.currentTarget.value.replace(/\D/g, '').slice(0, 10));
@@ -1163,20 +1089,20 @@ export function ConfigPanelPage() {
                     }
                   }}
                 />
-                <small>{t('config.network.maxRetryCredentialsHint')}</small>
+                <small className="text-xs text-muted-foreground">{t('config.network.maxRetryCredentialsHint')}</small>
               </label>
 
-              <label className="config-network-field">
-                <span>{t('config.network.maxRetryInterval')}</span>
-                <input
-                  className={`config-network-input ${retryError ? 'error' : ''}`}
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.network.maxRetryInterval')}</span>
+                <Input
+                  className="font-mono"
+                  aria-invalid={Boolean(retryError)}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={10}
                   value={maxRetryIntervalDraft}
                   disabled={controlsDisabled}
-                  aria-invalid={Boolean(retryError)}
                   onChange={(event) => {
                     markDraftDirty('maxRetryInterval');
                     setMaxRetryIntervalDraft(event.currentTarget.value.replace(/\D/g, '').slice(0, 10));
@@ -1191,20 +1117,20 @@ export function ConfigPanelPage() {
                     }
                   }}
                 />
-                <small>{t('config.network.maxRetryIntervalHint')}</small>
+                <small className="text-xs text-muted-foreground">{t('config.network.maxRetryIntervalHint')}</small>
               </label>
 
-              <label className="config-network-field">
-                <span>{t('config.network.streamingBootstrapRetries')}</span>
-                <input
-                  className={`config-network-input ${retryError ? 'error' : ''}`}
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.network.streamingBootstrapRetries')}</span>
+                <Input
+                  className="font-mono"
+                  aria-invalid={Boolean(retryError)}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={10}
                   value={streamingBootstrapRetriesDraft}
                   disabled={controlsDisabled}
-                  aria-invalid={Boolean(retryError)}
                   onChange={(event) => {
                     markDraftDirty('streamingBootstrapRetries');
                     setStreamingBootstrapRetriesDraft(event.currentTarget.value.replace(/\D/g, '').slice(0, 10));
@@ -1219,154 +1145,102 @@ export function ConfigPanelPage() {
                     }
                   }}
                 />
-                <small>{t('config.network.streamingBootstrapRetriesHint')}</small>
+                <small className="text-xs text-muted-foreground">{t('config.network.streamingBootstrapRetriesHint')}</small>
               </label>
             </div>
           </section>
         </div>
-      </section>
+      </Card>
         </div>
       ) : activeSubpage === 'software' ? (
         <div
-          className="config-subpage-panel"
           id="config-subpage-panel-software"
           role="tabpanel"
           aria-labelledby="config-subpage-tab-software"
         >
-          <section className="panel config-software-panel">
-            <div className="config-panel-heading">
-              <div className="config-heading-title">
-                <Settings2 size={18} aria-hidden="true" />
-                <h2>{t('config.software.title')}</h2>
+          <Card className="gap-0 p-0">
+            <div className="flex items-center justify-between gap-3 p-4 pb-3">
+              <div className="flex items-center gap-2">
+                <Settings2 size={17} aria-hidden="true" className="text-muted-foreground" />
+                <h2 className="text-base font-semibold">{t('config.software.title')}</h2>
               </div>
-              <div className="config-heading-actions">
+              <div className="flex items-center gap-2.5">
                 {softwareStatusLabel ? (
-                  <span className={`state-pill ${softwareStatusIsSaved ? 'success' : ''}`}>
-                    {softwareStatusLabel}
-                  </span>
+                  <Badge variant={softwareStatusIsSaved ? 'success' : 'secondary'}>{softwareStatusLabel}</Badge>
                 ) : null}
-                <button
+                <Button
                   type="button"
-                  className="primary-button compact-button"
+                  size="sm"
                   disabled={softwareSettingsLoading || softwareSettings === null || busyAction !== null || !softwareSettingsDirty}
                   onClick={() => void saveSoftwareSettings()}
                 >
-                  <Check size={16} aria-hidden="true" />
+                  <Check size={15} aria-hidden="true" />
                   {busyAction === 'software' ? t('common.saving') : t('config.network.confirmSave')}
-                </button>
+                </Button>
               </div>
             </div>
-            <div className="config-software-content">
-              <div className="config-software-settings-list">
-                <div className="config-software-setting-row">
-                  <div className="config-software-setting-copy">
-                    <span className="config-software-setting-icon" aria-hidden="true">
-                      <Clock3 size={18} />
-                    </span>
-                    <div>
-                      <strong>{t('config.software.autostart')}</strong>
-                      <small>{t('config.software.autostartDescription')}</small>
-                    </div>
+            <div>
+              {[
+                [Clock3, t('config.software.autostart'), t('config.software.autostartDescription'), softwareAutostartDraft, setSoftwareAutostartDraft] as const,
+                [Power, t('config.software.startCoreOnLaunch'), t('config.software.startCoreOnLaunchDescription'), softwareStartCoreDraft, setSoftwareStartCoreDraft] as const,
+                [EyeOff, t('config.software.silentStart'), t('config.software.silentStartDescription'), softwareSilentStartDraft, setSoftwareSilentStartDraft] as const,
+              ].map(([Icon, label, description, checked, setChecked]) => (
+                <div className="flex items-center gap-4 border-t px-4 py-3.5" key={label}>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden="true">
+                    <Icon size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <strong className="block text-sm font-medium">{label}</strong>
+                    <small className="block text-xs text-muted-foreground">{description}</small>
                   </div>
-                  <label className="switch-control" title={t('config.software.autostart')}>
-                    <input
-                      type="checkbox"
-                      role="switch"
-                      aria-label={t('config.software.autostart')}
-                      checked={softwareAutostartDraft}
-                      disabled={softwareSettingsLoading || softwareSettings === null || busyAction !== null}
-                      onChange={(event) => {
-                        setSoftwareSavedStatusVisible(false);
-                        setSoftwareAutostartDraft(event.currentTarget.checked);
-                      }}
-                    />
-                    <span className="switch-track" />
-                  </label>
+                  <ConfigSwitch
+                    checked={checked}
+                    disabled={softwareSettingsLoading || softwareSettings === null || busyAction !== null}
+                    label={label}
+                    onChange={(value) => {
+                      setSoftwareSavedStatusVisible(false);
+                      setChecked(value);
+                    }}
+                  />
                 </div>
-                <div className="config-software-setting-row">
-                  <div className="config-software-setting-copy">
-                    <span className="config-software-setting-icon" aria-hidden="true">
-                      <Power size={18} />
-                    </span>
-                    <div>
-                      <strong>{t('config.software.startCoreOnLaunch')}</strong>
-                      <small>{t('config.software.startCoreOnLaunchDescription')}</small>
-                    </div>
-                  </div>
-                  <label className="switch-control" title={t('config.software.startCoreOnLaunch')}>
-                    <input
-                      type="checkbox"
-                      role="switch"
-                      aria-label={t('config.software.startCoreOnLaunch')}
-                      checked={softwareStartCoreDraft}
-                      disabled={softwareSettingsLoading || softwareSettings === null || busyAction !== null}
-                      onChange={(event) => {
-                        setSoftwareSavedStatusVisible(false);
-                        setSoftwareStartCoreDraft(event.currentTarget.checked);
-                      }}
-                    />
-                    <span className="switch-track" />
-                  </label>
+              ))}
+              <div className="flex items-center gap-4 border-t px-4 py-3.5">
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden="true">
+                  <X size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <strong className="block text-sm font-medium">{t('config.software.closeBehavior')}</strong>
+                  <small className="block text-xs text-muted-foreground">{t('config.software.closeBehaviorDescription')}</small>
                 </div>
-                <div className="config-software-setting-row">
-                  <div className="config-software-setting-copy">
-                    <span className="config-software-setting-icon" aria-hidden="true">
-                      <EyeOff size={18} />
-                    </span>
-                    <div>
-                      <strong>{t('config.software.silentStart')}</strong>
-                      <small>{t('config.software.silentStartDescription')}</small>
-                    </div>
-                  </div>
-                  <label className="switch-control" title={t('config.software.silentStart')}>
-                    <input
-                      type="checkbox"
-                      role="switch"
-                      aria-label={t('config.software.silentStart')}
-                      checked={softwareSilentStartDraft}
+                <div className="flex gap-0.5 rounded-md bg-muted p-0.5" role="group" aria-label={t('config.software.closeBehavior')}>
+                  {([
+                    ['ask', t('config.software.behavior.ask')],
+                    ['minimize-to-tray', t('config.software.behavior.minimize')],
+                    ['exit', t('config.software.behavior.exit')],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={cn(
+                        'rounded-sm px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                        softwareCloseBehaviorDraft === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      )}
                       disabled={softwareSettingsLoading || softwareSettings === null || busyAction !== null}
-                      onChange={(event) => {
+                      onClick={() => {
                         setSoftwareSavedStatusVisible(false);
-                        setSoftwareSilentStartDraft(event.currentTarget.checked);
-                      }}
-                    />
-                    <span className="switch-track" />
-                  </label>
-                </div>
-                <div className="config-software-setting-row config-software-close-row">
-                  <div className="config-software-setting-copy">
-                    <span className="config-software-setting-icon" aria-hidden="true">
-                      <X size={18} />
-                    </span>
-                    <div>
-                      <strong>{t('config.software.closeBehavior')}</strong>
-                      <small>{t('config.software.closeBehaviorDescription')}</small>
-                    </div>
-                  </div>
-                  <label className="config-software-select">
-                    <span className="sr-only">{t('config.software.closeBehavior')}</span>
-                    <select
-                      className="config-network-input"
-                      value={softwareCloseBehaviorDraft}
-                      disabled={softwareSettingsLoading || softwareSettings === null || busyAction !== null}
-                      onChange={(event) => {
-                        setSoftwareSavedStatusVisible(false);
-                        setSoftwareCloseBehaviorDraft(event.currentTarget.value as CloseBehavior);
+                        setSoftwareCloseBehaviorDraft(value as CloseBehavior);
                       }}
                     >
-                      <option value="ask">{t('config.software.behavior.ask')}</option>
-                      <option value="minimize-to-tray">{t('config.software.behavior.minimize')}</option>
-                      <option value="exit">{t('config.software.behavior.exit')}</option>
-                    </select>
-                  </label>
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
-          </section>
+          </Card>
         </div>
       ) : (
         <div
-          className="config-subpage-panel"
           id="config-subpage-panel-aliases"
           role="tabpanel"
           aria-labelledby="config-subpage-tab-aliases"
@@ -1375,159 +1249,120 @@ export function ConfigPanelPage() {
         </div>
       )}
 
-      {addDialogOpen ? (
-        <div className="config-dialog-backdrop" onMouseDown={(event) => {
-          if (event.currentTarget === event.target) closeAddDialog();
-        }}>
-          <form
-            className="config-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-api-key-title"
-            onSubmit={(event) => void submitApiKey(event)}
-          >
-            <div className="config-dialog-heading">
-              <div>
-                <KeyRound size={19} aria-hidden="true" />
-                <h2 id="add-api-key-title">
+      <Dialog open={addDialogOpen} onOpenChange={(open) => !open && !keyMutationBusy && closeAddDialog()}>
+        {addDialogOpen ? (
+          <DialogContent showCloseButton={!keyMutationBusy} className="sm:max-w-sm">
+            <form className="grid gap-4" onSubmit={(event) => void submitApiKey(event)}>
+              <div className="flex items-center gap-2">
+                <KeyRound size={17} aria-hidden="true" className="text-muted-foreground" />
+                <DialogTitle className="text-base font-semibold">
                   {editingApiKey === null ? t('config.keys.addTitle') : t('config.keys.editTitle')}
-                </h2>
+                </DialogTitle>
               </div>
-              <button
-                type="button"
-                className="icon-button quiet"
-                onClick={closeAddDialog}
-                disabled={keyMutationBusy}
-                title={t('common.close')}
-                aria-label={t('common.close')}
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
-            </div>
 
-            <label className="config-dialog-field">
-              <span>{t('config.keys.label')}</span>
-              <div className="config-secret-input">
-                <input
-                  autoFocus
-                  type={showApiKey ? 'text' : 'password'}
-                  value={newApiKey}
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.keys.label')}</span>
+                <div className="relative">
+                  <Input
+                    autoFocus
+                    type={showApiKey ? 'text' : 'password'}
+                    value={newApiKey}
+                    onChange={(event) => {
+                      setNewApiKey(event.currentTarget.value);
+                      setFormError('');
+                    }}
+                    disabled={keyMutationBusy}
+                    aria-invalid={Boolean(formError)}
+                    placeholder="sk-..."
+                    className="pr-9"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="absolute top-1/2 right-1 -translate-y-1/2"
+                    onClick={() => setShowApiKey((visible) => !visible)}
+                    disabled={keyMutationBusy}
+                    title={showApiKey ? t('config.keys.hide') : t('config.keys.show')}
+                    aria-label={showApiKey ? t('config.keys.hide') : t('config.keys.show')}
+                  >
+                    {showApiKey ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
+                  </Button>
+                </div>
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t('config.keys.remark')}</span>
+                <Input
+                  type="text"
+                  value={newApiKeyRemark}
+                  maxLength={80}
                   onChange={(event) => {
-                    setNewApiKey(event.currentTarget.value);
+                    setNewApiKeyRemark(event.currentTarget.value);
                     setFormError('');
                   }}
                   disabled={keyMutationBusy}
-                  aria-invalid={Boolean(formError)}
-                  placeholder="sk-..."
+                  placeholder={t('config.keys.remarkPlaceholder')}
                 />
-                <button
-                  type="button"
-                  className="icon-button quiet"
-                  onClick={() => setShowApiKey((visible) => !visible)}
-                  disabled={keyMutationBusy}
-                  title={showApiKey ? t('config.keys.hide') : t('config.keys.show')}
-                  aria-label={showApiKey ? t('config.keys.hide') : t('config.keys.show')}
-                >
-                  {showApiKey ? (
-                    <EyeOff size={17} aria-hidden="true" />
-                  ) : (
-                    <Eye size={17} aria-hidden="true" />
-                  )}
-                </button>
+              </label>
+
+              <div className={cn('text-xs text-destructive', !formError && 'invisible')}>
+                {formError || ' '}
               </div>
-            </label>
 
-            <label className="config-dialog-field">
-              <span>{t('config.keys.remark')}</span>
-              <input
-                className="config-dialog-text-input"
-                type="text"
-                value={newApiKeyRemark}
-                maxLength={80}
-                onChange={(event) => {
-                  setNewApiKeyRemark(event.currentTarget.value);
-                  setFormError('');
-                }}
-                disabled={keyMutationBusy}
-                placeholder={t('config.keys.remarkPlaceholder')}
-              />
-            </label>
-
-            <div className={`config-form-message ${formError ? 'error' : ''}`}>
-              {formError || ' '}
-            </div>
-
-            <div className="config-dialog-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={generateApiKey}
-                disabled={keyMutationBusy}
-              >
-                <Sparkles size={16} aria-hidden="true" />
-                {t('config.keys.generate')}
-              </button>
-              <button type="submit" className="primary-button" disabled={keyMutationBusy}>
-                {editingApiKey === null ? <Plus size={16} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
-                {keyMutationBusy
-                  ? editingApiKey === null ? t('config.keys.adding') : t('common.saving')
-                  : editingApiKey === null ? t('common.add') : t('common.save')}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-
-      {deleteIndex !== null ? (
-        <div className="config-dialog-backdrop" onMouseDown={(event) => {
-          if (event.currentTarget === event.target && busyAction !== 'delete-key') {
-            setDeleteIndex(null);
-          }
-        }}>
-          <div
-            className={`config-dialog config-delete-dialog ${deletingLastKey ? 'has-warning' : ''}`}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-api-key-title"
-          >
-            <div className="config-dialog-heading">
-              <div>
-                <Trash2 size={19} aria-hidden="true" />
-                <h2 id="delete-api-key-title">{t('config.keys.deleteTitle')}</h2>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={generateApiKey} disabled={keyMutationBusy}>
+                  <Sparkles size={15} aria-hidden="true" />
+                  {t('config.keys.generate')}
+                </Button>
+                <Button type="submit" className="flex-1" disabled={keyMutationBusy}>
+                  {editingApiKey === null ? <Plus size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
+                  {keyMutationBusy
+                    ? editingApiKey === null ? t('config.keys.adding') : t('common.saving')
+                    : editingApiKey === null ? t('common.add') : t('common.save')}
+                </Button>
               </div>
+            </form>
+          </DialogContent>
+        ) : null}
+      </Dialog>
+
+      <Dialog open={deleteIndex !== null} onOpenChange={(open) => !open && busyAction !== 'delete-key' && setDeleteIndex(null)}>
+        {deleteIndex !== null ? (
+          <DialogContent className="sm:max-w-sm">
+            <div className="flex items-center gap-2">
+              <Trash2 size={17} aria-hidden="true" className="text-destructive" />
+              <DialogTitle className="text-base font-semibold">{t('config.keys.deleteTitle')}</DialogTitle>
             </div>
-            <code className="config-delete-key">{maskApiKey(selectedDeleteKey)}</code>
+            <code className="block truncate rounded-md bg-muted px-2.5 py-2 font-mono text-sm">{maskApiKey(selectedDeleteKey)}</code>
             {deletingLastKey ? (
-              <div className="config-delete-warning">
-                <AlertCircle size={17} aria-hidden="true" />
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--theme-dfbf91)] bg-[var(--theme-fff7e9)] px-3 py-2 text-sm text-[var(--theme-8b5b21)]">
+                <AlertCircle size={15} aria-hidden="true" />
                 <span>{t('config.keys.deleteAllWarning')}</span>
               </div>
             ) : null}
-            <div className="config-dialog-actions two-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setDeleteIndex(null)}
-                disabled={busyAction === 'delete-key'}
-              >
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setDeleteIndex(null)} disabled={busyAction === 'delete-key'}>
                 {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                className="danger-button"
-                onClick={() => void confirmDelete()}
-                disabled={busyAction === 'delete-key'}
-              >
-                <Trash2 size={16} aria-hidden="true" />
+              </Button>
+              <Button type="button" variant="destructive" className="flex-1" onClick={() => void confirmDelete()} disabled={busyAction === 'delete-key'}>
+                <Trash2 size={15} aria-hidden="true" />
                 {busyAction === 'delete-key' ? t('common.deleting') : t('common.delete')}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </DialogContent>
+        ) : null}
+      </Dialog>
 
       {notice ? (
-        <div className={`config-toast ${notice.tone}`} role="status" title={notice.message}>
+        <div
+          className={cn(
+            'fixed right-6 bottom-6 z-50 flex items-center gap-2.5 rounded-xl border bg-card px-4 py-3 text-sm shadow-lg',
+            notice.tone === 'success' ? 'border-[var(--theme-b8d1bb)] text-[var(--theme-2f6b3f)]' : 'border-destructive/30 text-destructive',
+          )}
+          role="status"
+          title={notice.message}
+        >
           {notice.tone === 'success' ? (
             <Check size={17} aria-hidden="true" />
           ) : (

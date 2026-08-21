@@ -26,7 +26,7 @@ fn app_update_comparison_uses_semantic_versions() {
 
 fn portable_update_test_asset(version: &str, arch: &str) -> PortableUpdateAsset {
     let (_, display, suffix) = portable_update_asset_platform().unwrap();
-    let name = format!("EasyCLIProxyAPI-v{version}-{display}-{arch}.{suffix}");
+    let name = format!("EvelProxyTool-v{version}-{display}-{arch}.{suffix}");
     PortableUpdateAsset {
         url: format!("{APP_RELEASE_DOWNLOAD_PREFIX}v{version}/{name}"),
         fallback_urls: Vec::new(),
@@ -37,7 +37,7 @@ fn portable_update_test_asset(version: &str, arch: &str) -> PortableUpdateAsset 
 
 #[cfg(windows)]
 fn portable_update_test_legacy_asset(version: &str, arch: &str) -> PortableUpdateAsset {
-    let name = format!("EasyCLIProxyAPI-update-v{version}-Windows-{arch}.zip");
+    let name = format!("EvelProxyTool-update-v{version}-Windows-{arch}.zip");
     PortableUpdateAsset {
         url: format!("{APP_RELEASE_DOWNLOAD_PREFIX}v{version}/{name}"),
         fallback_urls: Vec::new(),
@@ -53,7 +53,7 @@ fn portable_update_test_manifest(version: &str) -> PortableUpdateManifest {
         version: version.to_string(),
         published_at: "2026-07-24T00:00:00.000Z".to_string(),
         release_url: format!(
-            "https://github.com/router-for-me/EasyCLIProxyAPI/releases/tag/v{version}"
+            "https://github.com/router-for-me/EvelProxyTool/releases/tag/v{version}"
         ),
         assets: [
             (
@@ -133,7 +133,7 @@ fn portable_update_manifest_requires_both_matching_github_assets() {
             .assets
             .get_mut(&format!("{platform}-amd64"))
             .unwrap()
-            .url = "https://github.com.example.invalid/router-for-me/EasyCLIProxyAPI/releases/download/v1.2.3/update.zip".to_string();
+            .url = "https://github.com.example.invalid/router-for-me/EvelProxyTool/releases/download/v1.2.3/update.zip".to_string();
     assert!(validate_portable_update_manifest(&foreign_host).is_err());
 
     let mut mismatched_tag = portable_update_test_manifest("1.2.3");
@@ -143,7 +143,7 @@ fn portable_update_manifest_requires_both_matching_github_assets() {
         .get_mut(&format!("{platform}-amd64"))
         .unwrap()
         .url = format!(
-        "{APP_RELEASE_DOWNLOAD_PREFIX}v9.9.9/EasyCLIProxyAPI-v1.2.3-{display}-amd64.{suffix}"
+        "{APP_RELEASE_DOWNLOAD_PREFIX}v9.9.9/EvelProxyTool-v1.2.3-{display}-amd64.{suffix}"
     );
     assert!(validate_portable_update_manifest(&mismatched_tag).is_err());
 }
@@ -152,9 +152,9 @@ fn portable_update_manifest_requires_both_matching_github_assets() {
 fn portable_update_asset_accepts_only_the_configured_gitcode_fallback() {
     let mut asset = portable_update_test_asset("1.2.3", "amd64");
     let (_, display, suffix) = portable_update_asset_platform().unwrap();
-    let filename = format!("EasyCLIProxyAPI-v1.2.3-{display}-amd64.{suffix}");
+    let filename = format!("EvelProxyTool-v1.2.3-{display}-amd64.{suffix}");
     asset.fallback_urls = vec![gitcode_release_attachment_url(
-        "mirror-owner/EasyCLIProxyAPI",
+        "mirror-owner/EvelProxyTool",
         "v1.2.3",
         &filename,
     )];
@@ -162,14 +162,14 @@ fn portable_update_asset_accepts_only_the_configured_gitcode_fallback() {
         &asset,
         "v1.2.3",
         &[&filename],
-        Some("mirror-owner/EasyCLIProxyAPI"),
+        Some("mirror-owner/EvelProxyTool"),
     )
     .is_ok());
     assert!(validate_portable_update_asset_fallbacks_for_repository(
         &asset,
         "v1.2.3",
         &[&filename],
-        Some("another-owner/EasyCLIProxyAPI"),
+        Some("another-owner/EvelProxyTool"),
     )
     .is_err());
 }
@@ -211,11 +211,11 @@ fn portable_update_state_supports_cancellation_and_snapshot_recovery() {
 fn sha256_file_hashes_exact_portable_asset_bytes() {
     let root = agent_test_home("portable-sha256");
     let asset = root.join("update.zip");
-    fs::write(&asset, b"EasyCLIProxyAPI portable update").unwrap();
+    fs::write(&asset, b"EvelProxyTool portable update").unwrap();
 
     assert_eq!(
         sha256_file(&asset).unwrap(),
-        "ade7a05bacf7c9144319c0f0cf431700a8883d3f6effd3613c60749dfba1eb52"
+        "5ef66a1a4e4078044e40413955788596a42c088551409e1ea9e26a60cbd8a9fd"
     );
     fs::remove_dir_all(root).unwrap();
 }
@@ -242,27 +242,27 @@ fn write_portable_update_zip(path: &Path, entries: &[(&str, &[u8], Option<u32>)]
 fn portable_update_zip_accepts_the_complete_release_package() {
     let root = agent_test_home("portable-zip");
     let valid_zip = root.join("valid.zip");
-    let manifest = br#"{"schemaVersion":1,"application":"EasyCLIProxyAPI","version":"1.2.3","platform":"windows","arch":"amd64","autoUpdate":true}"#;
+    let manifest = br#"{"schemaVersion":1,"application":"EvelProxyTool","version":"1.2.3","platform":"windows","arch":"amd64","autoUpdate":true}"#;
     write_portable_update_zip(
             &valid_zip,
             &[
                 (
-                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/EasyCLIProxyAPI.exe",
+                    "EvelProxyTool-v1.2.3-Windows-amd64/EvelProxyTool.exe",
                     b"new executable",
                     None,
                 ),
                 (
-                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/portable-app.json",
+                    "EvelProxyTool-v1.2.3-Windows-amd64/portable-app.json",
                     manifest,
                     None,
                 ),
                 (
-                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/core-version.txt",
+                    "EvelProxyTool-v1.2.3-Windows-amd64/core-version.txt",
                     b"7.2.109\n",
                     None,
                 ),
                 (
-                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/cpa-core/CLIProxyAPI_7.2.109_windows_amd64.zip",
+                    "EvelProxyTool-v1.2.3-Windows-amd64/cpa-core/CLIProxyAPI_7.2.109_windows_amd64.zip",
                     b"core archive",
                     None,
                 ),
@@ -292,9 +292,9 @@ fn portable_update_zip_accepts_the_complete_release_package() {
     write_portable_update_zip(
         &traversal_zip,
         &[
-            ("../EasyCLIProxyAPI.exe", b"malicious", None),
+            ("../EvelProxyTool.exe", b"malicious", None),
             (
-                "EasyCLIProxyAPI-v1.2.3-Windows-amd64/portable-app.json",
+                "EvelProxyTool-v1.2.3-Windows-amd64/portable-app.json",
                 manifest,
                 None,
             ),
@@ -310,14 +310,14 @@ fn portable_update_zip_accepts_the_complete_release_package() {
         let mut archive = zip::ZipWriter::new(file);
         archive
             .add_symlink(
-                "EasyCLIProxyAPI-v1.2.3-Windows-amd64/EasyCLIProxyAPI.exe",
+                "EvelProxyTool-v1.2.3-Windows-amd64/EvelProxyTool.exe",
                 "target.exe",
                 SimpleFileOptions::default(),
             )
             .unwrap();
         archive
             .start_file(
-                "EasyCLIProxyAPI-v1.2.3-Windows-amd64/portable-app.json",
+                "EvelProxyTool-v1.2.3-Windows-amd64/portable-app.json",
                 SimpleFileOptions::default(),
             )
             .unwrap();
@@ -368,7 +368,7 @@ fn portable_update_replacement_preserves_user_data_and_can_roll_back() {
         staged_exe: staging.join(PORTABLE_APP_BINARY),
         current_manifest: app_dir.join(PORTABLE_APP_MANIFEST_FILE),
         staged_manifest: staging.join(PORTABLE_APP_MANIFEST_FILE),
-        backup_exe: app_dir.join(".EasyCLIProxyAPI.exe.update-backup"),
+        backup_exe: app_dir.join(".EvelProxyTool.exe.update-backup"),
         backup_manifest: app_dir.join(".portable-app.json.update-backup"),
         current_core_version: app_dir.join(CORE_VERSION_FILE),
         staged_core_version: staging.join(CORE_VERSION_FILE),
@@ -433,11 +433,11 @@ fn portable_update_tar_gz_accepts_the_complete_linux_release() {
     let file = File::create(&archive_path).unwrap();
     let encoder = GzEncoder::new(file, Compression::default());
     let mut archive = Builder::new(encoder);
-    let package_root = "EasyCLIProxyAPI-v1.2.3-Linux-amd64";
-    let manifest = br#"{"schemaVersion":1,"application":"EasyCLIProxyAPI","version":"1.2.3","platform":"linux","arch":"amd64","autoUpdate":true}"#;
+    let package_root = "EvelProxyTool-v1.2.3-Linux-amd64";
+    let manifest = br#"{"schemaVersion":1,"application":"EvelProxyTool","version":"1.2.3","platform":"linux","arch":"amd64","autoUpdate":true}"#;
     for (path, contents, mode) in [
         (
-            format!("{package_root}/EasyCLIProxyAPI"),
+            format!("{package_root}/EvelProxyTool"),
             b"binary".as_slice(),
             0o755,
         ),
@@ -484,11 +484,11 @@ fn portable_update_tar_gz_accepts_the_complete_linux_release() {
 #[test]
 fn macos_update_descriptor_is_confined_to_the_app_and_temp_directories() {
     let root = agent_test_home("portable-macos-descriptor");
-    let work_dir = root.join("EasyCLIProxyAPI-update-1.2.3-1-1");
-    let current_app = root.join("Applications").join("EasyCLIProxyAPI.app");
+    let work_dir = root.join("EvelProxyTool-update-1.2.3-1-1");
+    let current_app = root.join("Applications").join("EvelProxyTool.app");
     let executable_relative_path = PathBuf::from("Contents/MacOS/cpa-gui");
     let current_exe = current_app.join(&executable_relative_path);
-    let staged_app = work_dir.join("staging").join("EasyCLIProxyAPI.app");
+    let staged_app = work_dir.join("staging").join("EvelProxyTool.app");
     let staged_exe = staged_app.join(&executable_relative_path);
     fs::create_dir_all(current_exe.parent().unwrap()).unwrap();
     fs::create_dir_all(staged_exe.parent().unwrap()).unwrap();
@@ -501,7 +501,7 @@ fn macos_update_descriptor_is_confined_to_the_app_and_temp_directories() {
         backup_app: current_app
             .parent()
             .unwrap()
-            .join(".EasyCLIProxyAPI.app.update-backup"),
+            .join(".EvelProxyTool.app.update-backup"),
         executable_relative_path,
         ack_path: work_dir.join("update-started.ack"),
         work_dir: work_dir.clone(),

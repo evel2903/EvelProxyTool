@@ -2,7 +2,7 @@ use super::*;
 
 #[tauri::command]
 pub(crate) fn health_check() -> &'static str {
-    "EasyCLIProxyAPI Rust backend is ready"
+    "EvelProxyTool Rust backend is ready"
 }
 
 #[tauri::command]
@@ -139,10 +139,10 @@ pub(crate) fn resolve_windows_close_request(
         WindowsCloseAction::MinimizeToTray => {
             let window = app
                 .get_webview_window("main")
-                .ok_or_else(|| "主窗口不存在".to_string())?;
+                .ok_or_else(|| "Main window does not exist".to_string())?;
             window
                 .hide()
-                .map_err(|error| format!("隐藏主窗口失败: {error}"))?;
+                .map_err(|error| format!("Failed to hide the main window: {error}"))?;
         }
     }
 
@@ -152,7 +152,7 @@ pub(crate) fn resolve_windows_close_request(
 pub(crate) fn app_autostart_enabled(app: &tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch()
         .is_enabled()
-        .map_err(|error| format!("读取系统开机自启状态失败: {error}"))
+        .map_err(|error| format!("Failed to read the system autostart status: {error}"))
 }
 
 pub(crate) fn set_app_autostart_enabled(
@@ -163,11 +163,11 @@ pub(crate) fn set_app_autostart_enabled(
     if enabled {
         manager
             .enable()
-            .map_err(|error| format!("启用开机自启失败: {error}"))
+            .map_err(|error| format!("Failed to enable autostart: {error}"))
     } else {
         manager
             .disable()
-            .map_err(|error| format!("关闭开机自启失败: {error}"))
+            .map_err(|error| format!("Failed to disable autostart: {error}"))
     }
 }
 
@@ -224,7 +224,7 @@ pub(crate) fn save_software_settings(
                     .flatten();
                 return Err(match rollback_error {
                     Some(rollback_error) => {
-                        format!("{error}; 回滚开机自启设置也失败: {rollback_error}")
+                        format!("{error}; rolling back the autostart setting also failed: {rollback_error}")
                     }
                     None => error,
                 });

@@ -11,7 +11,10 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { AlertCircle, Download, RefreshCw } from 'lucide-react';
-import { useI18n } from './i18n';
+import { getCurrentLocale, translate, useI18n } from './i18n';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 export type AppUpdateInfo = {
   currentVersion: string;
@@ -121,7 +124,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
       if (disposed) return;
       setTask(event.payload);
       if (event.payload.phase === 'failed') {
-        setError(event.payload.message || 'Application update failed');
+        setError(event.payload.message || translate(getCurrentLocale(), 'appUpdate.error.failed'));
       } else if (event.payload.phase !== 'cancelled') {
         setError('');
       }
@@ -204,69 +207,71 @@ export function AppUpdateDialog() {
   const phaseLabel = t(`appUpdate.phase.${task.phase}` as Parameters<typeof t>[0]);
 
   return (
-    <div className="install-dialog-backdrop app-update-dialog-backdrop">
-      <section
-        className="install-dialog app-update-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="app-update-dialog-title"
-      >
-        <div className="install-dialog-heading">
-          <span>{t('appUpdate.eyebrow')}</span>
-          <h2 id="app-update-dialog-title">
+    <Dialog open onOpenChange={(open) => !open && confirmOpen && dismissConfirm()}>
+      <DialogContent showCloseButton={confirmOpen} className="sm:max-w-md">
+        <div>
+          <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            {t('appUpdate.eyebrow')}
+          </span>
+          <DialogTitle className="mt-1 text-lg font-semibold">
             {confirmOpen ? t('appUpdate.confirmTitle') : t('appUpdate.progressTitle')}
-          </h2>
+          </DialogTitle>
         </div>
 
         {confirmOpen ? (
           <>
-            <p className="app-update-confirm-copy">
+            <p className="text-sm text-muted-foreground">
               {t('appUpdate.confirmDescription', { version: info?.latestVersion ?? '' })}
             </p>
-            <div className="app-update-dialog-actions">
-              <button type="button" className="secondary-button" onClick={dismissConfirm}>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={dismissConfirm}>
                 {t('common.cancel')}
-              </button>
-              <button type="button" className="primary-button" onClick={() => void install()}>
+              </Button>
+              <Button type="button" onClick={() => void install()}>
                 <Download size={15} aria-hidden="true" />
                 {t('appUpdate.installNow')}
-              </button>
+              </Button>
             </div>
           </>
         ) : (
           <>
-            <div className="install-dialog-phase">
-              <span>{t('kernel.dialog.phase')}</span>
-              <strong>{phaseLabel}</strong>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t('kernel.dialog.phase')}</span>
+              <strong className="font-semibold">{phaseLabel}</strong>
             </div>
-            <div className={`install-progress-track ${percent === null ? 'unknown is-running' : ''}`}>
-              <span
-                className="install-progress-fill"
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  'h-full rounded-full bg-primary transition-[width]',
+                  percent === null && 'w-1/3 animate-pulse',
+                )}
                 style={percent === null ? undefined : { width: `${Math.max(0, Math.min(100, percent))}%` }}
               />
             </div>
-            <div className="install-progress-meta">
-              <strong>{percent === null ? t('kernel.dialog.unknownProgress') : `${percent.toFixed(1)}%`}</strong>
-              <span>{task.message || phaseLabel}</span>
+            <div className="flex items-center justify-between text-sm">
+              <strong className="font-semibold tabular-nums">
+                {percent === null ? t('kernel.dialog.unknownProgress') : `${percent.toFixed(1)}%`}
+              </strong>
+              <span className="text-muted-foreground">{task.message || phaseLabel}</span>
             </div>
             {error ? (
-              <div className="install-dialog-message error" role="alert">
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                 <AlertCircle size={15} aria-hidden="true" /> {error}
               </div>
             ) : null}
-            <button
+            <Button
               type="button"
-              className="danger-button"
+              variant="destructive"
               disabled={!task.cancellable}
               onClick={() => void cancel()}
             >
               {task.cancellable ? t('appUpdate.cancelDownload') : (
-                <><RefreshCw size={15} className="spin" aria-hidden="true" /> {phaseLabel}</>
+                <><RefreshCw size={15} className="animate-spin" aria-hidden="true" /> {phaseLabel}</>
               )}
-            </button>
+            </Button>
           </>
         )}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -23,7 +23,7 @@ export async function generatePortableUpdateManifest({
   const platformSpec = platformSpecs[normalizedPlatform];
   if (!platformSpec) throw new Error(`Unsupported update platform: ${platform}`);
   const resolvedOutput = resolve(output ?? join(resolvedDirectory, `portable-update-${normalizedPlatform}.json`));
-  const resolvedRepository = repository ?? 'router-for-me/EasyCLIProxyAPI';
+  const resolvedRepository = repository ?? 'router-for-me/EvelProxyTool';
   const resolvedGitcodeRepository = String(gitcodeRepository ?? '').trim();
   const normalizedRawTag = String(rawTag ?? '').trim();
   const tag = normalizedRawTag.startsWith('v') ? normalizedRawTag : `v${normalizedRawTag}`;
@@ -44,10 +44,10 @@ export async function generatePortableUpdateManifest({
   const assets = {};
   const fullAssets = {};
   for (const arch of ['amd64', 'aarch64']) {
-    const fullFilename = `EasyCLIProxyAPI-${tag}-${platformSpec.display}-${arch}.${platformSpec.suffix}`;
+    const fullFilename = `EvelProxyTool-${tag}-${platformSpec.display}-${arch}.${platformSpec.suffix}`;
     const candidates = platformSpec.legacy
       ? [
-        [assets, `EasyCLIProxyAPI-update-${tag}-Windows-${arch}.zip`],
+        [assets, `EvelProxyTool-update-${tag}-Windows-${arch}.zip`],
         [fullAssets, fullFilename],
       ]
       : [[assets, fullFilename]];

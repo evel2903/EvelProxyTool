@@ -3,22 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+    />
     <script>
       (() => {
         try {
-          const savedTheme = localStorage.getItem('easy-cli-proxy-api.theme');
+          const savedTheme = localStorage.getItem('evel-proxy-tool.theme');
           const theme = savedTheme === 'light' || savedTheme === 'dark'
             ? savedTheme
             : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           document.documentElement.dataset.theme = theme;
           document.documentElement.style.colorScheme = theme;
-          document.documentElement.style.backgroundColor = theme === 'dark' ? '#111412' : '#f6f7f5';
+          document.documentElement.style.backgroundColor = theme === 'dark' ? '#0b0b0e' : '#ffffff';
         } catch {
           // The app applies the theme again during initialization.
         }
       })();
     </script>
-    <title>EasyCLIProxyAPI</title>
+    <title>EvelProxyTool</title>
   </head>
   <body>
     <div id="root"></div>

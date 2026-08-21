@@ -26,7 +26,7 @@ fn api_key_remarks_follow_matching_core_keys() {
         default_api_key_entry(),
         GuiApiKeyEntry {
             key: "custom-key".to_string(),
-            remark: "开发环境".to_string(),
+            remark: "Development environment".to_string(),
         },
     ];
     let core_keys = vec!["custom-key".to_string(), "new-key".to_string()];
@@ -34,7 +34,7 @@ fn api_key_remarks_follow_matching_core_keys() {
     let merged = merge_core_api_keys_with_gui_metadata(&existing, &core_keys, None);
 
     assert_eq!(gui_api_key_values(&merged), vec!["custom-key", "new-key"]);
-    assert_eq!(merged[0].remark, "开发环境");
+    assert_eq!(merged[0].remark, "Development environment");
     assert!(merged[1].remark.is_empty());
 }
 
@@ -707,7 +707,7 @@ fn managed_session_settings_use_canonical_yaml_and_preserve_unrelated_content() 
 #[test]
 fn optional_core_strings_are_trimmed_and_reject_control_characters() {
     assert_eq!(
-        normalize_optional_config_string("  socks5://proxy:7890  ".to_string(), "代理 URL")
+        normalize_optional_config_string("  socks5://proxy:7890  ".to_string(), "Proxy URL")
             .unwrap(),
         "socks5://proxy:7890"
     );
@@ -715,7 +715,7 @@ fn optional_core_strings_are_trimmed_and_reject_control_characters() {
         normalize_optional_config_string(" 1h ".to_string(), "TTL").unwrap(),
         "1h"
     );
-    assert!(normalize_optional_config_string("bad\nvalue".to_string(), "代理 URL").is_err());
+    assert!(normalize_optional_config_string("bad\nvalue".to_string(), "Proxy URL").is_err());
 }
 
 #[test]
@@ -777,7 +777,7 @@ fn startup_preserves_all_user_owned_yaml_and_only_applies_gui_managed_values() {
             default_api_key_entry(),
             GuiApiKeyEntry {
                 key: "gui-key".to_string(),
-                remark: "测试密钥".to_string(),
+                remark: "Test key".to_string(),
             },
         ],
         api_access_remarks: Vec::new(),

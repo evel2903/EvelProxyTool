@@ -113,13 +113,13 @@ pub(crate) fn read_pi_provider_version(home: &Path) -> Result<Option<String>, St
     }
     let content = fs::read_to_string(&path).map_err(|error| {
         format!(
-            "读取 Pi provider package.json 失败 {}: {error}",
+            "Failed to read Pi provider package.json {}: {error}",
             path_to_string(&path)
         )
     })?;
     let package = serde_json::from_str::<serde_json::Value>(&content).map_err(|error| {
         format!(
-            "解析 Pi provider package.json 失败 {}: {error}",
+            "Failed to parse Pi provider package.json {}: {error}",
             path_to_string(&path)
         )
     })?;
@@ -140,7 +140,7 @@ pub(crate) fn parse_pi_provider_latest_version(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .ok_or_else(|| "npm registry 返回的 Pi provider 版本无效".to_string())
+        .ok_or_else(|| "npm registry returned an invalid Pi provider version".to_string())
 }
 
 pub(crate) async fn fetch_pi_provider_latest_version(proxy_url: &str) -> Result<String, String> {
@@ -149,7 +149,7 @@ pub(crate) async fn fetch_pi_provider_latest_version(proxy_url: &str) -> Result<
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(12)),
         proxy_url,
-        "创建 Pi provider 更新检测客户端失败",
+        "Failed to create the Pi provider update-check client",
     )?;
     let response = client
         .get(PI_CLIPROXYAPI_NPM_LATEST_URL)
@@ -157,25 +157,25 @@ pub(crate) async fn fetch_pi_provider_latest_version(proxy_url: &str) -> Result<
         .header(reqwest::header::USER_AGENT, APP_USER_AGENT)
         .send()
         .await
-        .map_err(|error| format!("查询 Pi provider 最新版本失败: {error}"))?;
+        .map_err(|error| format!("Failed to query the latest Pi provider version: {error}"))?;
     let status = response.status();
     if !status.is_success() {
         return Err(format!(
-            "查询 Pi provider 最新版本失败: HTTP {}",
+            "Failed to query the latest Pi provider version: HTTP {}",
             status.as_u16()
         ));
     }
     let payload = response
         .json::<serde_json::Value>()
         .await
-        .map_err(|error| format!("解析 Pi provider 最新版本失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse the latest Pi provider version: {error}"))?;
     parse_pi_provider_latest_version(&payload)
 }
 
 pub(crate) fn pi_provider_update_available(installed: &str, latest: &str) -> Result<bool, String> {
     let parse = |value: &str| {
         semver::Version::parse(value.trim().trim_start_matches('v'))
-            .map_err(|error| format!("无法解析 Pi provider 版本号 {value}: {error}"))
+            .map_err(|error| format!("Failed to parse Pi provider version number {value}: {error}"))
     };
     Ok(parse(latest)? > parse(installed)?)
 }
@@ -192,7 +192,7 @@ pub(crate) fn read_pi_settings(home: &Path) -> Result<Option<serde_json::Value>,
     }
     let content = fs::read_to_string(&path).map_err(|error| {
         format!(
-            "读取 Pi settings.json 失败 {}: {error}",
+            "Failed to read Pi settings.json {}: {error}",
             path_to_string(&path)
         )
     })?;
@@ -200,7 +200,7 @@ pub(crate) fn read_pi_settings(home: &Path) -> Result<Option<serde_json::Value>,
         .map(Some)
         .map_err(|error| {
             format!(
-                "解析 Pi settings.json 失败 {}: {error}",
+                "Failed to parse Pi settings.json {}: {error}",
                 path_to_string(&path)
             )
         })
@@ -234,16 +234,16 @@ pub(crate) fn build_pi_provider_config(
 ) -> Result<String, String> {
     let mut root = match existing.map(str::trim).filter(|value| !value.is_empty()) {
         Some(value) => serde_json::from_str::<serde_json::Value>(value)
-            .map_err(|error| format!("解析 Pi CLIProxyAPI 配置失败: {error}"))?,
+            .map_err(|error| format!("Failed to parse Pi CLIProxyAPI config: {error}"))?,
         None => serde_json::json!({}),
     };
     let object = root
         .as_object_mut()
-        .ok_or_else(|| "Pi CLIProxyAPI 配置根节点必须是 JSON 对象".to_string())?;
+        .ok_or_else(|| "Pi CLIProxyAPI config root must be a JSON object".to_string())?;
     object.insert("baseUrl".to_string(), serde_json::json!(base_url));
     object.insert("apiKey".to_string(), serde_json::json!(api_key));
     let mut rendered = serde_json::to_string_pretty(&root)
-        .map_err(|error| format!("生成 Pi CLIProxyAPI 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to generate Pi CLIProxyAPI config: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
 }
@@ -254,20 +254,20 @@ pub(crate) fn build_pi_provider_settings(
 ) -> Result<String, String> {
     let default_model = default_model.trim();
     if default_model.is_empty() {
-        return Err("Pi 默认模型不能为空".to_string());
+        return Err("Pi default model cannot be empty".to_string());
     }
     let mut root = serde_json::from_str::<serde_json::Value>(existing)
-        .map_err(|error| format!("解析 Pi settings.json 失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse Pi settings.json: {error}"))?;
     let object = root
         .as_object_mut()
-        .ok_or_else(|| "Pi settings.json 根节点必须是 JSON 对象".to_string())?;
+        .ok_or_else(|| "Pi settings.json root must be a JSON object".to_string())?;
     object.insert(
         "defaultProvider".to_string(),
         serde_json::json!(PI_CLIPROXYAPI_PROVIDER_ID),
     );
     object.insert("defaultModel".to_string(), serde_json::json!(default_model));
     let mut rendered = serde_json::to_string_pretty(&root)
-        .map_err(|error| format!("生成 Pi settings.json 失败: {error}"))?;
+        .map_err(|error| format!("Failed to generate Pi settings.json: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
 }
@@ -305,13 +305,13 @@ pub(crate) fn inspect_pi_provider_status(
     let mut credentials_match = false;
     if config_path.is_file() {
         match fs::read_to_string(&config_path)
-            .map_err(|error| format!("读取 Pi CLIProxyAPI 配置失败: {error}"))
+            .map_err(|error| format!("Failed to read Pi CLIProxyAPI config: {error}"))
             .and_then(|content| {
                 let root = serde_json::from_str::<serde_json::Value>(&content)
-                    .map_err(|error| format!("解析 Pi CLIProxyAPI 配置失败: {error}"))?;
+                    .map_err(|error| format!("Failed to parse Pi CLIProxyAPI config: {error}"))?;
                 let object = root
                     .as_object()
-                    .ok_or_else(|| "Pi CLIProxyAPI 配置根节点必须是 JSON 对象".to_string())?;
+                    .ok_or_else(|| "Pi CLIProxyAPI config root must be a JSON object".to_string())?;
                 let expected_base_url = format!("http://127.0.0.1:{port}");
                 credentials_match = object
                     .get("baseUrl")
@@ -333,18 +333,18 @@ pub(crate) fn inspect_pi_provider_status(
         && config_valid;
     let mut warnings = Vec::new();
     if executable.is_some() && !plugin_installed && config_valid {
-        warnings.push("Pi CLIProxyAPI provider 插件尚未安装".to_string());
+        warnings.push("Pi CLIProxyAPI provider plugin is not installed".to_string());
     } else if plugin_installed
         && (!credentials_match || !default_provider_matches || current_model.is_none())
         && config_valid
         && config_exists
     {
         warnings.push(
-            "Pi 插件配置不完整，请使用“应用配置”重新写入凭据、默认 provider 和默认模型".to_string(),
+            "Pi plugin config is incomplete; use “Apply Config” to rewrite the credentials, default provider, and default model".to_string(),
         );
     }
     if executable.is_none() && plugin_installed {
-        warnings.push("已找到 Pi 插件配置，但未检测到 Pi CLI 命令".to_string());
+        warnings.push("Found the Pi plugin config, but the Pi CLI command was not detected".to_string());
     }
     let modification_state = if configured {
         "applied"
@@ -401,10 +401,10 @@ pub(crate) fn install_pi_provider_inner(
     proxy_url: &str,
 ) -> Result<AgentConfigActionResult, String> {
     if port == 0 {
-        return Err("内核端口无效".to_string());
+        return Err("Invalid core port".to_string());
     }
     if api_key.trim().is_empty() {
-        return Err("EasyCLIProxyAPI 没有可用的 API key".to_string());
+        return Err("EvelProxyTool has no usable API key".to_string());
     }
     let settings_path = pi_provider_settings_path(home);
     let mut changed_files = Vec::new();
@@ -429,7 +429,7 @@ pub(crate) fn repair_pi_provider_inner(
         return Err("Core port is invalid".to_string());
     }
     if api_key.trim().is_empty() {
-        return Err("EasyCLIProxyAPI has no usable API key".to_string());
+        return Err("EvelProxyTool has no usable API key".to_string());
     }
     let config_path = pi_provider_config_path(home);
     let settings_path = pi_provider_settings_path(home);
@@ -440,7 +440,7 @@ pub(crate) fn repair_pi_provider_inner(
     let existing = if config_path.is_file() {
         Some(fs::read_to_string(&config_path).map_err(|error| {
             format!(
-                "读取 Pi CLIProxyAPI 配置失败 {}: {error}",
+                "Failed to read Pi CLIProxyAPI config {}: {error}",
                 path_to_string(&config_path)
             )
         })?)
@@ -456,7 +456,7 @@ pub(crate) fn repair_pi_provider_inner(
 
     let settings = fs::read_to_string(&settings_path).map_err(|error| {
         format!(
-            "读取 Pi settings.json 失败 {}: {error}",
+            "Failed to read Pi settings.json {}: {error}",
             path_to_string(&settings_path)
         )
     })?;
@@ -484,7 +484,7 @@ pub(crate) fn update_pi_provider_inner(
     proxy_url: &str,
 ) -> Result<AgentConfigActionResult, String> {
     if !pi_provider_package_installed(home)? {
-        return Err("Pi CLIProxyAPI provider 插件尚未安装".to_string());
+        return Err("Pi CLIProxyAPI provider plugin is not installed".to_string());
     }
     update_pi_package(executable, home, proxy_url)?;
     let mut result = repair_pi_provider_inner(home, port, api_key, default_model)?;
@@ -534,7 +534,7 @@ pub(crate) fn install_pi_package(
     configure_networked_command(&mut command, proxy_url);
     let output = command
         .output()
-        .map_err(|error| format!("执行 Pi 插件安装失败: {error}"))?;
+        .map_err(|error| format!("Failed to run the Pi plugin install: {error}"))?;
     if output.status.success() {
         return Ok(());
     }
@@ -542,7 +542,7 @@ pub(crate) fn install_pi_package(
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     let detail = if !stderr.is_empty() { stderr } else { stdout };
     Err(format!(
-        "Pi CLIProxyAPI provider 插件安装失败{}",
+        "Pi CLIProxyAPI provider plugin install failed{}",
         if detail.is_empty() {
             String::new()
         } else {
@@ -571,7 +571,7 @@ pub(crate) fn update_pi_package(
     configure_networked_command(&mut command, proxy_url);
     let output = command
         .output()
-        .map_err(|error| format!("执行 Pi 插件更新失败: {error}"))?;
+        .map_err(|error| format!("Failed to run the Pi plugin update: {error}"))?;
     if output.status.success() {
         return Ok(());
     }
@@ -579,7 +579,7 @@ pub(crate) fn update_pi_package(
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     let detail = if !stderr.is_empty() { stderr } else { stdout };
     Err(format!(
-        "Pi CLIProxyAPI provider 插件更新失败{}",
+        "Pi CLIProxyAPI provider plugin update failed{}",
         if detail.is_empty() {
             String::new()
         } else {
@@ -602,7 +602,7 @@ pub(crate) fn remove_pi_package(executable: &Path, home: &Path) -> Result<(), St
     configure_background_command(&mut command);
     let output = command
         .output()
-        .map_err(|error| format!("鎵ц Pi 鎻掍欢鍗歌浇澶辫触: {error}"))?;
+        .map_err(|error| format!("Failed to run the Pi plugin removal: {error}"))?;
     if output.status.success() {
         return Ok(());
     }
@@ -610,7 +610,7 @@ pub(crate) fn remove_pi_package(executable: &Path, home: &Path) -> Result<(), St
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     let detail = if !stderr.is_empty() { stderr } else { stdout };
     Err(format!(
-        "Pi CLIProxyAPI provider 鎻掍欢鍗歌浇澶辫触{}",
+        "Pi CLIProxyAPI provider plugin removal failed{}",
         if detail.is_empty() {
             String::new()
         } else {
@@ -659,7 +659,7 @@ pub(crate) fn remove_codex_config_file(path: &Path) -> Result<bool, String> {
         Ok(()) => Ok(true),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(error) => Err(format!(
-            "删除 Codex 配置文件失败 {}: {error}",
+            "Failed to delete Codex config file {}: {error}",
             path_to_string(path)
         )),
     }
@@ -817,7 +817,7 @@ pub(crate) fn inspect_agent_config(
             if client == AgentClient::Codex && configured {
                 let model = model
                     .as_deref()
-                    .ok_or_else(|| "Codex 配置缺少默认模型".to_string())?;
+                    .ok_or_else(|| "Codex config is missing a default model".to_string())?;
                 validate_codex_catalog_file(&paths[0], model)?;
             }
             Ok((configured, model, oauth_configuration))
@@ -865,9 +865,9 @@ pub(crate) fn inspect_agent_config(
     );
     let mut warnings = Vec::new();
     if !client.supported_platform() {
-        warnings.push("当前平台不支持 Claude Desktop 3P 配置".to_string());
+        warnings.push("Claude Desktop 3P config is not supported on this platform".to_string());
     } else if !installed && config_exists {
-        warnings.push("只检测到配置文件，未检测到客户端".to_string());
+        warnings.push("Only the config file was detected; the client was not detected".to_string());
     }
     if let Some(message) = error.as_ref() {
         warnings.push(message.clone());
@@ -1020,9 +1020,9 @@ pub(crate) fn inspect_agent_application(
             }
             let mut warnings = Vec::new();
             if state.backup_files.is_empty() {
-                warnings.push("检测到旧版应用状态；关闭时将只移除 CPA 管理的配置字段".to_string());
+                warnings.push("Detected legacy applied state; only the CPA-managed config fields will be removed on shutdown".to_string());
             } else if !backup_available {
-                warnings.push("原配置会话备份不完整，暂时无法安全恢复".to_string());
+                warnings.push("The original config session backup is incomplete; a safe restore is not currently possible".to_string());
             }
             AgentModificationInspection {
                 enabled: true,
@@ -1077,7 +1077,7 @@ pub(crate) fn inspect_agent_managed_config(
             .map(|(configured, model)| (configured, model, false)),
         AgentClient::ZCode => {
             if paths.len() != 2 {
-                return Err("ZCode 配置路径数量无效".to_string());
+                return Err("Invalid ZCode config path count".to_string());
             }
             let (app_configured, app_model) = inspect_zcode_agent_config(&paths[0], port, api_key)?;
             let (cli_configured, cli_model) = inspect_zcode_agent_config(&paths[1], port, api_key)?;
@@ -1104,7 +1104,7 @@ pub(crate) fn agent_has_managed_marker(
             if !paths[0].is_file() {
                 return Ok(false);
             }
-            let root = read_agent_json_or_empty(&paths[0], "Claude Code 配置")?;
+            let root = read_agent_json_or_empty(&paths[0], "Claude Code config")?;
             let env = root.get("env");
             Ok(env
                 .and_then(|value| value.get("ANTHROPIC_BASE_URL"))
@@ -1115,8 +1115,8 @@ pub(crate) fn agent_has_managed_marker(
             if paths.len() != 4 {
                 return Ok(false);
             }
-            let meta = read_agent_json_or_empty(&paths[3], "Claude Desktop 配置索引")?;
-            let profile = read_agent_json_or_empty(&paths[2], "Claude Desktop 网关配置")?;
+            let meta = read_agent_json_or_empty(&paths[3], "Claude Desktop config index")?;
+            let profile = read_agent_json_or_empty(&paths[2], "Claude Desktop gateway config")?;
             Ok(meta.get("appliedId").and_then(serde_json::Value::as_str)
                 == Some(CLAUDE_DESKTOP_PROFILE_ID)
                 || meta
@@ -1139,9 +1139,9 @@ pub(crate) fn agent_has_managed_marker(
             }
             let root: toml::Value = toml::from_str(
                 &fs::read_to_string(&paths[0])
-                    .map_err(|error| format!("读取 Codex 配置失败: {error}"))?,
+                    .map_err(|error| format!("Failed to read Codex config: {error}"))?,
             )
-            .map_err(|error| format!("解析 Codex 配置失败: {error}"))?;
+            .map_err(|error| format!("Failed to parse Codex config: {error}"))?;
             Ok(root.get("model_provider").and_then(toml::Value::as_str)
                 == Some(MANAGED_AGENT_PROVIDER_ID))
         }
@@ -1149,7 +1149,7 @@ pub(crate) fn agent_has_managed_marker(
             if !paths[0].is_file() {
                 return Ok(false);
             }
-            let root = read_agent_json_or_empty(&paths[0], "OpenCode 配置")?;
+            let root = read_agent_json_or_empty(&paths[0], "OpenCode config")?;
             let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
             let provider_exists = root
                 .get("provider")
@@ -1167,9 +1167,9 @@ pub(crate) fn agent_has_managed_marker(
             }
             let root: serde_json::Value = json5::from_str(
                 &fs::read_to_string(&paths[0])
-                    .map_err(|error| format!("读取 OpenClaw 配置失败: {error}"))?,
+                    .map_err(|error| format!("Failed to read OpenClaw config: {error}"))?,
             )
-            .map_err(|error| format!("解析 OpenClaw 配置失败: {error}"))?;
+            .map_err(|error| format!("Failed to parse OpenClaw config: {error}"))?;
             let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
             let provider_exists = root
                 .get("models")
@@ -1191,9 +1191,9 @@ pub(crate) fn agent_has_managed_marker(
             }
             let root: serde_yaml::Value = serde_yaml::from_str(
                 &fs::read_to_string(&paths[0])
-                    .map_err(|error| format!("读取 Hermes 配置失败: {error}"))?,
+                    .map_err(|error| format!("Failed to read Hermes config: {error}"))?,
             )
-            .map_err(|error| format!("解析 Hermes 配置失败: {error}"))?;
+            .map_err(|error| format!("Failed to parse Hermes config: {error}"))?;
             let provider_exists = root
                 .get("custom_providers")
                 .and_then(serde_yaml::Value::as_sequence)
@@ -1217,7 +1217,7 @@ pub(crate) fn agent_has_managed_marker(
                 if !path.is_file() {
                     continue;
                 }
-                let root = read_agent_json_or_empty(path, "ZCode 配置")?;
+                let root = read_agent_json_or_empty(path, "ZCode config")?;
                 let provider_exists = root
                     .get("provider")
                     .and_then(|value| value.get(MANAGED_AGENT_PROVIDER_ID))
@@ -1238,7 +1238,7 @@ pub(crate) fn agent_has_managed_marker(
         }
         AgentClient::KimiCode => inspect_managed_toml_model_marker(
             &paths[0],
-            "Kimi Code 配置",
+            "Kimi Code config",
             Some("providers"),
             "models",
             None,
@@ -1246,7 +1246,7 @@ pub(crate) fn agent_has_managed_marker(
         ),
         AgentClient::GrokBuild => inspect_managed_toml_model_marker(
             &paths[0],
-            "Grok Build 配置",
+            "Grok Build config",
             None,
             "model",
             Some("models"),
@@ -1272,9 +1272,9 @@ pub(crate) fn inspect_managed_toml_model_marker(
         return Ok(false);
     }
     let root: toml::Value = toml::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 {label} 失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read {label}: {error}"))?,
     )
-    .map_err(|error| format!("解析 {label} 失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse {label}: {error}"))?;
     let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
     let selected = (if let Some(section) = default_section {
         root.get(section)
@@ -2055,11 +2055,11 @@ pub(crate) fn command_output_with_timeout(
     let mut stdout = child
         .stdout
         .take()
-        .ok_or_else(|| io::Error::other("无法读取智能体探测标准输出"))?;
+        .ok_or_else(|| io::Error::other("Failed to read agent probe stdout"))?;
     let mut stderr = child
         .stderr
         .take()
-        .ok_or_else(|| io::Error::other("无法读取智能体探测错误输出"))?;
+        .ok_or_else(|| io::Error::other("Failed to read agent probe stderr"))?;
     thread::scope(|scope| {
         let stdout_reader = scope.spawn(move || {
             let mut output = Vec::new();
@@ -2082,10 +2082,10 @@ pub(crate) fn command_output_with_timeout(
         };
         let stdout = stdout_reader
             .join()
-            .map_err(|_| io::Error::other("智能体探测输出线程异常退出"))??;
+            .map_err(|_| io::Error::other("Agent probe stdout thread exited abnormally"))??;
         let stderr = stderr_reader
             .join()
-            .map_err(|_| io::Error::other("智能体探测错误线程异常退出"))??;
+            .map_err(|_| io::Error::other("Agent probe stderr thread exited abnormally"))??;
         Ok(status.map(|status| std::process::Output {
             status,
             stdout,
@@ -2150,9 +2150,9 @@ pub(crate) fn inspect_claude_agent_config(
         return Ok((false, None));
     }
     let root: serde_json::Value = serde_json::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 Claude Code 配置失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read Claude Code config: {error}"))?,
     )
-    .map_err(|error| format!("解析 Claude Code 配置失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse Claude Code config: {error}"))?;
     let env = root.get("env").and_then(serde_json::Value::as_object);
     let expected_base = format!("http://127.0.0.1:{port}");
     let configured = env
@@ -2333,7 +2333,7 @@ pub(crate) fn claude_code_max_context_tokens(
 ) -> Result<u64, String> {
     let model = mappings.sonnet.as_str();
     let context_window = claude_effective_context_window(models, model, mappings.sonnet_1m)
-        .ok_or_else(|| format!("CPA 模型 API 未返回 Claude Code 主模型 {model} 的上下文窗口"))?;
+        .ok_or_else(|| format!("The CPA models API did not return a context window for Claude Code primary model {model}"))?;
     Ok(context_window)
 }
 
@@ -2483,10 +2483,10 @@ pub(crate) fn inspect_claude_desktop_agent_config(
     if paths.len() != 4 || !paths.iter().any(|path| path.is_file()) {
         return Ok((false, None));
     }
-    let normal = read_agent_json_or_empty(&paths[0], "Claude Desktop 主配置")?;
-    let threep = read_agent_json_or_empty(&paths[1], "Claude Desktop 3P 配置")?;
-    let profile = read_agent_json_or_empty(&paths[2], "Claude Desktop 网关配置")?;
-    let meta = read_agent_json_or_empty(&paths[3], "Claude Desktop 配置索引")?;
+    let normal = read_agent_json_or_empty(&paths[0], "Claude Desktop primary config")?;
+    let threep = read_agent_json_or_empty(&paths[1], "Claude Desktop 3P config")?;
+    let profile = read_agent_json_or_empty(&paths[2], "Claude Desktop gateway config")?;
+    let meta = read_agent_json_or_empty(&paths[3], "Claude Desktop config index")?;
     let expected_base = format!("http://127.0.0.1:{port}");
     let configured = normal
         .get("deploymentMode")
@@ -2534,14 +2534,14 @@ pub(crate) fn read_agent_json_or_empty(
         return Ok(serde_json::json!({}));
     }
     let content =
-        fs::read_to_string(path).map_err(|error| format!("读取 {label} 失败: {error}"))?;
+        fs::read_to_string(path).map_err(|error| format!("Failed to read {label}: {error}"))?;
     if content.trim().is_empty() {
         return Ok(serde_json::json!({}));
     }
     let value: serde_json::Value =
-        serde_json::from_str(&content).map_err(|error| format!("解析 {label} 失败: {error}"))?;
+        serde_json::from_str(&content).map_err(|error| format!("Failed to parse {label}: {error}"))?;
     if !value.is_object() {
-        return Err(format!("{label} 根节点必须是对象"));
+        return Err(format!("{label} root must be an object"));
     }
     Ok(value)
 }
@@ -2555,9 +2555,9 @@ pub(crate) fn inspect_codex_agent_config(
         return Ok((false, None, false));
     }
     let root: toml::Value = toml::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 Codex 配置失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read Codex config: {error}"))?,
     )
-    .map_err(|error| format!("解析 Codex 配置失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse Codex config: {error}"))?;
     let expected_base = format!("http://127.0.0.1:{port}/v1");
     let provider = root
         .get("model_providers")
@@ -2579,7 +2579,7 @@ pub(crate) fn inspect_codex_agent_config(
         && provider
             .and_then(|provider| provider.get("name"))
             .and_then(toml::Value::as_str)
-            == Some("EasyCLIProxyAPI")
+            == Some("EvelProxyTool")
         && provider
             .and_then(|provider| provider.get("base_url"))
             .and_then(toml::Value::as_str)
@@ -2605,7 +2605,7 @@ pub(crate) fn validate_codex_catalog_file(config_path: &Path, model: &str) -> Re
         .join(CODEX_MODEL_CATALOG_FILE);
     let catalog = fs::read_to_string(&catalog_path).map_err(|error| {
         format!(
-            "读取 Codex 模型目录失败 {}: {error}",
+            "Failed to read Codex model catalog {}: {error}",
             path_to_string(&catalog_path)
         )
     })?;
@@ -2621,9 +2621,9 @@ pub(crate) fn inspect_opencode_agent_config(
         return Ok((false, None));
     }
     let root: serde_json::Value = serde_json::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 OpenCode 配置失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read OpenCode config: {error}"))?,
     )
-    .map_err(|error| format!("解析 OpenCode 配置失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse OpenCode config: {error}"))?;
     let provider = root
         .get("provider")
         .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID));
@@ -2658,9 +2658,9 @@ pub(crate) fn inspect_zcode_agent_config(
         return Ok((false, None));
     }
     let root: serde_json::Value = serde_json::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 ZCode 配置失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read ZCode config: {error}"))?,
     )
-    .map_err(|error| format!("解析 ZCode 配置失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse ZCode config: {error}"))?;
     let provider = root
         .get("provider")
         .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID));
@@ -2723,9 +2723,9 @@ pub(crate) fn inspect_kimi_code_agent_config(
         return Ok((false, None));
     }
     let root: toml::Value = toml::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 Kimi Code 配置失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read Kimi Code config: {error}"))?,
     )
-    .map_err(|error| format!("解析 Kimi Code 配置失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse Kimi Code config: {error}"))?;
     let expected_base = format!("http://127.0.0.1:{port}/v1");
     let provider = root
         .get("providers")
@@ -2780,9 +2780,9 @@ pub(crate) fn inspect_grok_build_agent_config(
         return Ok((false, None));
     }
     let root: toml::Value = toml::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 Grok Build 配置失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read Grok Build config: {error}"))?,
     )
-    .map_err(|error| format!("解析 Grok Build 配置失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse Grok Build config: {error}"))?;
     let expected_base = format!("http://127.0.0.1:{port}/v1");
     let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
     let selected = root
@@ -2830,9 +2830,9 @@ pub(crate) fn inspect_openclaw_agent_config(
         return Ok((false, None));
     }
     let content =
-        fs::read_to_string(path).map_err(|error| format!("读取 OpenClaw 配置失败: {error}"))?;
+        fs::read_to_string(path).map_err(|error| format!("Failed to read OpenClaw config: {error}"))?;
     let root: serde_json::Value = json5::from_str(&content)
-        .map_err(|error| format!("解析 OpenClaw JSON5 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse OpenClaw JSON5 config: {error}"))?;
     let provider = root
         .get("models")
         .and_then(|models| models.get("providers"))
@@ -2869,9 +2869,9 @@ pub(crate) fn inspect_hermes_agent_config(
         return Ok((false, None));
     }
     let root: serde_yaml::Value = serde_yaml::from_str(
-        &fs::read_to_string(path).map_err(|error| format!("读取 Hermes 配置失败: {error}"))?,
+        &fs::read_to_string(path).map_err(|error| format!("Failed to read Hermes config: {error}"))?,
     )
-    .map_err(|error| format!("解析 Hermes YAML 配置失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse Hermes YAML config: {error}"))?;
     let provider = root
         .get("custom_providers")
         .and_then(serde_yaml::Value::as_sequence)
@@ -2912,7 +2912,7 @@ pub(crate) fn inspect_deepseek_harness_config(
     api_key: &str,
 ) -> Result<(bool, Option<String>), String> {
     if paths.len() != 2 {
-        return Err("DeepSeek Harness 配置路径数量无效".to_string());
+        return Err("Invalid DeepSeek Harness config path count".to_string());
     }
     let settings = read_agent_yaml_mapping_or_empty(&paths[0], "DeepSeek Harness settings")?;
     let credentials = read_agent_yaml_mapping_or_empty(&paths[1], "DeepSeek Harness credentials")?;
@@ -2974,7 +2974,7 @@ pub(crate) fn inspect_deepseek_harness_config(
 
 pub(crate) fn deepseek_harness_has_managed_marker(paths: &[PathBuf]) -> Result<bool, String> {
     if paths.len() != 2 {
-        return Err("DeepSeek Harness 配置路径数量无效".to_string());
+        return Err("Invalid DeepSeek Harness config path count".to_string());
     }
     let settings = read_agent_yaml_mapping_or_empty(&paths[0], "DeepSeek Harness settings")?;
     let credentials = read_agent_yaml_mapping_or_empty(&paths[1], "DeepSeek Harness credentials")?;

@@ -59,6 +59,9 @@ import {
 import type { ModelOption } from '../services/modelService';
 import { getCurrentLocale, translate, useI18n } from '../i18n';
 import { CodexSessionsPanel } from './CodexSessionsPanel';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 type AgentClientId =
   | 'claude-code'
@@ -1445,38 +1448,47 @@ export function AgentsPage() {
   ) : oauthLoginRequiredAction ? t(`agents.oauthLoginRequired.${oauthLoginRequiredAction}Description`) : '';
 
   return (
-    <section className="page management-page agents-page">
-      <header className="management-header">
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <span>Agent Clients</span>
-          <h1>{t('agents.title')}</h1>
+          <span className="block text-xs font-bold tracking-wide text-muted-foreground uppercase">{t('agents.eyebrow')}</span>
+          <h1 className="mt-1 text-2xl font-bold">{t('agents.title')}</h1>
         </div>
-        <div className="agent-header-actions">
+        <div className="flex items-center gap-2.5">
           {detectionError ? (
-            <span className="agent-inline-message error" role="alert" aria-live="polite">
+            <span className="text-sm text-destructive" role="alert" aria-live="polite">
               {detectionError}
             </span>
           ) : null}
-          <button type="button" className="secondary-button compact-button" onClick={() => void refresh()} disabled={loading || busy}>
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
+          <Button type="button" variant="outline" size="sm" onClick={() => void refresh()} disabled={loading || busy}>
+            <RefreshCw size={15} aria-hidden="true" className={loading ? 'animate-spin' : undefined} />
             {t('agents.redetect')}
-          </button>
+          </Button>
         </div>
       </header>
 
-      <div className="agent-workbench">
-        <aside className="panel agent-client-list">
-          <div className="agent-list-heading">
-            <Bot size={18} />
-            <div><strong>{t('agents.localClients')}</strong><span>{t('agents.selectClient')}</span></div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[250px_minmax(0,1fr)] lg:items-start">
+        <Card className="gap-1 p-1.5">
+          <div className="flex items-center gap-2.5 px-2.5 py-2">
+            <Bot size={17} aria-hidden="true" className="text-muted-foreground" />
+            <div className="min-w-0">
+              <strong className="block text-sm font-semibold">{t('agents.localClients')}</strong>
+              <span className="block text-xs text-muted-foreground">{t('agents.selectClient')}</span>
+            </div>
           </div>
-          <div className="agent-list-items">
+          <div className="grid gap-0.5">
             {agentDefinitions.map((agent) => {
               const status = statuses.find((item) => item.id === agent.id);
+              const dotState = status?.id === 'pi'
+                ? status?.installed ? 'installed' : ''
+                : status?.modificationEnabled ? 'configured' : status?.installed ? 'installed' : '';
               return (
                 <button
                   type="button"
-                  className={selected === agent.id ? 'active' : ''}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50',
+                    selected === agent.id && 'bg-accent',
+                  )}
                   key={agent.id}
                   onClick={() => {
                     setActiveSubpage(DEFAULT_AGENT_SUBPAGE);
@@ -1484,28 +1496,35 @@ export function AgentsPage() {
                   }}
                   disabled={busy}
                 >
-                  <span className="agent-client-icon"><AgentMark definition={agent} /></span>
-                  <span><strong>{agent.name}</strong><small>{listStatusText(status)}</small></span>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-card"><AgentMark definition={agent} /></span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-[12.5px] font-semibold">{agent.name}</strong>
+                    <small className="block truncate text-[11px] text-muted-foreground">{listStatusText(status)}</small>
+                  </span>
                   <i
-                    className={status?.id === 'pi'
-                      ? status?.installed ? 'installed' : ''
-                      : status?.modificationEnabled ? 'configured' : status?.installed ? 'installed' : ''}
+                    className={cn(
+                      'size-1.5 shrink-0 rounded-full',
+                      dotState === 'installed' ? 'bg-[var(--theme-2f6b3f)]' : dotState === 'configured' ? 'bg-primary' : 'bg-border',
+                    )}
                     aria-hidden="true"
                   />
                 </button>
               );
             })}
           </div>
-        </aside>
+        </Card>
 
-        <section className="panel agent-config-panel">
-          <div className="agent-subpage-tabs" role="tablist" aria-label={t('agents.tabs.label')}>
+        <Card className="gap-4 p-4">
+          <div className="inline-flex w-fit gap-0.5 rounded-lg bg-muted p-0.5" role="tablist" aria-label={t('agents.tabs.label')}>
             {availableSubpages.map((subpage) => (
               <button
                 type="button"
                 id={`agent-subpage-tab-${subpage.id}`}
                 role="tab"
-                className={activeSubpage === subpage.id ? 'active' : ''}
+                className={cn(
+                  'rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+                  activeSubpage === subpage.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
                 aria-selected={activeSubpage === subpage.id}
                 aria-controls={`agent-subpage-panel-${subpage.id}`}
                 tabIndex={activeSubpage === subpage.id ? 0 : -1}
@@ -1970,7 +1989,6 @@ export function AgentsPage() {
 
           {selected === 'codex' && activeSubpage === 'sessions' ? (
             <div
-              className="agent-sessions-page"
               id="agent-subpage-panel-sessions"
               role="tabpanel"
               aria-labelledby="agent-subpage-tab-sessions"
@@ -1978,7 +1996,7 @@ export function AgentsPage() {
               <CodexSessionsPanel />
             </div>
           ) : null}
-        </section>
+        </Card>
       </div>
 
       {launchDirectoryDialogOpen ? (

@@ -43,7 +43,7 @@ const TOKENS_PER_PRICE_UNIT: f64 = 1_000_000.0;
 const LONG_CONTEXT_INPUT_TOKEN_THRESHOLD: u64 = 272_000;
 const BUNDLED_MODEL_PRICE_CATALOG: &str = include_str!("../resources/model_prices.json");
 const MODEL_PRICE_SYNC_URL: &str =
-    "https://raw.githubusercontent.com/router-for-me/EasyCLIProxyAPI/main/src-tauri/resources/model_prices.json";
+    "https://raw.githubusercontent.com/router-for-me/EvelProxyTool/main/src-tauri/resources/model_prices.json";
 
 pub(crate) struct UsageCollectorState {
     inner: Mutex<UsageCollectorInner>,
@@ -108,7 +108,7 @@ impl UsageCollectorStatus {
     fn waiting() -> Self {
         Self {
             state: "waiting-core".to_string(),
-            message: "等待内核启动".to_string(),
+            message: "Waiting for core to start".to_string(),
             last_collected_at: None,
             total_records: 0,
         }
@@ -431,7 +431,7 @@ impl UsageCollectorState {
         self.inner
             .lock()
             .map(|inner| inner.status.clone())
-            .map_err(|_| "使用记录采集状态锁已损坏".to_string())
+            .map_err(|_| "Usage record collector status lock is poisoned".to_string())
     }
 }
 
@@ -440,11 +440,11 @@ pub(crate) fn initialize_usage_storage() -> Result<(), String> {
 }
 
 fn initialize_usage_storage_at(root: &Path) -> Result<(), String> {
-    fs::create_dir_all(root).map_err(|error| format!("创建使用记录目录失败: {error}"))?;
+    fs::create_dir_all(root).map_err(|error| format!("Failed to create usage record directory: {error}"))?;
     let mut connection = open_usage_database_at(root)?;
     connection
         .pragma_update(None, "journal_mode", "WAL")
-        .map_err(|error| format!("启用 SQLite WAL 失败: {error}"))?;
+        .map_err(|error| format!("Failed to enable SQLite WAL: {error}"))?;
     migrate_usage_database(&mut connection, root)?;
     migrate_legacy_json_storage(&mut connection, root)?;
     cleanup_usage_inbox(&connection, Local::now())
@@ -458,7 +458,7 @@ fn migrate_usage_database(connection: &mut Connection, root: &Path) -> Result<()
             let backup_path = create_usage_migration_backup(connection, root)?;
             if let Err(error) = migrate_legacy_v2_usage_schema(connection) {
                 return Err(format!(
-                    "迁移旧版使用记录数据库失败，备份保留在 {}: {error}",
+                    "Failed to migrate legacy usage record database, backup kept at {}: {error}",
                     backup_path.display()
                 ));
             }
@@ -484,7 +484,7 @@ fn detect_usage_database_layout(connection: &Connection) -> Result<UsageDatabase
         .iter()
         .all(|column| columns.contains(*column))
     {
-        return Err("无法识别使用记录数据库结构，已拒绝自动迁移".to_string());
+        return Err("Unrecognized usage record database schema; automatic migration refused".to_string());
     }
     let keeper_columns = [
         "api_group_key",
@@ -509,7 +509,7 @@ fn detect_usage_database_layout(connection: &Connection) -> Result<UsageDatabase
     {
         return Ok(UsageDatabaseLayout::CurrentV3);
     }
-    Err("检测到不完整的使用记录数据库迁移，已拒绝继续修改".to_string())
+    Err("Detected an incomplete usage record database migration; further changes refused".to_string())
 }
 
 fn usage_table_exists(connection: &Connection, table: &str) -> Result<bool, String> {
@@ -520,32 +520,32 @@ fn usage_table_exists(connection: &Connection, table: &str) -> Result<bool, Stri
             |row| row.get::<_, i64>(0),
         )
         .map(|exists| exists != 0)
-        .map_err(|error| format!("检查 SQLite 表 {table} 失败: {error}"))
+        .map_err(|error| format!("Failed to check SQLite table {table}: {error}"))
 }
 
 fn usage_table_columns(connection: &Connection, table: &str) -> Result<HashSet<String>, String> {
     let mut statement = connection
         .prepare("SELECT name FROM pragma_table_info(?1)")
-        .map_err(|error| format!("准备读取 SQLite 表结构失败 {table}: {error}"))?;
+        .map_err(|error| format!("Failed to prepare reading SQLite table schema {table}: {error}"))?;
     let columns = statement
         .query_map(params![table], |row| row.get::<_, String>(0))
-        .map_err(|error| format!("读取 SQLite 表结构失败 {table}: {error}"))?
+        .map_err(|error| format!("Failed to read SQLite table schema {table}: {error}"))?
         .collect::<Result<HashSet<_>, _>>()
-        .map_err(|error| format!("解析 SQLite 表结构失败 {table}: {error}"))?;
+        .map_err(|error| format!("Failed to parse SQLite table schema {table}: {error}"))?;
     Ok(columns)
 }
 
 fn create_usage_migration_backup(connection: &Connection, root: &Path) -> Result<PathBuf, String> {
     let backup_dir = root.join(USAGE_BACKUP_DIR_NAME);
     fs::create_dir_all(&backup_dir)
-        .map_err(|error| format!("创建使用记录备份目录失败: {error}"))?;
+        .map_err(|error| format!("Failed to create usage record backup directory: {error}"))?;
     let backup_path = backup_dir.join(format!("usage-before-keeper-v3-{}.db", unique_file_stamp()));
     connection
         .execute(
             "VACUUM INTO ?1",
             params![backup_path.to_string_lossy().to_string()],
         )
-        .map_err(|error| format!("备份旧版使用记录数据库失败: {error}"))?;
+        .map_err(|error| format!("Failed to back up legacy usage record database: {error}"))?;
     Ok(backup_path)
 }
 
@@ -553,7 +553,7 @@ fn migrate_legacy_v2_usage_schema(connection: &mut Connection) -> Result<(), Str
     let before = load_usage_migration_snapshot(connection)?;
     let transaction = connection
         .transaction()
-        .map_err(|error| format!("开始使用记录数据库迁移事务失败: {error}"))?;
+        .map_err(|error| format!("Failed to begin usage record database migration transaction: {error}"))?;
     transaction
         .execute_batch(
             r#"
@@ -589,11 +589,11 @@ fn migrate_legacy_v2_usage_schema(connection: &mut Connection) -> Result<(), Str
                 collector_source = 'legacy_migration';
             "#,
         )
-        .map_err(|error| format!("转换旧版使用记录字段失败: {error}"))?;
+        .map_err(|error| format!("Failed to convert legacy usage record fields: {error}"))?;
     let after = load_usage_migration_snapshot(&transaction)?;
     if before != after {
         return Err(format!(
-            "使用记录迁移校验不一致，迁移前 {before:?}，迁移后 {after:?}"
+            "Usage record migration verification mismatch, before migration {before:?}, after migration {after:?}"
         ));
     }
     initialize_usage_schema(&transaction)?;
@@ -602,10 +602,10 @@ fn migrate_legacy_v2_usage_schema(connection: &mut Connection) -> Result<(), Str
             "INSERT INTO usage_metadata (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             params![USAGE_DATABASE_MIGRATION_KEY, Local::now().to_rfc3339()],
         )
-        .map_err(|error| format!("写入使用记录迁移标记失败: {error}"))?;
+        .map_err(|error| format!("Failed to write usage record migration marker: {error}"))?;
     transaction
         .commit()
-        .map_err(|error| format!("提交使用记录数据库迁移失败: {error}"))
+        .map_err(|error| format!("Failed to commit usage record database migration: {error}"))
 }
 
 fn load_usage_migration_snapshot(
@@ -645,7 +645,7 @@ fn load_usage_migration_snapshot(
                 })
             },
         )
-        .map_err(|error| format!("读取使用记录迁移校验快照失败: {error}"))
+        .map_err(|error| format!("Failed to read usage record migration verification snapshot: {error}"))
 }
 
 fn initialize_usage_schema(connection: &Connection) -> Result<(), String> {
@@ -755,10 +755,10 @@ fn initialize_usage_schema(connection: &Connection) -> Result<(), String> {
             );
             "#,
         )
-        .map_err(|error| format!("初始化 SQLite 使用记录结构失败: {error}"))?;
+        .map_err(|error| format!("Failed to initialize SQLite usage record schema: {error}"))?;
     connection
         .pragma_update(None, "user_version", USAGE_DATABASE_SCHEMA_VERSION)
-        .map_err(|error| format!("更新 SQLite 使用记录版本失败: {error}"))
+        .map_err(|error| format!("Failed to update SQLite usage record version: {error}"))
 }
 
 fn open_usage_database() -> Result<Connection, String> {
@@ -766,19 +766,19 @@ fn open_usage_database() -> Result<Connection, String> {
 }
 
 fn open_usage_database_at(root: &Path) -> Result<Connection, String> {
-    fs::create_dir_all(root).map_err(|error| format!("创建使用记录目录失败: {error}"))?;
+    fs::create_dir_all(root).map_err(|error| format!("Failed to create usage record directory: {error}"))?;
     let path = root.join(USAGE_DATABASE_FILE);
     let connection = Connection::open(&path)
-        .map_err(|error| format!("打开 SQLite 使用记录数据库失败 {}: {error}", path.display()))?;
+        .map_err(|error| format!("Failed to open SQLite usage record database {}: {error}", path.display()))?;
     connection
         .busy_timeout(Duration::from_secs(SQLITE_BUSY_TIMEOUT_SECONDS))
-        .map_err(|error| format!("设置 SQLite busy timeout 失败: {error}"))?;
+        .map_err(|error| format!("Failed to set SQLite busy timeout: {error}"))?;
     connection
         .pragma_update(None, "foreign_keys", "ON")
-        .map_err(|error| format!("启用 SQLite foreign keys 失败: {error}"))?;
+        .map_err(|error| format!("Failed to enable SQLite foreign keys: {error}"))?;
     connection
         .pragma_update(None, "synchronous", "NORMAL")
-        .map_err(|error| format!("设置 SQLite synchronous 模式失败: {error}"))?;
+        .map_err(|error| format!("Failed to set SQLite synchronous mode: {error}"))?;
     Ok(connection)
 }
 
@@ -790,7 +790,7 @@ fn migrate_legacy_json_storage(connection: &mut Connection, root: &Path) -> Resu
             |row| row.get::<_, String>(0),
         )
         .optional()
-        .map_err(|error| format!("读取旧使用记录迁移状态失败: {error}"))?
+        .map_err(|error| format!("Failed to read legacy usage record migration status: {error}"))?
         .is_some();
     if migrated {
         return Ok(());
@@ -798,14 +798,14 @@ fn migrate_legacy_json_storage(connection: &mut Connection, root: &Path) -> Resu
 
     let transaction = connection
         .transaction()
-        .map_err(|error| format!("开始旧使用记录迁移事务失败: {error}"))?;
+        .map_err(|error| format!("Failed to begin legacy usage record migration transaction: {error}"))?;
     let mut migrated_records = 0_usize;
 
     for path in sorted_json_files(&root.join(LEGACY_USAGE_EVENTS_DIR))? {
         let content = fs::read_to_string(&path)
-            .map_err(|error| format!("读取旧使用记录失败 {}: {error}", path.display()))?;
+            .map_err(|error| format!("Failed to read legacy usage record {}: {error}", path.display()))?;
         let file = serde_json::from_str::<LegacyUsageHourFile>(&content)
-            .map_err(|error| format!("解析旧使用记录失败 {}: {error}", path.display()))?;
+            .map_err(|error| format!("Failed to parse legacy usage record {}: {error}", path.display()))?;
         validate_legacy_schema(file.schema_version, &path)?;
         migrated_records = migrated_records.saturating_add(insert_usage_records_in_transaction(
             &transaction,
@@ -815,9 +815,9 @@ fn migrate_legacy_json_storage(connection: &mut Connection, root: &Path) -> Resu
 
     for path in sorted_json_files(&root.join(LEGACY_USAGE_INBOX_DIR))? {
         let content = fs::read_to_string(&path)
-            .map_err(|error| format!("读取旧使用记录收件箱失败 {}: {error}", path.display()))?;
+            .map_err(|error| format!("Failed to read legacy usage record inbox {}: {error}", path.display()))?;
         let file = serde_json::from_str::<LegacyUsageInboxFile>(&content)
-            .map_err(|error| format!("解析旧使用记录收件箱失败 {}: {error}", path.display()))?;
+            .map_err(|error| format!("Failed to parse legacy usage record inbox {}: {error}", path.display()))?;
         validate_legacy_schema(file.schema_version, &path)?;
         migrated_records = migrated_records.saturating_add(insert_usage_records_in_transaction(
             &transaction,
@@ -830,10 +830,10 @@ fn migrate_legacy_json_storage(connection: &mut Connection, root: &Path) -> Resu
             "INSERT INTO usage_metadata (key, value) VALUES (?1, ?2)",
             params![LEGACY_JSON_MIGRATION_KEY, migrated_records.to_string()],
         )
-        .map_err(|error| format!("记录旧使用记录迁移状态失败: {error}"))?;
+        .map_err(|error| format!("Failed to record legacy usage record migration status: {error}"))?;
     transaction
         .commit()
-        .map_err(|error| format!("提交旧使用记录迁移失败: {error}"))?;
+        .map_err(|error| format!("Failed to commit legacy usage record migration: {error}"))?;
     Ok(())
 }
 
@@ -842,7 +842,7 @@ fn sorted_json_files(directory: &Path) -> Result<Vec<PathBuf>, String> {
         return Ok(Vec::new());
     }
     let mut paths = fs::read_dir(directory)
-        .map_err(|error| format!("读取旧使用记录目录失败 {}: {error}", directory.display()))?
+        .map_err(|error| format!("Failed to read legacy usage record directory {}: {error}", directory.display()))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
@@ -856,7 +856,7 @@ fn validate_legacy_schema(version: u8, path: &Path) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!(
-            "不支持的旧使用记录版本 {version}: {}",
+            "Unsupported legacy usage record version {version}: {}",
             path.display()
         ))
     }
@@ -909,7 +909,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
             if let Err(error) = open_usage_database_at(&root)
                 .and_then(|connection| cleanup_usage_inbox(&connection, Local::now()))
             {
-                eprintln!("清理使用记录 inbox 失败: {error}");
+                eprintln!("Failed to clean up usage record inbox: {error}");
             }
             next_inbox_cleanup_at = tokio::time::Instant::now() + Duration::from_secs(60 * 60);
         }
@@ -923,7 +923,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
                 set_collector_status(
                     &app,
                     "collecting",
-                    &format!("已恢复 {saved} 条待处理记录"),
+                    &format!("Recovered {saved} pending records"),
                     Some(collected_at.clone()),
                 );
                 let _ = app.emit(USAGE_UPDATED_EVENT, collected_at);
@@ -944,7 +944,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
             .unwrap_or(false);
         if !core_running {
             subscription = None;
-            set_collector_status(&app, "waiting-core", "等待内核启动", None);
+            set_collector_status(&app, "waiting-core", "Waiting for core to start", None);
             retry_seconds = 1;
             wait_or_cancel(&token, 1).await;
             continue;
@@ -954,13 +954,13 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
             match UsageSubscription::connect(config.port, &config.management_secret_key).await {
                 Ok(next_subscription) => {
                     subscription = Some(next_subscription);
-                    set_collector_status(&app, "collecting", "已连接 CPA usage 实时订阅", None);
+                    set_collector_status(&app, "collecting", "Connected to CPA usage real-time subscription", None);
                     match backfill_usage_queue(&root, &config).await {
                         Ok(saved) => {
                             publish_collected_records(
                                 &app,
                                 saved,
-                                &format!("实时订阅已连接，补录 {saved} 条队列记录"),
+                                &format!("Real-time subscription connected, backfilled {saved} queued records"),
                             );
                             retry_seconds = 1;
                         }
@@ -968,7 +968,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
                             set_collector_status(
                                 &app,
                                 "collecting",
-                                &format!("实时订阅已连接，历史队列补录失败: {error}"),
+                                &format!("Real-time subscription connected, failed to backfill historical queue: {error}"),
                                 None,
                             );
                         }
@@ -981,7 +981,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
                     set_collector_status(
                         &app,
                         "collecting",
-                        &format!("使用 HTTP 兼容模式采集；实时订阅不可用: {error}"),
+                        &format!("Collecting via HTTP compatibility mode; real-time subscription unavailable: {error}"),
                         None,
                     );
                 }
@@ -1008,7 +1008,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
                             publish_collected_records(
                                 &app,
                                 saved,
-                                &format!("实时订阅已保存 {saved} 条新记录"),
+                                &format!("Real-time subscription saved {saved} new records"),
                             );
                             retry_seconds = 1;
                         }
@@ -1021,7 +1021,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
                     continue;
                 }
                 Err(_) => {
-                    set_collector_status(&app, "collecting", "CPA usage 实时订阅采集中", None);
+                    set_collector_status(&app, "collecting", "Collecting via CPA usage real-time subscription", None);
                     retry_seconds = 1;
                     continue;
                 }
@@ -1032,7 +1032,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
                     set_collector_status(
                         &app,
                         "collecting",
-                        &format!("实时订阅断开，已切换 HTTP 兼容模式: {error}"),
+                        &format!("Real-time subscription disconnected; switched to HTTP compatibility mode: {error}"),
                         None,
                     );
                 }
@@ -1041,7 +1041,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
 
         match fetch_usage_queue(&config).await {
             Ok(items) if items.is_empty() => {
-                set_collector_status(&app, "collecting", "使用记录采集中", None);
+                set_collector_status(&app, "collecting", "Collecting usage records", None);
                 retry_seconds = 1;
                 wait_or_cancel(&token, 1).await;
             }
@@ -1050,7 +1050,7 @@ async fn usage_collector_loop(app: tauri::AppHandle, token: CancellationToken) {
                     publish_collected_records(
                         &app,
                         saved,
-                        &format!("HTTP 兼容模式已保存 {saved} 条新记录"),
+                        &format!("HTTP compatibility mode saved {saved} new records"),
                     );
                     retry_seconds = 1;
                 }
@@ -1114,7 +1114,7 @@ pub(crate) fn persist_local_usage_event(
     let config = app.state::<GuiConfigState>().snapshot()?;
     let root = usage_root_dir()?;
     let saved = persist_queue_items_from_source(&root, collector_source, vec![value], &config)?;
-    publish_collected_records(app, saved, "已保存桌面健康检测使用记录");
+    publish_collected_records(app, saved, "Saved desktop health check usage record");
     Ok(saved)
 }
 
@@ -1133,21 +1133,21 @@ async fn fetch_usage_queue(config: &GuiConfigFile) -> Result<Vec<Value>, String>
         .query(&[("count", USAGE_QUEUE_BATCH_SIZE)])
         .send()
         .await
-        .map_err(|error| format!("读取 CPA 使用记录队列失败: {error}"))?;
+        .map_err(|error| format!("Failed to read CPA usage record queue: {error}"))?;
     let status = response.status();
     let text = response
         .text()
         .await
-        .map_err(|error| format!("读取 CPA 使用记录响应失败: {error}"))?;
+        .map_err(|error| format!("Failed to read CPA usage record response: {error}"))?;
     if !status.is_success() {
         return Err(format!(
-            "CPA 使用记录队列返回 HTTP {}: {}",
+            "CPA usage record queue returned HTTP {}: {}",
             status.as_u16(),
             text.trim()
         ));
     }
     serde_json::from_str::<Vec<Value>>(&text)
-        .map_err(|error| format!("解析 CPA 使用记录失败: {error}"))
+        .map_err(|error| format!("Failed to parse CPA usage record: {error}"))
 }
 
 fn set_collector_error(app: &tauri::AppHandle, error: String) {
@@ -1203,7 +1203,7 @@ fn enqueue_usage_queue_items(
         .into_iter()
         .map(|item| {
             serde_json::to_string(&item)
-                .map_err(|error| format!("序列化 CPA 使用记录失败: {error}"))
+                .map_err(|error| format!("Failed to serialize CPA usage record: {error}"))
         })
         .collect::<Result<Vec<_>, _>>()?;
     enqueue_usage_raw_messages(connection, source, messages)
@@ -1219,7 +1219,7 @@ fn enqueue_usage_raw_messages(
     }
     let transaction = connection
         .transaction()
-        .map_err(|error| format!("开始 SQLite 使用记录 inbox 事务失败: {error}"))?;
+        .map_err(|error| format!("Failed to begin SQLite usage record inbox transaction: {error}"))?;
     let mut statement = transaction
         .prepare(
             r#"
@@ -1229,7 +1229,7 @@ fn enqueue_usage_raw_messages(
             ) VALUES (?1, ?2, ?3, 'pending', 0, ?4, ?4, ?4)
             "#,
         )
-        .map_err(|error| format!("准备 SQLite 使用记录 inbox 写入失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare SQLite usage record inbox write: {error}"))?;
     let received_at = Local::now().to_rfc3339();
     let mut inserted = 0_usize;
     for raw_message in messages {
@@ -1241,13 +1241,13 @@ fn enqueue_usage_raw_messages(
                     raw_message,
                     received_at,
                 ])
-                .map_err(|error| format!("写入 SQLite 使用记录 inbox 失败: {error}"))?,
+                .map_err(|error| format!("Failed to write SQLite usage record inbox: {error}"))?,
         );
     }
     drop(statement);
     transaction
         .commit()
-        .map_err(|error| format!("提交 SQLite 使用记录 inbox 失败: {error}"))?;
+        .map_err(|error| format!("Failed to commit SQLite usage record inbox: {error}"))?;
     Ok(inserted)
 }
 
@@ -1274,7 +1274,7 @@ fn process_usage_inbox(
     let mut records = Vec::with_capacity(rows.len());
     for row in rows {
         let parsed = serde_json::from_str::<Value>(&row.raw_message)
-            .map_err(|error| format!("解析 inbox JSON 失败: {error}"))
+            .map_err(|error| format!("Failed to parse inbox JSON: {error}"))
             .and_then(|value| normalize_usage_record(value, config));
         match parsed {
             Ok(mut record) => {
@@ -1292,7 +1292,7 @@ fn process_usage_inbox(
     let persist_result = (|| -> Result<usize, String> {
         let transaction = connection
             .transaction()
-            .map_err(|error| format!("开始 SQLite inbox 处理事务失败: {error}"))?;
+            .map_err(|error| format!("Failed to begin SQLite inbox processing transaction: {error}"))?;
         let inserted = insert_usage_records_in_transaction(&transaction, &records)?;
         let processed_at = Local::now().to_rfc3339();
         for (row, record) in valid_rows.iter().zip(records.iter()) {
@@ -1307,11 +1307,11 @@ fn process_usage_inbox(
                     "#,
                     params![record.id, processed_at, row.id],
                 )
-                .map_err(|error| format!("标记 SQLite 使用记录 inbox 已处理失败: {error}"))?;
+                .map_err(|error| format!("Failed to mark SQLite usage record inbox as processed: {error}"))?;
         }
         transaction
             .commit()
-            .map_err(|error| format!("提交 SQLite inbox 处理事务失败: {error}"))?;
+            .map_err(|error| format!("Failed to commit SQLite inbox processing transaction: {error}"))?;
         Ok(inserted)
     })();
     match persist_result {
@@ -1338,7 +1338,7 @@ fn list_processable_usage_inbox(
             LIMIT ?2
             "#,
         )
-        .map_err(|error| format!("准备读取 SQLite 使用记录 inbox 失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare reading SQLite usage record inbox: {error}"))?;
     let rows = statement
         .query_map(
             params![
@@ -1354,9 +1354,9 @@ fn list_processable_usage_inbox(
                 })
             },
         )
-        .map_err(|error| format!("查询 SQLite 使用记录 inbox 失败: {error}"))?
+        .map_err(|error| format!("Failed to query SQLite usage record inbox: {error}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读取 SQLite 使用记录 inbox 失败: {error}"))?;
+        .map_err(|error| format!("Failed to read SQLite usage record inbox: {error}"))?;
     Ok(rows)
 }
 
@@ -1378,7 +1378,7 @@ fn mark_usage_inbox_decode_failed(
         )
         .map(|_| ())
         .map_err(|update_error| {
-            format!("标记 SQLite 使用记录 inbox 解码失败时出错: {update_error}")
+            format!("Error while marking SQLite usage record inbox decode as failed: {update_error}")
         })
 }
 
@@ -1408,7 +1408,7 @@ fn mark_usage_inbox_process_failed(
                 params![status, next_attempt, error, now, row.id],
             )
             .map_err(|update_error| {
-                format!("标记 SQLite 使用记录 inbox 处理失败时出错: {update_error}")
+                format!("Error while marking SQLite usage record inbox processing as failed: {update_error}")
             })?;
     }
     Ok(())
@@ -1431,13 +1431,13 @@ fn cleanup_usage_inbox(connection: &Connection, now: DateTime<Local>) -> Result<
             "DELETE FROM usage_inbox WHERE status = 'processed' AND processed_at < ?1",
             params![processed_cutoff],
         )
-        .map_err(|error| format!("清理已处理使用记录 inbox 失败: {error}"))?;
+        .map_err(|error| format!("Failed to clean up processed usage record inbox: {error}"))?;
     connection
         .execute(
             "DELETE FROM usage_inbox WHERE status IN ('decode_failed', 'discarded') AND updated_at < ?1",
             params![failed_cutoff],
         )
-        .map_err(|error| format!("清理失败使用记录 inbox 失败: {error}"))?;
+        .map_err(|error| format!("Failed to clean up failed usage record inbox: {error}"))?;
     Ok(())
 }
 
@@ -1448,11 +1448,11 @@ fn insert_usage_records(
 ) -> Result<usize, String> {
     let transaction = connection
         .transaction()
-        .map_err(|error| format!("开始 SQLite 使用记录事务失败: {error}"))?;
+        .map_err(|error| format!("Failed to begin SQLite usage record transaction: {error}"))?;
     let inserted = insert_usage_records_in_transaction(&transaction, records)?;
     transaction
         .commit()
-        .map_err(|error| format!("提交 SQLite 使用记录失败: {error}"))?;
+        .map_err(|error| format!("Failed to commit SQLite usage record: {error}"))?;
     Ok(inserted)
 }
 
@@ -1483,7 +1483,7 @@ fn insert_usage_records_in_transaction(
             )
             "#,
         )
-        .map_err(|error| format!("准备 SQLite 使用记录写入失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare SQLite usage record write: {error}"))?;
     let created_at = Local::now().to_rfc3339();
     let mut inserted = 0_usize;
     for record in records {
@@ -1554,7 +1554,7 @@ fn insert_usage_records_in_transaction(
                     to_sql_i64(record.tokens.total_tokens),
                     created_at,
                 ])
-                .map_err(|error| format!("写入 SQLite 使用记录失败: {error}"))?,
+                .map_err(|error| format!("Failed to write SQLite usage record: {error}"))?,
         );
     }
     Ok(inserted)
@@ -1563,7 +1563,7 @@ fn insert_usage_records_in_transaction(
 fn normalize_usage_record(value: Value, config: &GuiConfigFile) -> Result<UsageRecord, String> {
     let object = value
         .as_object()
-        .ok_or_else(|| "CPA 使用记录必须是 JSON 对象".to_string())?;
+        .ok_or_else(|| "CPA usage record must be a JSON object".to_string())?;
     let timestamp = string_field(object, "timestamp")
         .filter(|value| DateTime::parse_from_rfc3339(value).is_ok())
         .unwrap_or_else(|| Local::now().to_rfc3339());
@@ -1790,7 +1790,7 @@ fn load_usage_overview(
                 ))
             },
         )
-        .map_err(|error| format!("统计 SQLite 使用记录失败: {error}"))?;
+        .map_err(|error| format!("Failed to aggregate SQLite usage record: {error}"))?;
 
     let (estimated_cost, priced_requests) = load_estimated_cost(connection, &filter)?;
 
@@ -1810,7 +1810,7 @@ fn load_usage_overview(
     );
     let mut statement = connection
         .prepare(&timeline_sql)
-        .map_err(|error| format!("准备 SQLite 使用趋势查询失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare SQLite usage trend query: {error}"))?;
     let timeline = statement
         .query_map(params_from_iter(filter.params.iter()), |row| {
             Ok(UsageTimelinePoint {
@@ -1821,9 +1821,9 @@ fn load_usage_overview(
                 tokens: from_sql_i64(row.get(4)?),
             })
         })
-        .map_err(|error| format!("查询 SQLite 使用趋势失败: {error}"))?
+        .map_err(|error| format!("Failed to query SQLite usage trend: {error}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读取 SQLite 使用趋势失败: {error}"))?;
+        .map_err(|error| format!("Failed to read SQLite usage trend: {error}"))?;
 
     let mut overview = UsageOverview {
         total_requests: from_sql_i64(summary.0),
@@ -1897,7 +1897,7 @@ fn load_usage_cost_groups(
     );
     let mut statement = connection
         .prepare(&sql)
-        .map_err(|error| format!("准备使用成本查询失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare usage cost query: {error}"))?;
     let groups = statement
         .query_map(params_from_iter(filter.params.iter()), |row| {
             Ok(UsageCostGroup {
@@ -1922,9 +1922,9 @@ fn load_usage_cost_groups(
                 total_tokens: from_sql_i64(row.get(16)?),
             })
         })
-        .map_err(|error| format!("查询使用成本失败: {error}"))?
+        .map_err(|error| format!("Failed to query usage cost: {error}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读取使用成本失败: {error}"))?;
+        .map_err(|error| format!("Failed to read usage cost: {error}"))?;
     Ok(groups)
 }
 
@@ -2020,15 +2020,15 @@ fn parse_model_price_catalog(
     updated_at_ms: i64,
 ) -> Result<HashMap<String, ModelPrice>, String> {
     let catalog = serde_json::from_str::<ModelPriceCatalog>(content)
-        .map_err(|error| format!("解析模型价格文件失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse model price file: {error}"))?;
     if catalog.schema_version != 1 {
         return Err(format!(
-            "不支持的模型价格文件版本 {}",
+            "Unsupported model price file version {}",
             catalog.schema_version
         ));
     }
     if catalog.models.is_empty() {
-        return Err("模型价格文件不包含任何模型".to_string());
+        return Err("Model price file does not contain any models".to_string());
     }
     let _catalog_updated_at = catalog.updated_at;
     let mut prices = HashMap::with_capacity(catalog.models.len());
@@ -2173,7 +2173,7 @@ fn load_model_prices(connection: &Connection) -> Result<HashMap<String, ModelPri
             FROM model_prices ORDER BY model
             "#,
         )
-        .map_err(|error| format!("准备模型价格查询失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare model price query: {error}"))?;
     let prices = statement
         .query_map([], |row| {
             Ok(ModelPrice {
@@ -2192,9 +2192,9 @@ fn load_model_prices(connection: &Connection) -> Result<HashMap<String, ModelPri
                 updated_at_ms: row.get(12)?,
             })
         })
-        .map_err(|error| format!("查询模型价格失败: {error}"))?
+        .map_err(|error| format!("Failed to query model price: {error}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读取模型价格失败: {error}"))?;
+        .map_err(|error| format!("Failed to read model price: {error}"))?;
     for price in prices {
         if price.source != "litellm" {
             if let Some(existing) = merged
@@ -2212,7 +2212,7 @@ fn load_model_prices(connection: &Connection) -> Result<HashMap<String, ModelPri
 
 fn validate_model_price(price: &ModelPrice) -> Result<(), String> {
     if price.model.trim().is_empty() {
-        return Err("模型名称不能为空".to_string());
+        return Err("Model name cannot be empty".to_string());
     }
     for value in [
         price.prompt,
@@ -2222,7 +2222,7 @@ fn validate_model_price(price: &ModelPrice) -> Result<(), String> {
         price.cache_creation,
     ] {
         if !value.is_finite() || value < 0.0 {
-            return Err(format!("模型 {} 包含无效价格", price.model));
+            return Err(format!("Model {} contains an invalid price", price.model));
         }
     }
     Ok(())
@@ -2270,7 +2270,7 @@ fn upsert_model_price(connection: &Connection, price: &ModelPrice) -> Result<(),
                 price.updated_at_ms,
             ],
         )
-        .map_err(|error| format!("保存模型价格失败: {error}"))?;
+        .map_err(|error| format!("Failed to save model price: {error}"))?;
     Ok(())
 }
 
@@ -2369,7 +2369,7 @@ pub(crate) fn delete_usage_model_price(model: String) -> Result<(), String> {
             "DELETE FROM model_prices WHERE model = ?1 COLLATE NOCASE",
             params![model.trim()],
         )
-        .map_err(|error| format!("删除模型价格失败: {error}"))?;
+        .map_err(|error| format!("Failed to delete model price: {error}"))?;
     Ok(())
 }
 
@@ -2420,10 +2420,10 @@ pub(crate) async fn sync_usage_model_prices(
     if !used_builtin {
         let transaction = connection
             .transaction()
-            .map_err(|error| format!("开始更新模型价格失败: {error}"))?;
+            .map_err(|error| format!("Failed to begin model price update: {error}"))?;
         transaction
             .execute("DELETE FROM model_prices WHERE source = 'github'", [])
-            .map_err(|error| format!("清理旧模型价格失败: {error}"))?;
+            .map_err(|error| format!("Failed to clean up old model prices: {error}"))?;
         for price in remote_prices.values() {
             if manual_models.contains(&price.model.to_ascii_lowercase()) {
                 result.skipped += 1;
@@ -2434,11 +2434,11 @@ pub(crate) async fn sync_usage_model_prices(
         }
         transaction
             .commit()
-            .map_err(|error| format!("提交模型价格更新失败: {error}"))?;
+            .map_err(|error| format!("Failed to commit model price update: {error}"))?;
     } else {
         connection
             .execute("DELETE FROM model_prices WHERE source = 'github'", [])
-            .map_err(|error| format!("恢复软件内置模型价格失败: {error}"))?;
+            .map_err(|error| format!("Failed to restore built-in model prices: {error}"))?;
     }
 
     let filter = build_usage_filter(&query);
@@ -2488,7 +2488,7 @@ fn load_usage_analysis(
 ) -> Result<UsageAnalysis, String> {
     Ok(UsageAnalysis {
         models: load_simple_categories(connection, query, "model", "unknown")?,
-        providers: load_simple_categories(connection, query, "provider", "未知 Provider")?,
+        providers: load_simple_categories(connection, query, "provider", "Unknown Provider")?,
         sources: load_source_categories(connection, query, config)?,
         api_keys: load_api_key_categories(connection, query)?,
     })
@@ -2499,7 +2499,7 @@ fn load_source_categories(
     query: &UsageQuery,
     config: &GuiConfigFile,
 ) -> Result<Vec<UsageCategory>, String> {
-    let mut categories = load_simple_categories(connection, query, "source", "未知来源")?;
+    let mut categories = load_simple_categories(connection, query, "source", "Unknown Source")?;
     for category in &mut categories {
         category.label = usage_source_display(config, "", &category.key);
     }
@@ -2531,7 +2531,7 @@ fn load_simple_categories(
     values.extend(filter.params);
     let mut statement = connection
         .prepare(&sql)
-        .map_err(|error| format!("准备 SQLite 使用分析查询失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare SQLite usage analysis query: {error}"))?;
     let categories = statement
         .query_map(params_from_iter(values.iter()), |row| {
             let key = row.get::<_, String>(0)?;
@@ -2543,9 +2543,9 @@ fn load_simple_categories(
                 tokens: from_sql_i64(row.get(3)?),
             })
         })
-        .map_err(|error| format!("查询 SQLite 使用分析失败: {error}"))?
+        .map_err(|error| format!("Failed to query SQLite usage analysis: {error}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读取 SQLite 使用分析失败: {error}"))?;
+        .map_err(|error| format!("Failed to read SQLite usage analysis: {error}"))?;
     Ok(categories)
 }
 
@@ -2557,7 +2557,7 @@ fn load_api_key_categories(
     let sql = format!(
         r#"
         SELECT
-            COALESCE(NULLIF(TRIM(api_key_hash), ''), '未记录密钥'),
+            COALESCE(NULLIF(TRIM(api_key_hash), ''), 'Unrecorded Key'),
             MAX(TRIM(api_key_remark)),
             MAX(TRIM(api_key_display)),
             COUNT(*),
@@ -2571,7 +2571,7 @@ fn load_api_key_categories(
     );
     let mut statement = connection
         .prepare(&sql)
-        .map_err(|error| format!("准备 SQLite API Key 使用分析查询失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare SQLite API Key usage analysis query: {error}"))?;
     let categories = statement
         .query_map(params_from_iter(filter.params.iter()), |row| {
             let key = row.get::<_, String>(0)?;
@@ -2586,9 +2586,9 @@ fn load_api_key_categories(
                 tokens: from_sql_i64(row.get(5)?),
             })
         })
-        .map_err(|error| format!("查询 SQLite API Key 使用分析失败: {error}"))?
+        .map_err(|error| format!("Failed to query SQLite API Key usage analysis: {error}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读取 SQLite API Key 使用分析失败: {error}"))?;
+        .map_err(|error| format!("Failed to read SQLite API Key usage analysis: {error}"))?;
     Ok(categories)
 }
 
@@ -2614,7 +2614,7 @@ fn load_usage_events(
             row.get::<_, i64>(0)
         })
         .map(from_sql_i64)
-        .map_err(|error| format!("统计 SQLite 使用事件失败: {error}"))?
+        .map_err(|error| format!("Failed to aggregate SQLite usage events: {error}"))?
         .min(usize::MAX as u64) as usize;
     let page_size = query.page_size.unwrap_or(50).clamp(20, 200);
     let total_pages = total.div_ceil(page_size).max(1);
@@ -2643,12 +2643,12 @@ fn load_usage_events(
     values.push(SqlValue::Integer(offset.min(i64::MAX as usize) as i64));
     let mut statement = connection
         .prepare(&sql)
-        .map_err(|error| format!("准备 SQLite 使用事件查询失败: {error}"))?;
+        .map_err(|error| format!("Failed to prepare SQLite usage events query: {error}"))?;
     let mut items = statement
         .query_map(params_from_iter(values.iter()), usage_record_from_row)
-        .map_err(|error| format!("查询 SQLite 使用事件失败: {error}"))?
+        .map_err(|error| format!("Failed to query SQLite usage events: {error}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读取 SQLite 使用事件失败: {error}"))?;
+        .map_err(|error| format!("Failed to read SQLite usage events: {error}"))?;
     for item in &mut items {
         item.source_display = usage_source_display(config, &item.provider, &item.source);
     }
@@ -2709,7 +2709,7 @@ fn total_usage_records() -> Result<u64, String> {
             row.get::<_, i64>(0)
         })
         .map(from_sql_i64)
-        .map_err(|error| format!("统计 SQLite 使用记录总数失败: {error}"))
+        .map_err(|error| format!("Failed to count total SQLite usage records: {error}"))
 }
 
 fn query_window_minutes(query: &UsageQuery, first: Option<i64>, last: Option<i64>) -> f64 {
@@ -2730,10 +2730,10 @@ fn query_window_minutes(query: &UsageQuery, first: Option<i64>, last: Option<i64
 
 fn usage_root_dir() -> Result<PathBuf, String> {
     let executable =
-        std::env::current_exe().map_err(|error| format!("读取程序路径失败: {error}"))?;
+        std::env::current_exe().map_err(|error| format!("Failed to read program path: {error}"))?;
     let directory = executable
         .parent()
-        .ok_or_else(|| "程序路径没有父目录".to_string())?;
+        .ok_or_else(|| "Program path has no parent directory".to_string())?;
     Ok(directory.join(USAGE_DIR_NAME))
 }
 
@@ -2839,14 +2839,14 @@ fn api_key_category_label(remark: String, display: String) -> String {
     } else if !display.is_empty() {
         mask_api_key(&display)
     } else {
-        "未记录密钥".to_string()
+        "Unrecorded Key".to_string()
     }
 }
 
 fn usage_source_display(config: &GuiConfigFile, provider: &str, source: &str) -> String {
     let source = source.trim();
     if source.is_empty() {
-        return "未知来源".to_string();
+        return "Unknown Source".to_string();
     }
     if let Some(remark) = config.api_access_remark_for_source(provider, source) {
         return remark.to_string();
@@ -2967,7 +2967,7 @@ mod tests {
             auth_type: "oauth".to_string(),
             api_key_hash: "hash".to_string(),
             api_key_display: "12••••".to_string(),
-            api_key_remark: "内置密钥".to_string(),
+            api_key_remark: "Built-in Key".to_string(),
             request_id: id.to_string(),
             generate: true,
             cached_tokens: 2,
@@ -2992,8 +2992,8 @@ mod tests {
     #[test]
     fn api_key_category_uses_either_remark_or_masked_key() {
         assert_eq!(
-            api_key_category_label("生产环境".to_string(), "12••••".to_string()),
-            "生产环境"
+            api_key_category_label("Production".to_string(), "12••••".to_string()),
+            "Production"
         );
         assert_eq!(
             api_key_category_label(String::new(), "123456".to_string()),
@@ -3008,10 +3008,10 @@ mod tests {
         config.api_access_remarks.push(crate::GuiApiAccessRemark {
             provider_section: "codex-api-key".to_string(),
             api_key_hash: hash_text(key),
-            remark: "生产环境".to_string(),
+            remark: "Production".to_string(),
         });
 
-        assert_eq!(usage_source_display(&config, "codex", key), "生产环境");
+        assert_eq!(usage_source_display(&config, "codex", key), "Production");
         assert_eq!(
             usage_source_display(&GuiConfigFile::default(), "codex", key),
             "sk-1••••wxyz"
@@ -3189,7 +3189,7 @@ mod tests {
                     '2026-07-17-20', 100, 20, 'source', 'auth', 0, 'openai',
                     'gpt-test', 'alias-test', 'high', '', '', '',
                     'POST /v1/responses', 'oauth', 'legacy-hash', '12••••',
-                    '旧密钥', 'request-1', 10, 20, 5, 2, 3, 30,
+                    'legacy-key', 'request-1', 10, 20, 5, 2, 3, 30,
                     '2026-07-17T20:30:01+08:00'
                 )
                 "#,

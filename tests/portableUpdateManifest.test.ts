@@ -17,11 +17,11 @@ describe('Windows 便携更新清单', () => {
       };
       for (const [arch, contents] of Object.entries(payloads)) {
         await writeFile(
-          join(root, `EasyCLIProxyAPI-update-v1.2.3-Windows-${arch}.zip`),
+          join(root, `EvelProxyTool-update-v1.2.3-Windows-${arch}.zip`),
           Buffer.from(`${arch} legacy update package`),
         );
         await writeFile(
-          join(root, `EasyCLIProxyAPI-v1.2.3-Windows-${arch}.zip`),
+          join(root, `EvelProxyTool-v1.2.3-Windows-${arch}.zip`),
           contents,
         );
       }
@@ -30,8 +30,8 @@ describe('Windows 便携更新清单', () => {
       const manifest = await generatePortableUpdateManifest({
         directory: root,
         output,
-        repository: 'router-for-me/EasyCLIProxyAPI',
-        gitcodeRepository: 'mirror-owner/EasyCLIProxyAPI',
+        repository: 'router-for-me/EvelProxyTool',
+        gitcodeRepository: 'mirror-owner/EvelProxyTool',
         tag: 'v1.2.3',
         publishedAt: '2026-07-24T00:00:00.000Z',
       });
@@ -41,17 +41,17 @@ describe('Windows 便携更新清单', () => {
       for (const arch of ['amd64', 'aarch64'] as const) {
         const asset = manifest.assets[`windows-${arch}`];
         expect(asset.url).toBe(
-          `https://github.com/router-for-me/EasyCLIProxyAPI/releases/download/v1.2.3/EasyCLIProxyAPI-update-v1.2.3-Windows-${arch}.zip`,
+          `https://github.com/router-for-me/EvelProxyTool/releases/download/v1.2.3/EvelProxyTool-update-v1.2.3-Windows-${arch}.zip`,
         );
         expect(asset.fallbackUrls).toEqual([
-          `https://api.gitcode.com/api/v5/repos/mirror-owner/EasyCLIProxyAPI/releases/v1.2.3/attach_files/EasyCLIProxyAPI-update-v1.2.3-Windows-${arch}.zip/download`,
+          `https://api.gitcode.com/api/v5/repos/mirror-owner/EvelProxyTool/releases/v1.2.3/attach_files/EvelProxyTool-update-v1.2.3-Windows-${arch}.zip/download`,
         ]);
         const fullAsset = manifest.fullAssets[`windows-${arch}`];
         expect(fullAsset.url).toBe(
-          `https://github.com/router-for-me/EasyCLIProxyAPI/releases/download/v1.2.3/EasyCLIProxyAPI-v1.2.3-Windows-${arch}.zip`,
+          `https://github.com/router-for-me/EvelProxyTool/releases/download/v1.2.3/EvelProxyTool-v1.2.3-Windows-${arch}.zip`,
         );
         expect(fullAsset.fallbackUrls).toEqual([
-          `https://api.gitcode.com/api/v5/repos/mirror-owner/EasyCLIProxyAPI/releases/v1.2.3/attach_files/EasyCLIProxyAPI-v1.2.3-Windows-${arch}.zip/download`,
+          `https://api.gitcode.com/api/v5/repos/mirror-owner/EvelProxyTool/releases/v1.2.3/attach_files/EvelProxyTool-v1.2.3-Windows-${arch}.zip/download`,
         ]);
         expect(fullAsset.sizeBytes).toBe(payloads[arch].byteLength);
         expect(fullAsset.sha256).toBe(createHash('sha256').update(payloads[arch]).digest('hex'));
@@ -65,13 +65,13 @@ describe('Windows 便携更新清单', () => {
     const root = await mkdtemp(join(tmpdir(), 'easycli-manifest-missing-'));
     try {
       await writeFile(
-        join(root, 'EasyCLIProxyAPI-update-v1.2.3-Windows-amd64.zip'),
+        join(root, 'EvelProxyTool-update-v1.2.3-Windows-amd64.zip'),
         'amd64',
       );
       await expect(generatePortableUpdateManifest({
         directory: root,
         output: join(root, 'portable-update-windows.json'),
-        repository: 'router-for-me/EasyCLIProxyAPI',
+        repository: 'router-for-me/EvelProxyTool',
         tag: 'v1.2.3',
       })).rejects.toThrow();
     } finally {
@@ -84,33 +84,33 @@ describe('Windows 便携更新清单', () => {
     try {
       for (const arch of ['amd64', 'aarch64']) {
         await writeFile(
-          join(root, `EasyCLIProxyAPI-update-v1.2.3-Windows-${arch}.zip`),
+          join(root, `EvelProxyTool-update-v1.2.3-Windows-${arch}.zip`),
           `legacy update ${arch}`,
         );
         await writeFile(
-          join(root, `EasyCLIProxyAPI-v1.2.3-Windows-${arch}.zip`),
+          join(root, `EvelProxyTool-v1.2.3-Windows-${arch}.zip`),
           `full package ${arch}`,
         );
       }
       const manifest = await generatePortableUpdateManifest({
         directory: root,
         output: join(root, 'portable-update-windows.json'),
-        repository: 'router-for-me/EasyCLIProxyAPI',
+        repository: 'router-for-me/EvelProxyTool',
         tag: 'v1.2.3',
         publishedAt: '2026-08-02T00:00:00.000Z',
       });
 
       expect(manifest.assets['windows-amd64'].url).toEndWith(
-        '/EasyCLIProxyAPI-update-v1.2.3-Windows-amd64.zip',
+        '/EvelProxyTool-update-v1.2.3-Windows-amd64.zip',
       );
       expect(manifest.assets['windows-aarch64'].url).toEndWith(
-        '/EasyCLIProxyAPI-update-v1.2.3-Windows-aarch64.zip',
+        '/EvelProxyTool-update-v1.2.3-Windows-aarch64.zip',
       );
       expect(manifest.fullAssets['windows-amd64'].url).toEndWith(
-        '/EasyCLIProxyAPI-v1.2.3-Windows-amd64.zip',
+        '/EvelProxyTool-v1.2.3-Windows-amd64.zip',
       );
       expect(manifest.fullAssets['windows-aarch64'].url).toEndWith(
-        '/EasyCLIProxyAPI-v1.2.3-Windows-aarch64.zip',
+        '/EvelProxyTool-v1.2.3-Windows-aarch64.zip',
       );
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -127,7 +127,7 @@ describe('跨平台便携更新清单', () => {
     try {
       for (const arch of ['amd64', 'aarch64']) {
         await writeFile(
-          join(root, `EasyCLIProxyAPI-v1.2.3-${display}-${arch}.${suffix}`),
+          join(root, `EvelProxyTool-v1.2.3-${display}-${arch}.${suffix}`),
           `${platform} ${arch} full package`,
         );
       }
@@ -136,7 +136,7 @@ describe('跨平台便携更新清单', () => {
         directory: root,
         output,
         platform,
-        repository: 'router-for-me/EasyCLIProxyAPI',
+        repository: 'router-for-me/EvelProxyTool',
         tag: 'v1.2.3',
         publishedAt: '2026-08-10T00:00:00.000Z',
       });
@@ -144,7 +144,7 @@ describe('跨平台便携更新清单', () => {
       expect(manifest.fullAssets).toBeUndefined();
       for (const arch of ['amd64', 'aarch64']) {
         expect(manifest.assets[`${platform}-${arch}`].url).toEndWith(
-          `/EasyCLIProxyAPI-v1.2.3-${display}-${arch}.${suffix}`,
+          `/EvelProxyTool-v1.2.3-${display}-${arch}.${suffix}`,
         );
       }
       expect(JSON.parse(await readFile(output, 'utf8'))).toEqual(manifest);

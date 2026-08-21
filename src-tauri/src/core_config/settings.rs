@@ -2,23 +2,23 @@ use super::*;
 
 pub(crate) fn validate_core_api_key(api_key: &str) -> Result<(), String> {
     if api_key.is_empty() {
-        return Err("鉴权密钥不能为空".to_string());
+        return Err("Auth key cannot be empty".to_string());
     }
     if !api_key.bytes().all(|byte| (0x21..=0x7e).contains(&byte)) {
-        return Err("鉴权密钥只能包含 ASCII 可见字符，且不能包含空格".to_string());
+        return Err("Auth key can only contain visible ASCII characters and must not contain spaces".to_string());
     }
     if is_example_core_api_key(api_key) {
-        return Err("不能使用内核模板里的示例鉴权密钥".to_string());
+        return Err("Cannot use the example auth key from the core template".to_string());
     }
     Ok(())
 }
 
 pub(crate) fn validate_api_key_remark(remark: &str) -> Result<(), String> {
     if remark.chars().count() > 80 {
-        return Err("密钥备注不能超过 80 个字符".to_string());
+        return Err("Key remark cannot exceed 80 characters".to_string());
     }
     if remark.chars().any(char::is_control) {
-        return Err("密钥备注不能包含换行或控制字符".to_string());
+        return Err("Key remark cannot contain newlines or control characters".to_string());
     }
     Ok(())
 }
@@ -30,7 +30,7 @@ pub(crate) fn validate_api_access_provider_section(section: &str) -> Result<(), 
     ) {
         Ok(())
     } else {
-        Err("API 接入类型无效".to_string())
+        Err("Invalid API access type".to_string())
     }
 }
 
@@ -75,10 +75,10 @@ impl GuiConfigFile {
 
 pub(crate) fn validate_management_secret_key(secret_key: &str) -> Result<(), String> {
     if secret_key.chars().count() > 512 {
-        return Err("管理密钥不能超过 512 个字符".to_string());
+        return Err("Management secret key cannot exceed 512 characters".to_string());
     }
     if secret_key.chars().any(char::is_control) {
-        return Err("管理密钥不能包含控制字符".to_string());
+        return Err("Management secret key cannot contain control characters".to_string());
     }
     Ok(())
 }
@@ -86,13 +86,13 @@ pub(crate) fn validate_management_secret_key(secret_key: &str) -> Result<(), Str
 pub(crate) fn validate_strong_management_secret_key(secret_key: &str) -> Result<(), String> {
     validate_management_secret_key(secret_key)?;
     if secret_key.trim().is_empty() {
-        return Err("WebUI 密钥不能为空".to_string());
+        return Err("WebUI secret key cannot be empty".to_string());
     }
     if secret_key.trim() == LEGACY_DEFAULT_MANAGEMENT_SECRET_KEY {
-        return Err("不能继续使用旧版默认 WebUI 密钥 123456".to_string());
+        return Err("Cannot continue using the legacy default WebUI secret key 123456".to_string());
     }
     if is_hashed_management_secret_key(secret_key) {
-        return Err("GUI 配置必须保存可用于管理接口认证的明文 WebUI 密钥".to_string());
+        return Err("The GUI config must store the plaintext WebUI secret key usable for management API authentication".to_string());
     }
     Ok(())
 }
@@ -101,7 +101,7 @@ pub(crate) fn generate_management_secret_key() -> Result<String, String> {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 
     let mut random = [0_u8; 32];
-    getrandom::fill(&mut random).map_err(|error| format!("生成 WebUI 安全密钥失败: {error}"))?;
+    getrandom::fill(&mut random).map_err(|error| format!("Failed to generate WebUI security key: {error}"))?;
     Ok(format!("wui-Aa9_{}", URL_SAFE_NO_PAD.encode(random)))
 }
 
@@ -149,7 +149,7 @@ pub(crate) fn validate_routing_strategy(strategy: &str) -> Result<(), String> {
     if matches!(strategy, "round-robin" | "fill-first") {
         return Ok(());
     }
-    Err("路由策略只支持 round-robin 或 fill-first".to_string())
+    Err("Routing strategy only supports round-robin or fill-first".to_string())
 }
 
 pub(crate) fn normalize_optional_config_string(
@@ -158,7 +158,7 @@ pub(crate) fn normalize_optional_config_string(
 ) -> Result<String, String> {
     let value = value.trim().to_string();
     if value.chars().any(char::is_control) {
-        return Err(format!("{field_name} 不能包含控制字符"));
+        return Err(format!("{field_name} cannot contain control characters"));
     }
     Ok(value)
 }
@@ -168,7 +168,7 @@ pub(crate) fn config_update_error_with_rollback(
     rollback_error: Option<String>,
 ) -> String {
     match rollback_error {
-        Some(rollback_error) => format!("{error}；回滚内核配置也失败: {rollback_error}"),
+        Some(rollback_error) => format!("{error}; rolling back core config also failed: {rollback_error}"),
         None => error,
     }
 }
@@ -192,9 +192,9 @@ pub(crate) fn merge_core_config_fields(
     let current_value = current
         .map(|current| {
             let current = serde_norway::from_str::<serde_norway::Value>(current)
-                .map_err(|err| format!("解析现有内核配置失败，为避免配置丢失已停止写入: {err}"))?;
+                .map_err(|err| format!("Failed to parse existing core config, aborting write to avoid data loss: {err}"))?;
             if !current.is_mapping() {
-                return Err("现有内核配置根节点必须是 YAML 映射，已停止写入".to_string());
+                return Err("Existing core config root must be a YAML mapping, aborting write".to_string());
             }
             Ok(current)
         })
@@ -218,9 +218,9 @@ pub(crate) fn merge_core_config_value(
     current: Option<serde_norway::Value>,
 ) -> Result<String, String> {
     let template_value = serde_norway::from_str::<serde_norway::Value>(template)
-        .map_err(|err| format!("解析内核配置模板失败: {err}"))?;
+        .map_err(|err| format!("Failed to parse core config template: {err}"))?;
     if !template_value.is_mapping() {
-        return Err("内核配置模板根节点必须是 YAML 映射".to_string());
+        return Err("Core config template root must be a YAML mapping".to_string());
     }
     let mut merged = template_value.clone();
 
@@ -230,9 +230,9 @@ pub(crate) fn merge_core_config_value(
 
     let rendered = render_yaml_value_changes(template, &template_value, &merged)?;
     let rendered_value = serde_norway::from_str::<serde_norway::Value>(&rendered)
-        .map_err(|err| format!("验证迁移后的内核配置失败: {err}"))?;
+        .map_err(|err| format!("Failed to validate migrated core config: {err}"))?;
     if !rendered_value.is_mapping() {
-        return Err("迁移后的内核配置根节点必须是 YAML 映射".to_string());
+        return Err("Migrated core config root must be a YAML mapping".to_string());
     }
     Ok(rendered)
 }
@@ -345,26 +345,26 @@ pub(crate) fn patch_core_network_routing_yaml(
             document,
             "request-retry",
             serde_norway::to_value(config.request_retry)
-                .map_err(|err| format!("序列化请求重试次数失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize request retry count: {err}"))?,
         )?;
         set_core_yaml_top_level_value(
             document,
             "max-retry-credentials",
             serde_norway::to_value(config.max_retry_credentials)
-                .map_err(|err| format!("序列化最大重试凭据数失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize max retry credential count: {err}"))?,
         )?;
         set_core_yaml_top_level_value(
             document,
             "max-retry-interval",
             serde_norway::to_value(config.max_retry_interval)
-                .map_err(|err| format!("序列化最大重试等待时间失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize max retry wait time: {err}"))?,
         )?;
         set_core_yaml_nested_value(
             document,
             "streaming",
             "bootstrap-retries",
             serde_norway::to_value(config.streaming_bootstrap_retries)
-                .map_err(|err| format!("序列化流式启动重试次数失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize streaming bootstrap retry count: {err}"))?,
         )?;
         Ok(*document != original)
     })
@@ -394,7 +394,7 @@ pub(crate) fn apply_network_settings(
 ) -> Result<(), String> {
     let mapping = document
         .as_mapping_mut()
-        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+        .ok_or_else(|| "Core config top level must be a YAML mapping".to_string())?;
 
     let host = config.host.trim();
     mapping.insert(
@@ -403,7 +403,7 @@ pub(crate) fn apply_network_settings(
     );
     mapping.insert(
         serde_norway::Value::String("port".to_string()),
-        serde_norway::to_value(config.port).map_err(|err| format!("序列化内核端口失败: {err}"))?,
+        serde_norway::to_value(config.port).map_err(|err| format!("Failed to serialize core port: {err}"))?,
     );
     Ok(())
 }
@@ -424,7 +424,7 @@ pub(crate) fn apply_gui_managed_settings(
             document,
             "port",
             serde_norway::to_value(config.port)
-                .map_err(|err| format!("序列化内核端口失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize core port: {err}"))?,
         )?;
         changed |= set_core_yaml_top_level_value(
             document,
@@ -475,26 +475,26 @@ pub(crate) fn apply_gui_managed_settings(
             document,
             "request-retry",
             serde_norway::to_value(config.request_retry)
-                .map_err(|err| format!("序列化请求重试次数失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize request retry count: {err}"))?,
         )?;
         changed |= set_core_yaml_top_level_value(
             document,
             "max-retry-credentials",
             serde_norway::to_value(config.max_retry_credentials)
-                .map_err(|err| format!("序列化最大重试凭据数失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize max retry credential count: {err}"))?,
         )?;
         changed |= set_core_yaml_top_level_value(
             document,
             "max-retry-interval",
             serde_norway::to_value(config.max_retry_interval)
-                .map_err(|err| format!("序列化最大重试等待时间失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize max retry wait time: {err}"))?,
         )?;
         changed |= set_core_yaml_nested_value(
             document,
             "streaming",
             "bootstrap-retries",
             serde_norway::to_value(config.streaming_bootstrap_retries)
-                .map_err(|err| format!("序列化流式启动重试次数失败: {err}"))?,
+                .map_err(|err| format!("Failed to serialize streaming bootstrap retry count: {err}"))?,
         )?;
         Ok(changed)
     })?
@@ -502,14 +502,14 @@ pub(crate) fn apply_gui_managed_settings(
 
     let updated = patch_core_api_keys_yaml(&updated, &gui_api_key_values(&config.api_keys))?;
     serde_norway::from_str::<serde_norway::Value>(&updated)
-        .map_err(|err| format!("验证启动内核配置失败: {err}"))?;
+        .map_err(|err| format!("Failed to validate startup core config: {err}"))?;
     Ok(updated)
 }
 
 pub(crate) fn write_bytes_directly(path: &Path, content: &[u8]) -> Result<(), String> {
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(directory)
-        .map_err(|error| format!("创建配置目录失败 {}: {error}", path_to_string(directory)))?;
+        .map_err(|error| format!("Failed to create config directory {}: {error}", path_to_string(directory)))?;
 
     let write_result = (|| -> io::Result<()> {
         let mut file = fs::OpenOptions::new()
@@ -523,7 +523,7 @@ pub(crate) fn write_bytes_directly(path: &Path, content: &[u8]) -> Result<(), St
         file.sync_all()
     })();
 
-    write_result.map_err(|error| format!("直接写入配置失败 {}: {error}", path_to_string(path)))?;
+    write_result.map_err(|error| format!("Failed to write config directly {}: {error}", path_to_string(path)))?;
     remember_software_write(path, content);
     Ok(())
 }
@@ -534,7 +534,7 @@ pub(crate) fn write_bytes_atomically(path: &Path, content: &[u8]) -> Result<(), 
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(directory)
-        .map_err(|error| format!("创建配置目录失败 {}: {error}", path_to_string(directory)))?;
+        .map_err(|error| format!("Failed to create config directory {}: {error}", path_to_string(directory)))?;
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -559,7 +559,7 @@ pub(crate) fn write_bytes_atomically(path: &Path, content: &[u8]) -> Result<(), 
     if let Err(error) = write_result {
         let _ = fs::remove_file(&temporary_path);
         return Err(format!(
-            "原子写入配置失败 {}: {error}",
+            "Failed to atomically write config {}: {error}",
             path_to_string(path)
         ));
     }
@@ -690,7 +690,7 @@ pub(crate) fn load_or_create_gui_config() -> Result<GuiConfigFile, String> {
 
     let (mut config, presence, mut changed, gui_parse_failed) = if gui_config_exists {
         let content = fs::read_to_string(&config_path)
-            .map_err(|err| format!("读取 GUI 配置失败 {}: {err}", path_to_string(&config_path)))?;
+            .map_err(|err| format!("Failed to read GUI config {}: {err}", path_to_string(&config_path)))?;
         match (
             toml::from_str::<GuiConfigFile>(&content),
             toml::from_str::<GuiConfigPresence>(&content),
@@ -706,14 +706,14 @@ pub(crate) fn load_or_create_gui_config() -> Result<GuiConfigFile, String> {
     } else if legacy_config_exists {
         let content = fs::read_to_string(&legacy_config_path).map_err(|err| {
             format!(
-                "读取旧 GUI 配置失败 {}: {err}",
+                "Failed to read legacy GUI config {}: {err}",
                 path_to_string(&legacy_config_path)
             )
         })?;
         let config = serde_yaml::from_str::<GuiConfigFile>(&content)
-            .map_err(|err| format!("解析旧 GUI 配置失败: {err}"))?;
+            .map_err(|err| format!("Failed to parse legacy GUI config: {err}"))?;
         let presence = serde_yaml::from_str::<GuiConfigPresence>(&content)
-            .map_err(|err| format!("解析旧 GUI 配置字段失败: {err}"))?;
+            .map_err(|err| format!("Failed to parse legacy GUI config fields: {err}"))?;
         (config, presence, true, false)
     } else {
         (
@@ -862,14 +862,14 @@ pub(crate) fn load_or_create_gui_config() -> Result<GuiConfigFile, String> {
     }
     if management_secret_rotated {
         if let Err(error) = patch_core_management_secret_key(&config.management_secret_key) {
-            eprintln!("更新旧版 CPA WebUI 密钥失败，将在下次启动内核时重试: {error}");
+            eprintln!("Failed to update legacy CPA WebUI secret key, will retry on next core startup: {error}");
         }
     }
     if !config.auth_dir.trim().is_empty() {
         let install_dir = core_install_dir()?;
         let auth_dir = auth_dir_path_for_core(&config.auth_dir, &install_dir);
         fs::create_dir_all(&auth_dir)
-            .map_err(|error| format!("创建凭证目录失败 {}: {error}", path_to_string(&auth_dir)))?;
+            .map_err(|error| format!("Failed to create credentials directory {}: {error}", path_to_string(&auth_dir)))?;
     }
     Ok(config)
 }
@@ -1039,7 +1039,7 @@ pub(crate) fn restore_main_window_size(app: &tauri::AppHandle) -> Result<(), Str
     };
     let window = app
         .get_webview_window("main")
-        .ok_or_else(|| "主窗口不存在，无法恢复窗口尺寸".to_string())?;
+        .ok_or_else(|| "Main window does not exist, cannot restore window size".to_string())?;
     let restored_size = fit_window_size_to_current_monitor(&window, saved_size);
 
     window
@@ -1047,7 +1047,7 @@ pub(crate) fn restore_main_window_size(app: &tauri::AppHandle) -> Result<(), Str
             f64::from(restored_size.width),
             f64::from(restored_size.height),
         ))
-        .map_err(|error| format!("恢复主窗口尺寸失败: {error}"))?;
+        .map_err(|error| format!("Failed to restore main window size: {error}"))?;
     window_size_state.replace(restored_size)
 }
 
@@ -1058,15 +1058,15 @@ pub(crate) fn persist_main_window_size(app: &tauri::AppHandle) -> Result<(), Str
         None => {
             let window = app
                 .get_webview_window("main")
-                .ok_or_else(|| "主窗口不存在，无法保存窗口尺寸".to_string())?;
+                .ok_or_else(|| "Main window does not exist, cannot save window size".to_string())?;
             let physical_size = window
                 .inner_size()
-                .map_err(|error| format!("读取主窗口尺寸失败: {error}"))?;
+                .map_err(|error| format!("Failed to read main window size: {error}"))?;
             let scale_factor = window
                 .scale_factor()
-                .map_err(|error| format!("读取主窗口缩放比例失败: {error}"))?;
+                .map_err(|error| format!("Failed to read main window scale factor: {error}"))?;
             logical_window_size_from_physical(&physical_size, scale_factor)
-                .ok_or_else(|| "主窗口尺寸无效，已跳过保存".to_string())?
+                .ok_or_else(|| "Main window size is invalid, save skipped".to_string())?
         }
     };
 
@@ -1153,7 +1153,7 @@ pub(crate) fn write_gui_config_legacy(config: &GuiConfigFile) -> Result<(), Stri
     validate_gui_config(config)?;
     let config_path = gui_config_path()?;
     let content =
-        toml::to_string_pretty(config).map_err(|err| format!("序列化 GUI 配置失败: {err}"))?;
+        toml::to_string_pretty(config).map_err(|err| format!("Failed to serialize GUI config: {err}"))?;
     write_yaml_if_changed(&config_path, &content).map(|_| ())
 }
 
@@ -1264,7 +1264,7 @@ pub(crate) fn write_gui_config_to_path(
 
     let content = document.to_string();
     toml::from_str::<GuiConfigFile>(&content)
-        .map_err(|error| format!("验证 GUI 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate GUI config: {error}"))?;
     if existing.as_deref() == Some(content.as_str()) {
         return Ok(());
     }
@@ -1273,13 +1273,13 @@ pub(crate) fn write_gui_config_to_path(
 
 pub(crate) fn validate_gui_config(config: &GuiConfigFile) -> Result<(), String> {
     if config.port == 0 {
-        return Err("GUI 配置端口必须在 1 到 65535 之间".to_string());
+        return Err("GUI config port must be between 1 and 65535".to_string());
     }
     if config.host.trim().is_empty() || config.host.chars().any(char::is_control) {
-        return Err("GUI 配置 host 无效".to_string());
+        return Err("GUI config host is invalid".to_string());
     }
     if config.auth_dir.trim().is_empty() || config.auth_dir.chars().any(char::is_control) {
-        return Err("凭证目录不能为空或包含控制字符".to_string());
+        return Err("Credentials directory cannot be empty or contain control characters".to_string());
     }
     for entry in &config.api_keys {
         validate_core_api_key(&entry.key)?;
@@ -1293,21 +1293,21 @@ pub(crate) fn validate_gui_config(config: &GuiConfigFile) -> Result<(), String> 
                 .chars()
                 .all(|character| character.is_ascii_hexdigit())
         {
-            return Err("API 接入备注的密钥指纹无效".to_string());
+            return Err("Invalid key fingerprint for API access remark".to_string());
         }
         validate_api_key_remark(&entry.remark)?;
     }
     validate_strong_management_secret_key(&config.management_secret_key)?;
     validate_routing_strategy(config.routing_strategy.trim())?;
     if config.proxy_url.chars().any(char::is_control) {
-        return Err("代理 URL 不能包含控制字符".to_string());
+        return Err("Proxy URL cannot contain control characters".to_string());
     }
     if config
         .routing_session_affinity_ttl
         .chars()
         .any(char::is_control)
     {
-        return Err("会话粘性 TTL 不能包含控制字符".to_string());
+        return Err("Session affinity TTL cannot contain control characters".to_string());
     }
     Ok(())
 }

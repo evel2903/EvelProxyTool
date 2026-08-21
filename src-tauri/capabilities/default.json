@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default permissions for the main EasyCLIProxyAPI window.",
+  "description": "Default permissions for the main EvelProxyTool window.",
   "windows": ["main"],
   "permissions": [
     "core:event:allow-listen",

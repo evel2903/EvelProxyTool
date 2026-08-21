@@ -4,18 +4,18 @@ pub(crate) fn agent_backup_path(path: &Path) -> Result<PathBuf, String> {
     let file_name = path
         .file_name()
         .and_then(|value| value.to_str())
-        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(path)))?;
+        .ok_or_else(|| format!("Invalid agent config file name: {}", path_to_string(path)))?;
     Ok(path.with_file_name(format!("{file_name}.cpa-gui.backup")))
 }
 
 pub(crate) fn agent_state_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
     let primary = paths
         .first()
-        .ok_or_else(|| "当前平台没有可用的智能体配置路径".to_string())?;
+        .ok_or_else(|| "No agent config path available on this platform".to_string())?;
     let file_name = primary
         .file_name()
         .and_then(|value| value.to_str())
-        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(primary)))?;
+        .ok_or_else(|| format!("Invalid agent config file name: {}", path_to_string(primary)))?;
     Ok(primary.with_file_name(format!("{file_name}.cpa-gui.state.json")))
 }
 
@@ -48,12 +48,12 @@ pub(crate) fn write_agent_applied_state(
     if state.client == AgentClient::Codex.id() {
         CODEX_APPLIED_STATES
             .lock()
-            .map_err(|_| "Codex 应用状态内存锁已损坏".to_string())?
+            .map_err(|_| "Codex applied state in-memory lock is poisoned".to_string())?
             .insert(path.to_path_buf(), state.clone());
         if path.is_file() {
             fs::remove_file(path).map_err(|error| {
                 format!(
-                    "清理旧版 Codex 应用状态失败 {}: {error}",
+                    "Failed to clean up legacy Codex applied state {}: {error}",
                     path_to_string(path)
                 )
             })?;
@@ -62,7 +62,7 @@ pub(crate) fn write_agent_applied_state(
     }
 
     let mut content = serde_json::to_string_pretty(state)
-        .map_err(|error| format!("生成智能体应用状态失败: {error}"))?;
+        .map_err(|error| format!("Failed to generate agent applied state: {error}"))?;
     content.push('\n');
     write_bytes_directly(path, content.as_bytes())
 }
@@ -70,7 +70,7 @@ pub(crate) fn write_agent_applied_state(
 pub(crate) fn clear_codex_applied_state(path: &Path) -> Result<(), String> {
     CODEX_APPLIED_STATES
         .lock()
-        .map_err(|_| "Codex 应用状态内存锁已损坏".to_string())?
+        .map_err(|_| "Codex applied state in-memory lock is poisoned".to_string())?
         .remove(path);
     Ok(())
 }
@@ -99,11 +99,11 @@ pub(crate) fn latest_dated_agent_backup_path(path: &Path) -> Result<Option<PathB
     let file_name = path
         .file_name()
         .and_then(|value| value.to_str())
-        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(path)))?;
+        .ok_or_else(|| format!("Invalid agent config file name: {}", path_to_string(path)))?;
     let mut candidates = fs::read_dir(directory)
         .map_err(|error| {
             format!(
-                "读取智能体备份目录失败 {}: {error}",
+                "Failed to read agent backup directory {}: {error}",
                 path_to_string(directory)
             )
         })?
@@ -178,7 +178,7 @@ pub(crate) fn validate_agent_applied_state(
     state: &AgentAppliedState,
 ) -> Result<(), String> {
     if state.client != client.id() {
-        return Err("智能体应用状态与客户端不匹配".to_string());
+        return Err("Agent applied state does not match the client".to_string());
     }
     if state.backup_files.is_empty() {
         return Ok(());
@@ -196,7 +196,7 @@ pub(crate) fn validate_agent_applied_state(
                 .first()
                 .is_some_and(|path| state_paths == [path.clone()]));
     if !valid_paths {
-        return Err("智能体应用状态文件数量或路径不匹配".to_string());
+        return Err("Agent applied state file count or paths do not match".to_string());
     }
     for file in &state.backup_files {
         let legacy_backup = agent_backup_path(&file.path)?;
@@ -204,7 +204,7 @@ pub(crate) fn validate_agent_applied_state(
             .path
             .file_name()
             .and_then(|value| value.to_str())
-            .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(&file.path)))?;
+            .ok_or_else(|| format!("Invalid agent config file name: {}", path_to_string(&file.path)))?;
         let dated_backup = file.backup_path.parent() == file.path.parent()
             && file
                 .backup_path
@@ -212,7 +212,7 @@ pub(crate) fn validate_agent_applied_state(
                 .and_then(|value| value.to_str())
                 .is_some_and(|name| is_dated_agent_backup_name(name, original_name));
         if file.backup_path != legacy_backup && !dated_backup {
-            return Err("智能体应用状态包含非预期备份路径".to_string());
+            return Err("Agent applied state contains an unexpected backup path".to_string());
         }
     }
     Ok(())
@@ -227,7 +227,7 @@ pub(crate) fn load_agent_applied_state(
     if client == AgentClient::Codex {
         if let Some(state) = CODEX_APPLIED_STATES
             .lock()
-            .map_err(|_| "Codex 应用状态内存锁已损坏".to_string())?
+            .map_err(|_| "Codex applied state in-memory lock is poisoned".to_string())?
             .get(&state_path)
             .cloned()
         {
@@ -246,17 +246,17 @@ pub(crate) fn load_agent_applied_state(
         return Ok(recovered);
     }
     let content = fs::read_to_string(&state_path)
-        .map_err(|error| format!("读取智能体应用状态失败: {error}"))?;
+        .map_err(|error| format!("Failed to read agent applied state: {error}"))?;
     let value = serde_json::from_str::<serde_json::Value>(&content)
-        .map_err(|error| format!("解析智能体应用状态失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse agent applied state: {error}"))?;
     let version = value
         .get("version")
         .and_then(serde_json::Value::as_u64)
-        .ok_or_else(|| "智能体应用状态缺少版本号".to_string())?;
-    let version = u8::try_from(version).map_err(|_| "不支持的智能体应用状态版本".to_string())?;
+        .ok_or_else(|| "Agent applied state is missing a version number".to_string())?;
+    let version = u8::try_from(version).map_err(|_| "Unsupported agent applied state version".to_string())?;
     if version == AGENT_APPLIED_STATE_VERSION || version == 3 {
         let state = serde_json::from_value::<AgentAppliedState>(value)
-            .map_err(|error| format!("解析智能体应用状态失败: {error}"))?;
+            .map_err(|error| format!("Failed to parse agent applied state: {error}"))?;
         validate_agent_applied_state(client, &paths, &state)?;
         if client == AgentClient::Codex {
             write_agent_applied_state(&state_path, &state)?;
@@ -266,11 +266,11 @@ pub(crate) fn load_agent_applied_state(
     if version != LEGACY_AGENT_MODIFICATION_STATE_VERSION
         && version != AGENT_MODIFICATION_STATE_VERSION
     {
-        return Err("不支持的智能体应用状态版本".to_string());
+        return Err("Unsupported agent applied state version".to_string());
     }
 
     let record = serde_json::from_value::<AgentModificationRecord>(value)
-        .map_err(|error| format!("解析旧版智能体状态失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse legacy agent state: {error}"))?;
     validate_agent_record(client, &paths, &record)?;
     let backup_files = record
         .files
@@ -303,7 +303,7 @@ pub(crate) fn read_agent_bytes(path: &Path) -> Result<Option<Vec<u8>>, String> {
     }
     fs::read(path)
         .map(Some)
-        .map_err(|error| format!("读取智能体配置失败 {}: {error}", path_to_string(path)))
+        .map_err(|error| format!("Failed to read agent config {}: {error}", path_to_string(path)))
 }
 
 #[cfg(test)]
@@ -316,16 +316,16 @@ pub(crate) fn read_agent_original_bytes(
     let original_sha256 = file
         .original_sha256
         .as_deref()
-        .ok_or_else(|| format!("原配置备份缺少校验值: {}", path_to_string(&file.path)))?;
+        .ok_or_else(|| format!("Original config backup is missing a checksum: {}", path_to_string(&file.path)))?;
     let bytes = fs::read(&file.backup_path).map_err(|error| {
         format!(
-            "读取原配置备份失败 {}: {error}",
+            "Failed to read original config backup {}: {error}",
             path_to_string(&file.backup_path)
         )
     })?;
     if sha256_bytes(&bytes) != original_sha256 {
         return Err(format!(
-            "原配置备份校验失败: {}",
+            "Original config backup checksum verification failed: {}",
             path_to_string(&file.backup_path)
         ));
     }
@@ -340,7 +340,7 @@ pub(crate) fn read_agent_original_text(
         .map(|bytes| {
             String::from_utf8(bytes).map_err(|_| {
                 format!(
-                    "原 Codex 配置不是 UTF-8 文本: {}",
+                    "Original Codex config is not valid UTF-8 text: {}",
                     path_to_string(&file.path)
                 )
             })
@@ -355,11 +355,11 @@ pub(crate) fn write_agent_state(
 ) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
-            format!("创建智能体状态目录失败 {}: {error}", path_to_string(parent))
+            format!("Failed to create agent state directory {}: {error}", path_to_string(parent))
         })?;
     }
     let mut content = serde_json::to_string_pretty(record)
-        .map_err(|error| format!("生成智能体备份状态失败: {error}"))?;
+        .map_err(|error| format!("Failed to generate agent backup state: {error}"))?;
     content.push('\n');
     write_yaml_if_changed(path, &content).map(|_| ())
 }
@@ -372,7 +372,7 @@ pub(crate) fn validate_agent_record(
     let supported_version = record.version == AGENT_MODIFICATION_STATE_VERSION
         || record.version == LEGACY_AGENT_MODIFICATION_STATE_VERSION;
     if !supported_version || record.client != client.id() {
-        return Err("智能体备份状态版本或客户端不匹配".to_string());
+        return Err("Agent backup state version or client does not match".to_string());
     }
     if ![
         AGENT_PHASE_APPLYING,
@@ -382,7 +382,7 @@ pub(crate) fn validate_agent_record(
     ]
     .contains(&record.phase.as_str())
     {
-        return Err("智能体备份状态阶段无效".to_string());
+        return Err("Invalid agent backup state phase".to_string());
     }
     let expected_paths = expected_agent_record_paths(client, paths);
     let record_paths = record
@@ -397,11 +397,11 @@ pub(crate) fn validate_agent_record(
                 .first()
                 .is_some_and(|path| record_paths == [path.clone()]));
     if !valid_paths {
-        return Err("智能体备份状态文件数量或路径不匹配".to_string());
+        return Err("Agent backup state file count or paths do not match".to_string());
     }
     for file in &record.files {
         if file.backup_path != agent_backup_path(&file.path)? {
-            return Err("智能体备份状态包含非预期路径".to_string());
+            return Err("Agent backup state contains an unexpected path".to_string());
         }
     }
     Ok(())
@@ -418,9 +418,9 @@ pub(crate) fn load_agent_record(
     }
     let mut record: AgentModificationRecord = serde_json::from_str(
         &fs::read_to_string(&state_path)
-            .map_err(|error| format!("读取智能体备份状态失败: {error}"))?,
+            .map_err(|error| format!("Failed to read agent backup state: {error}"))?,
     )
-    .map_err(|error| format!("解析智能体备份状态失败: {error}"))?;
+    .map_err(|error| format!("Failed to parse agent backup state: {error}"))?;
     validate_agent_record(client, paths, &record)?;
     if record.version == LEGACY_AGENT_MODIFICATION_STATE_VERSION {
         record.version = AGENT_MODIFICATION_STATE_VERSION;
@@ -547,17 +547,17 @@ pub(crate) fn inspect_agent_modification(
                 };
                 let mut warnings = Vec::new();
                 if !backup_available {
-                    warnings.push("原配置备份不完整，恢复前请勿删除剩余备份文件".to_string());
+                    warnings.push("Original config backup is incomplete; do not delete the remaining backup files before restoring".to_string());
                 }
                 if state == AGENT_MODIFICATION_STATE_CONFLICT {
-                    warnings.push("配置已被其他程序修改，清除修改时需要确认是否恢复".to_string());
+                    warnings.push("Config was modified by another program; confirm whether to restore when clearing modifications".to_string());
                 } else if state == "recovery" {
-                    warnings.push("上次配置操作未完整结束，可使用“清除修改”恢复原配置".to_string());
+                    warnings.push("The last config operation did not finish; use “Clear Modifications” to restore the original config".to_string());
                 } else if client == AgentClient::Codex
                     && codex_record_needs_resync(&record, configured, current_model).unwrap_or(true)
                 {
                     warnings.push(
-                        "Codex 受管配置已发生变化，将在下次更新或启动时自动重新同步".to_string(),
+                        "The Codex managed config has changed and will resync automatically on the next update or launch".to_string(),
                     );
                 }
                 AgentModificationInspection {
@@ -602,7 +602,7 @@ pub(crate) fn inspect_agent_modification(
                         applied_model: Some(record.model),
                         claude_desktop_model_mappings: None,
                         warnings: vec![
-                            "检测到旧版 CPA 配置和备份，可使用“清除修改”恢复原配置".to_string()
+                            "Detected a legacy CPA config and backup; use “Clear Modifications” to restore the original config".to_string()
                         ],
                     }
                 }
@@ -613,7 +613,7 @@ pub(crate) fn inspect_agent_modification(
                         backup_available: false,
                         applied_model: current_model.map(str::to_string),
                         claude_desktop_model_mappings: None,
-                        warnings: vec!["检测到 CPA 配置，但缺少可安全恢复的原始备份".to_string()],
+                        warnings: vec!["Detected a CPA config, but the original backup needed for a safe restore is missing".to_string()],
                     }
                 }
                 Err(error) => {
@@ -824,14 +824,14 @@ pub(crate) fn build_legacy_agent_record(
         let (existed_before, original_sha256) = if backup_path.is_file() {
             let backup = fs::read(&backup_path).map_err(|error| {
                 format!(
-                    "读取旧版智能体备份失败 {}: {error}",
+                    "Failed to read legacy agent backup {}: {error}",
                     path_to_string(&backup_path)
                 )
             })?;
             (true, Some(sha256_bytes(&backup)))
         } else {
             let actual = String::from_utf8(current.clone())
-                .map_err(|_| format!("智能体配置不是 UTF-8 文本: {}", path_to_string(path)))?;
+                .map_err(|_| format!("Agent config is not valid UTF-8 text: {}", path_to_string(path)))?;
             if !agent_contents_equal(client, &actual, &generated[index]) {
                 return Ok(None);
             }
@@ -862,16 +862,16 @@ pub(crate) fn prepare_agent_record(
     updates: &[AgentFileUpdate],
 ) -> Result<AgentModificationRecord, String> {
     if paths.len() != updates.len() {
-        return Err("智能体配置更新文件数量不匹配".to_string());
+        return Err("Agent config update file count does not match".to_string());
     }
     let mut prepared = Vec::new();
     for (path, update) in paths.iter().zip(updates) {
         if path != &update.path {
-            return Err("智能体配置更新路径不匹配".to_string());
+            return Err("Agent config update path does not match".to_string());
         }
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|error| {
-                format!("创建智能体配置目录失败 {}: {error}", path_to_string(parent))
+                format!("Failed to create agent config directory {}: {error}", path_to_string(parent))
             })?;
         }
         let backup_path = agent_backup_path(path)?;
@@ -879,13 +879,13 @@ pub(crate) fn prepare_agent_record(
         let previous_backup = if backup_path.exists() {
             if !backup_path.is_file() {
                 return Err(format!(
-                    "智能体备份路径不是文件: {}",
+                    "Agent backup path is not a file: {}",
                     path_to_string(&backup_path)
                 ));
             }
             Some(fs::read(&backup_path).map_err(|error| {
                 format!(
-                    "读取原有智能体备份失败 {}: {error}",
+                    "Failed to read existing agent backup {}: {error}",
                     path_to_string(&backup_path)
                 )
             })?)
@@ -914,19 +914,19 @@ pub(crate) fn prepare_agent_record(
             write_bytes_atomically(&backup_path, current).and_then(|_| {
                 let copied = fs::read(&backup_path).map_err(|error| {
                     format!(
-                        "校验智能体备份失败 {}: {error}",
+                        "Failed to verify agent backup {}: {error}",
                         path_to_string(&backup_path)
                     )
                 })?;
                 if sha256_bytes(&copied) != sha256_bytes(current) {
-                    return Err(format!("智能体备份校验失败: {}", path_to_string(&path)));
+                    return Err(format!("Agent backup checksum verification failed: {}", path_to_string(&path)));
                 }
                 Ok(())
             })
         } else if backup_path.exists() {
             fs::remove_file(&backup_path).map_err(|error| {
                 format!(
-                    "清理旧智能体备份失败 {}: {error}",
+                    "Failed to clean up old agent backup {}: {error}",
                     path_to_string(&backup_path)
                 )
             })
@@ -937,7 +937,7 @@ pub(crate) fn prepare_agent_record(
             let rollback = restore_snapshots(&backup_snapshots);
             return Err(match rollback {
                 Ok(()) => error,
-                Err(rollback_error) => format!("{error}；恢复原有备份失败: {rollback_error}"),
+                Err(rollback_error) => format!("{error}; failed to restore the existing backup: {rollback_error}"),
             });
         }
 
@@ -966,11 +966,11 @@ pub(crate) fn extend_agent_record_for_updates(
     updates: &[AgentFileUpdate],
 ) -> Result<AgentRecordExtension, String> {
     if record.files.len() > updates.len() {
-        return Err("智能体配置更新文件数量不匹配".to_string());
+        return Err("Agent config update file count does not match".to_string());
     }
     for (file, update) in record.files.iter().zip(updates) {
         if file.path != update.path {
-            return Err("智能体配置更新路径不匹配".to_string());
+            return Err("Agent config update path does not match".to_string());
         }
     }
     if record.files.len() == updates.len() {
@@ -981,20 +981,20 @@ pub(crate) fn extend_agent_record_for_updates(
     for update in updates.iter().skip(record.files.len()) {
         if let Some(parent) = update.path.parent() {
             fs::create_dir_all(parent).map_err(|error| {
-                format!("创建智能体配置目录失败 {}: {error}", path_to_string(parent))
+                format!("Failed to create agent config directory {}: {error}", path_to_string(parent))
             })?;
         }
         let backup_path = agent_backup_path(&update.path)?;
         let previous_backup = if backup_path.exists() {
             if !backup_path.is_file() {
                 return Err(format!(
-                    "智能体备份路径不是文件: {}",
+                    "Agent backup path is not a file: {}",
                     path_to_string(&backup_path)
                 ));
             }
             Some(fs::read(&backup_path).map_err(|error| {
                 format!(
-                    "读取原有智能体备份失败 {}: {error}",
+                    "Failed to read existing agent backup {}: {error}",
                     path_to_string(&backup_path)
                 )
             })?)
@@ -1015,13 +1015,13 @@ pub(crate) fn extend_agent_record_for_updates(
             write_bytes_atomically(&backup_path, current).and_then(|_| {
                 let copied = fs::read(&backup_path).map_err(|error| {
                     format!(
-                        "校验智能体备份失败 {}: {error}",
+                        "Failed to verify agent backup {}: {error}",
                         path_to_string(&backup_path)
                     )
                 })?;
                 if sha256_bytes(&copied) != sha256_bytes(current) {
                     return Err(format!(
-                        "智能体备份校验失败: {}",
+                        "Agent backup checksum verification failed: {}",
                         path_to_string(&update.path)
                     ));
                 }
@@ -1030,7 +1030,7 @@ pub(crate) fn extend_agent_record_for_updates(
         } else if backup_path.exists() {
             fs::remove_file(&backup_path).map_err(|error| {
                 format!(
-                    "清理旧智能体备份失败 {}: {error}",
+                    "Failed to clean up old agent backup {}: {error}",
                     path_to_string(&backup_path)
                 )
             })
@@ -1041,7 +1041,7 @@ pub(crate) fn extend_agent_record_for_updates(
             let rollback = restore_snapshots(&backup_snapshots);
             return Err(match rollback {
                 Ok(()) => error,
-                Err(rollback_error) => format!("{error}；恢复原有备份失败: {rollback_error}"),
+                Err(rollback_error) => format!("{error}; failed to restore the existing backup: {rollback_error}"),
             });
         }
         next.files.push(AgentModificationFile {
@@ -1083,7 +1083,7 @@ pub(crate) fn restore_snapshots_with_direct_path(
         let result = match bytes {
             Some(bytes) => write_agent_bytes(path, bytes, direct_write_path),
             None if path.exists() => fs::remove_file(path)
-                .map_err(|error| format!("删除配置失败 {}: {error}", path_to_string(path))),
+                .map_err(|error| format!("Failed to delete config {}: {error}", path_to_string(path))),
             None => Ok(()),
         };
         if let Err(error) = result {
@@ -1093,7 +1093,7 @@ pub(crate) fn restore_snapshots_with_direct_path(
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(errors.join("；"))
+        Err(errors.join("; "))
     }
 }
 
@@ -1118,7 +1118,7 @@ pub(crate) fn apply_agent_file_replacements(
             None if current.is_some() => {
                 changed.push(path_to_string(path));
                 fs::remove_file(path)
-                    .map_err(|error| format!("删除配置失败 {}: {error}", path_to_string(path)))
+                    .map_err(|error| format!("Failed to delete config {}: {error}", path_to_string(path)))
             }
             None => Ok(()),
         };
@@ -1126,7 +1126,7 @@ pub(crate) fn apply_agent_file_replacements(
             let rollback = restore_snapshots_with_direct_path(&snapshots, direct_write_path);
             return Err(match rollback {
                 Ok(()) => error,
-                Err(rollback_error) => format!("{error}；回滚失败: {rollback_error}"),
+                Err(rollback_error) => format!("{error}; rollback failed: {rollback_error}"),
             });
         }
     }
@@ -1140,12 +1140,12 @@ pub(crate) fn restore_codex_agent_record_files(
     let config_file = record
         .files
         .first()
-        .ok_or_else(|| "Codex 配置状态缺少 config.toml".to_string())?;
+        .ok_or_else(|| "Codex config state is missing config.toml".to_string())?;
     let current_config = read_agent_bytes(&config_file.path)?
         .map(|bytes| {
             String::from_utf8(bytes).map_err(|_| {
                 format!(
-                    "当前 Codex 配置不是 UTF-8 文本: {}",
+                    "Current Codex config is not valid UTF-8 text: {}",
                     path_to_string(&config_file.path)
                 )
             })
@@ -1189,7 +1189,7 @@ pub(crate) fn apply_agent_updates(
             let rollback = restore_snapshots_with_direct_path(&snapshots, direct_write_path);
             return Err(match rollback {
                 Ok(()) => error,
-                Err(rollback_error) => format!("{error}；回滚失败: {rollback_error}"),
+                Err(rollback_error) => format!("{error}; rollback failed: {rollback_error}"),
             });
         }
         changed.push(path_to_string(&update.path));
@@ -1203,7 +1203,7 @@ pub(crate) fn restore_agent_snapshots_direct(snapshots: &[FileSnapshot]) -> Resu
         let result = match content {
             Some(content) => write_bytes_directly(path, content),
             None if path.exists() => fs::remove_file(path)
-                .map_err(|error| format!("删除新建配置失败 {}: {error}", path_to_string(path))),
+                .map_err(|error| format!("Failed to delete newly created config {}: {error}", path_to_string(path))),
             None => Ok(()),
         };
         if let Err(error) = result {
@@ -1213,7 +1213,7 @@ pub(crate) fn restore_agent_snapshots_direct(snapshots: &[FileSnapshot]) -> Resu
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(errors.join("；"))
+        Err(errors.join("; "))
     }
 }
 
@@ -1221,7 +1221,7 @@ pub(crate) fn dated_agent_backup_path(path: &Path) -> Result<PathBuf, String> {
     let file_name = path
         .file_name()
         .and_then(|value| value.to_str())
-        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(path)))?;
+        .ok_or_else(|| format!("Invalid agent config file name: {}", path_to_string(path)))?;
     let date = chrono::Local::now().format("%y-%m-%d");
     Ok(path.with_file_name(format!("{file_name}.{date}.bak")))
 }
@@ -1248,7 +1248,7 @@ pub(crate) fn prepare_agent_session_backups(
                     let _ = fs::rename(backup, path);
                 }
                 return Err(format!(
-                    "智能体备份文件已存在，无法覆盖: {}",
+                    "Agent backup file already exists, cannot overwrite: {}",
                     path_to_string(&backup_path)
                 ));
             }
@@ -1260,14 +1260,14 @@ pub(crate) fn prepare_agent_session_backups(
                         }
                     }
                     return Err(format!(
-                        "备份 DeepSeek Harness 配置失败 {}: {error}",
+                        "Failed to back up DeepSeek Harness config {}: {error}",
                         path_to_string(&update.path)
                     ));
                 }
             } else {
                 fs::rename(&update.path, &backup_path).map_err(|error| {
                     format!(
-                        "重命名原智能体配置为备份失败 {}: {error}",
+                        "Failed to rename the original agent config to a backup {}: {error}",
                         path_to_string(&update.path)
                     )
                 })?;
@@ -1314,7 +1314,7 @@ pub(crate) fn restore_agent_applied_state_configuration(
                 if file.existed_before {
                     fs::read(&file.backup_path).map(Some).map_err(|error| {
                         format!(
-                            "读取智能体备份失败 {}: {error}",
+                            "Failed to read agent backup {}: {error}",
                             path_to_string(&file.backup_path)
                         )
                     })
@@ -1350,7 +1350,7 @@ pub(crate) fn restore_agent_applied_state_configuration(
                 } else if file.path.exists() {
                     fs::remove_file(&file.path).map_err(|error| {
                         format!(
-                            "删除临时智能体配置失败 {}: {error}",
+                            "Failed to delete temporary agent config {}: {error}",
                             path_to_string(&file.path)
                         )
                     })?;
@@ -1361,14 +1361,14 @@ pub(crate) fn restore_agent_applied_state_configuration(
         if let Err(error) = restore_result {
             return match restore_agent_snapshots_direct(&snapshots) {
                 Ok(()) => Err(error),
-                Err(rollback_error) => Err(format!("{error}；回滚恢复操作失败: {rollback_error}")),
+                Err(rollback_error) => Err(format!("{error}; failed to roll back the restore operation: {rollback_error}")),
             };
         }
         for file in &state.backup_files {
             if file.existed_before && file.backup_path.is_file() {
                 fs::remove_file(&file.backup_path).map_err(|error| {
                     format!(
-                        "清理智能体备份失败 {}: {error}",
+                        "Failed to clean up agent backup {}: {error}",
                         path_to_string(&file.backup_path)
                     )
                 })?;
@@ -1381,7 +1381,7 @@ pub(crate) fn restore_agent_applied_state_configuration(
     if state_path.is_file() {
         fs::remove_file(state_path).map_err(|error| {
             format!(
-                "清理智能体应用状态失败 {}: {error}",
+                "Failed to clean up agent applied state {}: {error}",
                 path_to_string(state_path)
             )
         })?;
@@ -1405,7 +1405,7 @@ pub(crate) fn agent_clients_restored_on_exit() -> [AgentClient; 8] {
 pub(crate) fn restore_all_agent_session_configurations(home: &Path) {
     for client in agent_clients_restored_on_exit() {
         if let Err(error) = restore_agent_session_configuration(client, home) {
-            eprintln!("关闭时恢复 {} 配置失败: {error}", client.name());
+            eprintln!("Failed to restore {} config on shutdown: {error}", client.name());
         }
     }
 }
@@ -1525,7 +1525,7 @@ pub(crate) fn commit_agent_configuration(
             }
             match rollback {
                 Ok(()) => Err(error),
-                Err(rollback_error) => Err(format!("{error}；回滚配置失败: {rollback_error}")),
+                Err(rollback_error) => Err(format!("{error}; failed to roll back config: {rollback_error}")),
             }
         }
     }
@@ -1672,7 +1672,7 @@ pub(crate) fn reset_agent_configuration_to_default_with_oauth(
         },
     )?;
     if paths.len() != contents.len() {
-        return Err("智能体默认配置文件数量不匹配".to_string());
+        return Err("Agent default config file count does not match".to_string());
     }
     let mut updates = paths
         .into_iter()
@@ -1680,7 +1680,7 @@ pub(crate) fn reset_agent_configuration_to_default_with_oauth(
         .map(|(path, after)| AgentFileUpdate { path, after })
         .collect::<Vec<_>>();
     if client == AgentClient::Codex {
-        let catalog = codex_catalog.ok_or_else(|| "无法生成 Codex 模型目录".to_string())?;
+        let catalog = codex_catalog.ok_or_else(|| "Failed to generate the Codex model catalog".to_string())?;
         validate_codex_catalog(catalog, model)?;
         updates.push(AgentFileUpdate {
             path: codex_model_catalog_path(home),
@@ -1717,13 +1717,13 @@ pub(crate) fn restore_agent_record_files(
         let result = if file.existed_before {
             let backup = fs::read(&file.backup_path).map_err(|error| {
                 format!(
-                    "读取原配置备份失败 {}: {error}",
+                    "Failed to read original config backup {}: {error}",
                     path_to_string(&file.backup_path)
                 )
             })?;
             if Some(sha256_bytes(&backup)) != file.original_sha256 {
                 return Err(format!(
-                    "原配置备份校验失败: {}",
+                    "Original config backup checksum verification failed: {}",
                     path_to_string(&file.backup_path)
                 ));
             }
@@ -1736,7 +1736,7 @@ pub(crate) fn restore_agent_record_files(
         } else if file.path.exists() {
             changed.push(path_to_string(&file.path));
             fs::remove_file(&file.path).map_err(|error| {
-                format!("删除智能体配置失败 {}: {error}", path_to_string(&file.path))
+                format!("Failed to delete agent config {}: {error}", path_to_string(&file.path))
             })
         } else {
             Ok(())
@@ -1745,7 +1745,7 @@ pub(crate) fn restore_agent_record_files(
             let rollback = restore_snapshots_with_direct_path(&snapshots, direct_write_path);
             return Err(match rollback {
                 Ok(()) => error,
-                Err(rollback_error) => format!("{error}；回滚失败: {rollback_error}"),
+                Err(rollback_error) => format!("{error}; rollback failed: {rollback_error}"),
             });
         }
     }
@@ -1761,7 +1761,7 @@ pub(crate) fn discard_prepared_agent_backups(
         if file.backup_path.exists() {
             if let Err(error) = fs::remove_file(&file.backup_path) {
                 errors.push(format!(
-                    "删除未启用的智能体备份失败 {}: {error}",
+                    "Failed to delete unused agent backup {}: {error}",
                     path_to_string(&file.backup_path)
                 ));
             }
@@ -1770,7 +1770,7 @@ pub(crate) fn discard_prepared_agent_backups(
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(errors.join("；"))
+        Err(errors.join("; "))
     }
 }
 
@@ -1782,7 +1782,7 @@ pub(crate) fn cleanup_agent_record(
     if state_path.exists() {
         fs::remove_file(state_path).map_err(|error| {
             format!(
-                "删除智能体备份状态失败 {}: {error}",
+                "Failed to delete agent backup state {}: {error}",
                 path_to_string(state_path)
             )
         })?;
@@ -1791,7 +1791,7 @@ pub(crate) fn cleanup_agent_record(
         if file.backup_path.exists() {
             if let Err(error) = fs::remove_file(&file.backup_path) {
                 eprintln!(
-                    "清理智能体备份失败 {}: {error}",
+                    "Failed to clean up agent backup {}: {error}",
                     path_to_string(&file.backup_path)
                 );
             }
@@ -1853,7 +1853,7 @@ pub(crate) fn enable_agent_modification(
             }
         }
         return Err(
-            "检测到 CPA 配置，但缺少可安全恢复的原始备份；请先手动恢复客户端配置".to_string(),
+            "Detected a CPA config, but the original backup needed for a safe restore is missing; restore the client config manually first".to_string(),
         );
     }
 
@@ -1875,7 +1875,7 @@ pub(crate) fn enable_agent_modification(
         let cleanup = discard_prepared_agent_backups(&record);
         return Err(match cleanup {
             Ok(()) => error,
-            Err(cleanup_error) => format!("{error}；{cleanup_error}"),
+            Err(cleanup_error) => format!("{error}; {cleanup_error}"),
         });
     }
     match apply_agent_updates(client, &updates) {
@@ -1898,7 +1898,7 @@ pub(crate) fn enable_agent_modification(
             Err(restore_error) => {
                 record.phase = AGENT_PHASE_RECOVERY.to_string();
                 let _ = write_agent_state(&state_path, &record);
-                Err(format!("{error}；恢复原配置失败: {restore_error}"))
+                Err(format!("{error}; failed to restore the original config: {restore_error}"))
             }
         },
     }
@@ -1927,9 +1927,9 @@ pub(crate) fn disable_agent_modification(
                     Vec::new(),
                 ));
             }
-            let model = model.ok_or_else(|| "无法识别当前 CPA 模型".to_string())?;
+            let model = model.ok_or_else(|| "Could not identify the current CPA model".to_string())?;
             let record = build_legacy_agent_record(client, home, port, &model)?
-                .ok_or_else(|| "检测到 CPA 配置，但缺少可安全恢复的原始备份".to_string())?;
+                .ok_or_else(|| "Detected a CPA config, but the original backup needed for a safe restore is missing".to_string())?;
             write_agent_state(&state_path, &record)?;
             record
         }
@@ -1946,7 +1946,7 @@ pub(crate) fn disable_agent_modification(
             Err(error) => {
                 record.phase = AGENT_PHASE_RECOVERY.to_string();
                 let _ = write_agent_state(&state_path, &record);
-                Err(format!("恢复原配置失败: {error}"))
+                Err(format!("Failed to restore the original config: {error}"))
             }
         };
     }
@@ -1983,7 +1983,7 @@ pub(crate) fn disable_agent_modification(
         Err(error) => {
             record.phase = AGENT_PHASE_RECOVERY.to_string();
             let _ = write_agent_state(&state_path, &record);
-            Err(format!("恢复原配置失败: {error}"))
+            Err(format!("Failed to restore the original config: {error}"))
         }
     }
 }
@@ -2005,24 +2005,24 @@ pub(crate) fn update_agent_modification(
             let (_, current_model, _) =
                 inspect_agent_managed_config(client, &paths, port, DEFAULT_API_KEY)?;
             if !agent_has_managed_marker(client, &paths)? {
-                return Err("请先应用配置修改".to_string());
+                return Err("Apply the config changes first".to_string());
             }
-            let current_model = current_model.ok_or_else(|| "无法识别当前 CPA 模型".to_string())?;
+            let current_model = current_model.ok_or_else(|| "Could not identify the current CPA model".to_string())?;
             let record = build_legacy_agent_record(client, home, port, &current_model)?
-                .ok_or_else(|| "缺少原配置备份，无法安全更新".to_string())?;
+                .ok_or_else(|| "Missing the original config backup; cannot update safely".to_string())?;
             write_agent_state(&state_path, &record)?;
             record
         }
     };
     if record.phase != AGENT_PHASE_ACTIVE {
-        return Err("上次配置操作尚未完整结束，请先使用“清除修改”恢复原配置".to_string());
+        return Err("The last config operation did not finish; use “Clear Modifications” to restore the original config first".to_string());
     }
     if client != AgentClient::Codex {
         let conflicts = record_conflict_files(&record)?;
         if !conflicts.is_empty() {
             return Err(format!(
-                "配置已被其他程序修改，无法更新: {}",
-                conflicts.join("、")
+                "Config was modified by another program; cannot update: {}",
+                conflicts.join(", ")
             ));
         }
     }
@@ -2041,7 +2041,7 @@ pub(crate) fn update_agent_modification(
     next.model = model.to_string();
     for (file, update) in next.files.iter_mut().zip(&updates) {
         if file.path != update.path {
-            return Err("智能体配置更新路径不匹配".to_string());
+            return Err("Agent config update path does not match".to_string());
         }
         file.managed_sha256 = sha256_bytes(update.after.as_bytes());
     }
@@ -2049,7 +2049,7 @@ pub(crate) fn update_agent_modification(
         let rollback = restore_snapshots(&backup_snapshots);
         return Err(match rollback {
             Ok(()) => error,
-            Err(rollback_error) => format!("{error}；恢复模型目录备份失败: {rollback_error}"),
+            Err(rollback_error) => format!("{error}; failed to restore the model catalog backup: {rollback_error}"),
         });
     }
     match apply_agent_updates(client, &updates) {
@@ -2069,12 +2069,12 @@ pub(crate) fn update_agent_modification(
             let backup_rollback = restore_snapshots(&backup_snapshots).err();
             let mut errors = vec![error];
             if let Some(rollback_error) = state_rollback {
-                errors.push(format!("恢复原状态失败: {rollback_error}"));
+                errors.push(format!("Failed to restore the original state: {rollback_error}"));
             }
             if let Some(rollback_error) = backup_rollback {
-                errors.push(format!("恢复模型目录备份失败: {rollback_error}"));
+                errors.push(format!("Failed to restore the model catalog backup: {rollback_error}"));
             }
-            Err(errors.join("；"))
+            Err(errors.join("; "))
         }
     }
 }

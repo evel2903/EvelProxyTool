@@ -1389,7 +1389,7 @@ fn claude_desktop_aliases_expose_role_routes_only() {
     assert!(rendered.contains("\n      - name: gpt-5.6-sol\n"));
     assert!(rendered.contains("\n        alias: claude-opus-5\n"));
     assert!(
-        rendered.contains("\n        display-name: EasyCLIProxyAPI managed Claude Opus mapping\n")
+        rendered.contains("\n        display-name: EvelProxyTool managed Claude Opus mapping\n")
     );
     assert_eq!(
         ensure_claude_desktop_model_aliases_in_yaml(&rendered, &mappings, &available_models,)
@@ -1584,7 +1584,7 @@ fn claude_legacy_aliases_are_adopted_and_moved_to_the_selected_model() {
 
 #[test]
 fn claude_desktop_uses_selected_alias_directly_with_original_context() {
-    let input = "openai-compatibility:\n  - name: CPA\n    base-url: https://example.com/v1\n    models:\n      - name: gpt-original\n      - name: gpt-original\n        alias: gpt-high\n      - name: gpt-original\n        alias: claude-opus-5\n        display-name: EasyCLIProxyAPI managed Claude Opus mapping\n";
+    let input = "openai-compatibility:\n  - name: CPA\n    base-url: https://example.com/v1\n    models:\n      - name: gpt-original\n      - name: gpt-original\n        alias: gpt-high\n      - name: gpt-original\n        alias: claude-opus-5\n        display-name: EvelProxyTool managed Claude Opus mapping\n";
     let mappings = ClaudeDesktopModelMappings {
         opus: "gpt-high".to_string(),
         sonnet: "gpt-high".to_string(),
@@ -1847,7 +1847,7 @@ fn thinking_alias_prefers_codex_api_key_model_over_same_named_oauth_definition()
 #[cfg(target_os = "windows")]
 #[test]
 fn windows_batch_agent_commands_use_call_without_embedded_quotes() {
-    let executable = Path::new(r"C:\工具 目录\opencode.cmd");
+    let executable = Path::new(r"C:\Tools Dir\opencode.cmd");
     let command = windows_command_for_executable(executable, true);
     let args = command
         .get_args()
@@ -1867,7 +1867,7 @@ fn windows_batch_agent_commands_use_call_without_embedded_quotes() {
     );
     assert_eq!(
         windows_batch_executable_argument(executable),
-        r#""C:\工具 目录\opencode.cmd""#
+        r#""C:\Tools Dir\opencode.cmd""#
     );
 
     let batch = windows_command_for_executable(Path::new(r"C:\tools\agent.bat"), false);

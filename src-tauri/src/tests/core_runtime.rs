@@ -198,7 +198,7 @@ fn bundled_core_bootstrap_runs_only_when_no_core_binary_exists() {
 #[test]
 fn bundled_core_locations_include_macos_app_resources() {
     let contents_dir = agent_test_home("bundled-macos-resources")
-        .join("EasyCLIProxyAPI.app")
+        .join("EvelProxyTool.app")
         .join("Contents");
     let executable_dir = contents_dir.join("MacOS");
     let base_dir = agent_test_home("bundled-macos-data");

@@ -49,7 +49,7 @@ fn patch_core_from_gui_config_if_valid(config: &GuiConfigFile) -> Result<(), Str
         return Ok(());
     }
     let content = fs::read_to_string(&path)
-        .map_err(|error| format!("读取内核配置失败 {}: {error}", path_to_string(&path)))?;
+        .map_err(|error| format!("Failed to read core config {}: {error}", path_to_string(&path)))?;
     let updated = apply_gui_managed_settings(&content, config)?;
     write_yaml_if_changed(&path, &updated).map(|_| ())
 }
@@ -58,7 +58,7 @@ fn tracked_configuration_paths(app: &tauri::AppHandle) -> Result<Vec<PathBuf>, S
     let home = app
         .path()
         .home_dir()
-        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+        .map_err(|error| format!("Failed to get user directory: {error}"))?;
     let mut paths = vec![
         gui_config_path()?,
         core_install_dir()?.join(CORE_CONFIG_FILE),
@@ -138,12 +138,12 @@ fn handle_configuration_file_changes(
                 let parsed = (|| -> Result<GuiConfigFile, String> {
                     let content = fs::read_to_string(tracked_path).map_err(|error| {
                         format!(
-                            "读取 GUI 配置失败 {}: {error}",
+                            "Failed to read GUI config {}: {error}",
                             path_to_string(tracked_path)
                         )
                     })?;
                     let mut config = toml::from_str::<GuiConfigFile>(&content)
-                        .map_err(|error| format!("解析 GUI 配置失败: {error}"))?;
+                        .map_err(|error| format!("Failed to parse GUI config: {error}"))?;
                     config.allow_lan = !is_loopback_host(&config.host);
                     validate_gui_config(&config)?;
                     Ok(config)
@@ -173,10 +173,10 @@ fn handle_configuration_file_changes(
             if is_core_path(tracked_path) {
                 let parsed = (|| -> Result<CoreConfigSettings, String> {
                     let content = fs::read_to_string(tracked_path).map_err(|error| {
-                        format!("读取内核配置失败 {}: {error}", path_to_string(tracked_path))
+                        format!("Failed to read core config {}: {error}", path_to_string(tracked_path))
                     })?;
                     let document = serde_norway::from_str::<serde_norway::Value>(&content)
-                        .map_err(|error| format!("解析内核配置失败: {error}"))?;
+                        .map_err(|error| format!("Failed to parse core config: {error}"))?;
                     core_config_settings_from_value(&document)
                 })();
                 let settings = match parsed {
@@ -255,7 +255,7 @@ fn ensure_configuration_watch_directories(
         }
         watcher
             .watch(&directory, RecursiveMode::NonRecursive)
-            .map_err(|error| format!("监控配置目录失败 {}: {error}", path_to_string(&directory)))?;
+            .map_err(|error| format!("Failed to watch config directory {}: {error}", path_to_string(&directory)))?;
         watched_directories.push(directory.clone());
         newly_watched.push(directory);
     }
@@ -273,7 +273,7 @@ pub(crate) fn start_configuration_file_watcher(app: tauri::AppHandle) -> Result<
             }
         },
     )
-    .map_err(|error| format!("创建配置文件监控器失败: {error}"))?;
+    .map_err(|error| format!("Failed to create config file watcher: {error}"))?;
     let mut watched_directories = Vec::new();
     ensure_configuration_watch_directories(&mut watcher, &tracked_paths, &mut watched_directories)?;
 
@@ -293,12 +293,12 @@ pub(crate) fn start_configuration_file_watcher(app: tauri::AppHandle) -> Result<
             };
             match first {
                 Ok(event) => append_paths(event.paths),
-                Err(error) => eprintln!("配置文件监控错误: {error}"),
+                Err(error) => eprintln!("Config file watch error: {error}"),
             }
             while let Ok(event) = receiver.recv_timeout(Duration::from_millis(500)) {
                 match event {
                     Ok(event) => append_paths(event.paths),
-                    Err(error) => eprintln!("配置文件监控错误: {error}"),
+                    Err(error) => eprintln!("Config file watch error: {error}"),
                 }
             }
             match ensure_configuration_watch_directories(
@@ -318,7 +318,7 @@ pub(crate) fn start_configuration_file_watcher(app: tauri::AppHandle) -> Result<
                         }
                     }
                 }
-                Err(error) => eprintln!("配置目录监控更新失败: {error}"),
+                Err(error) => eprintln!("Failed to update config directory watch: {error}"),
             }
             handle_configuration_file_changes(&app, paths, &tracked_paths);
         }

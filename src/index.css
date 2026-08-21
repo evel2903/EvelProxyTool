@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is([data-theme="dark"] *));
+
+@theme inline {
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/*
+ * These map 1:1 onto the existing hand-authored tokens in styles.css
+ * (the "readability-first" palette), so light/dark switching keeps working
+ * through the same `[data-theme]` attribute — no new theming mechanism.
+ */
+:root {
+  --background: var(--theme-faf9f5);
+  --foreground: var(--theme-2d2a26);
+  --card: var(--theme-fffdf8);
+  --card-foreground: var(--theme-2d2a26);
+  --popover: var(--theme-fffdf8);
+  --popover-foreground: var(--theme-2d2a26);
+  --primary: var(--ui-accent);
+  --primary-foreground: #fafafa;
+  --secondary: var(--theme-f4f1ea);
+  --secondary-foreground: var(--theme-2d2a26);
+  --muted: var(--theme-eeeae2);
+  --muted-foreground: var(--theme-7a746c);
+  --accent: var(--ui-accent-soft);
+  --accent-foreground: var(--ui-accent-strong);
+  --destructive: var(--theme-9f2d20);
+  --destructive-foreground: #ffffff;
+  --border: var(--theme-e3e1db);
+  --input: var(--theme-d5d2cb);
+  --ring: var(--ui-focus-ring);
+  --radius: 0.5rem;
+  --sidebar: var(--theme-f0eee8);
+  --sidebar-foreground: var(--theme-2d2a26);
+  --sidebar-primary: var(--ui-accent);
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: var(--theme-e8e5dc);
+  --sidebar-accent-foreground: var(--theme-2d2a26);
+  --sidebar-border: var(--theme-e3e1db);
+  --sidebar-ring: var(--ui-focus-ring);
+}
+
+:root[data-theme='dark'] {
+  --primary-foreground: #18181b;
+  --sidebar-primary-foreground: #18181b;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+}

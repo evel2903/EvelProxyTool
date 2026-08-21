@@ -3,7 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export type AppTheme = 'light' | 'dark';
 
-const STORAGE_KEY = 'easy-cli-proxy-api.theme';
+const STORAGE_KEY = 'evel-proxy-tool.theme';
 const WINDOW_BACKGROUND: Record<AppTheme, string> = {
   light: '#f6f7f5',
   dark: '#111412',

@@ -10,6 +10,11 @@ import geminiIcon from '../assets/icons/gemini.svg';
 import { clientApiProfiles } from '../services/clientAccess';
 import { useI18n } from '../i18n';
 import { useAppUpdate } from '../appUpdate';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 type CorePlatform = {
   os: string;
@@ -65,7 +70,7 @@ type CoreConfigSummary = {
   apiKeys: Array<{ apiKey: string }>;
 };
 
-const APP_RELEASE_URL = 'https://github.com/router-for-me/EasyCLIProxyAPI/releases/latest';
+const APP_RELEASE_URL = 'https://github.com/router-for-me/EvelProxyTool/releases/latest';
 
 let latestAutoCheckStarted = false;
 let cachedLatest: CoreLatest | null = null;
@@ -694,49 +699,48 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
   } as const;
 
   return (
-    <section className={`page kernel-page ${view === 'home' ? 'home-page' : 'version-management-page'}`}>
-      <div className={view === 'home' ? 'kernel-layout home-layout' : 'kernel-layout version-management-layout'}>
+    <section className="grid gap-4">
+      <div className={view === 'home' ? 'grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start' : 'grid gap-4'}>
         {view === 'home' ? (
-        <div className="panel control-panel">
-          <div className="panel-heading">
-            <div>
-              <h2>{t('kernel.control.title')}</h2>
-            </div>
-            <span className={`state-pill ${statusTone}`} title={statusError || undefined}>
+        <Card className="gap-0 p-0">
+          <div className="flex items-center justify-between gap-3 p-4 pb-3">
+            <h2 className="text-base font-semibold">{t('kernel.control.title')}</h2>
+            <Badge variant={statusTone === 'success' ? 'success' : statusTone === 'error' ? 'destructive' : 'secondary'} title={statusError || undefined}>
               {coreProcessBusy ? t('common.processing') : statusLabel}
-            </span>
+            </Badge>
           </div>
 
-          <dl className="panel-detail-grid">
-            <div className="panel-detail-row">
-              <dt>{t('kernel.control.installStatus')}</dt>
-              <dd>{coreStatus ? (coreInstalled ? t('kernel.control.installed') : t('kernel.status.notInstalled')) : t('common.detecting')}</dd>
+          <dl className="px-4">
+            <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+              <dt className="text-muted-foreground">{t('kernel.control.installStatus')}</dt>
+              <dd className="font-medium">{coreStatus ? (coreInstalled ? t('kernel.control.installed') : t('kernel.status.notInstalled')) : t('common.detecting')}</dd>
             </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.control.runStatus')}</dt>
-              <dd>{coreStatus ? (coreRunning ? t('kernel.status.running') : t('kernel.control.notRunning')) : t('common.detecting')}</dd>
+            <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+              <dt className="text-muted-foreground">{t('kernel.control.runStatus')}</dt>
+              <dd className="font-medium">{coreStatus ? (coreRunning ? t('kernel.status.running') : t('kernel.control.notRunning')) : t('common.detecting')}</dd>
             </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.control.pid')}</dt>
-              <dd>{coreStatus?.processId || t('kernel.control.noPid')}</dd>
+            <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+              <dt className="text-muted-foreground">{t('kernel.control.pid')}</dt>
+              <dd className="font-mono font-medium">{coreStatus?.processId || t('kernel.control.noPid')}</dd>
             </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.overview.coreVersion')}</dt>
-              <dd>
+            <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+              <dt className="text-muted-foreground">{t('kernel.overview.coreVersion')}</dt>
+              <dd className="font-mono font-medium">
                 {currentVersion
                   || (coreInstalled ? t('common.unavailable') : t('kernel.status.notInstalled'))}
               </dd>
             </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.overview.appVersion')}</dt>
-              <dd>{currentAppVersion}</dd>
+            <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+              <dt className="text-muted-foreground">{t('kernel.overview.appVersion')}</dt>
+              <dd className="font-mono font-medium">{currentAppVersion}</dd>
             </div>
           </dl>
 
-          <div className="button-row panel-action-row control-action-row">
-            <button
+          <div className="flex gap-2 border-t p-4">
+            <Button
               type="button"
-              className={coreRunning ? 'danger-button' : 'primary-button'}
+              variant={coreRunning ? 'destructive' : 'default'}
+              className="flex-1"
               disabled={!coreInstalled || installing || coreProcessBusy}
               onClick={() =>
                 void runCoreProcessCommand(
@@ -746,36 +750,37 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
               }
             >
               {coreProcessBusy ? t('common.processing') : coreRunning ? t('kernel.action.stop') : t('kernel.action.start')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="secondary-button"
+              variant="outline"
+              className="flex-1"
               disabled={!coreInstalled || !coreRunning || installing || coreProcessBusy}
               onClick={() =>
                 void runCoreProcessCommand('restart_core_process', { success: t('kernel.notice.restarted') })
               }
             >
               {t('kernel.action.restart')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="secondary-button"
+              variant="outline"
+              className="flex-1"
               disabled={coreProcessBusy}
               onClick={() => void refreshStatus()}
             >
               {t('kernel.control.refresh')}
-            </button>
+            </Button>
           </div>
-
-        </div>
+        </Card>
         ) : null}
 
         {view === 'versions' ? (
-          <div className="panel software-update-panel">
-            <div className="panel-heading">
+          <Card className="gap-0 p-0">
+            <div className="flex items-start justify-between gap-3 p-4 pb-3">
               <div>
-                <h2>{t('appUpdate.title')}</h2>
-                <p className={appUpdateError ? 'error' : appUpdate?.updateAvailable ? 'success' : ''}>
+                <h2 className="text-base font-semibold">{t('appUpdate.title')}</h2>
+                <p className={cn('mt-1 text-sm', appUpdateError ? 'text-destructive' : appUpdate?.updateAvailable ? 'text-[var(--theme-2f6b3f)]' : 'text-muted-foreground')}>
                   {appUpdateError
                     || (appUpdate?.updateAvailable
                       ? t('appUpdate.available', { version: displayAppVersion(appUpdate.latestVersion) })
@@ -785,24 +790,24 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                 </p>
               </div>
               {!appUpdate?.autoUpdateSupported && (
-                <span className={`state-pill ${appUpdateError ? 'error' : 'success'}`}>
+                <Badge variant={appUpdateError ? 'destructive' : 'success'}>
                   {t('appUpdate.manualFallback')}
-                </span>
+                </Badge>
               )}
             </div>
 
-            <dl className="panel-detail-grid software-update-details">
-              <div className="panel-detail-row">
-                <dt>{t('appUpdate.current')}</dt>
-                <dd>{currentAppVersion}</dd>
+            <dl className="px-4">
+              <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+                <dt className="text-muted-foreground">{t('appUpdate.current')}</dt>
+                <dd className="font-mono font-medium">{currentAppVersion}</dd>
               </div>
-              <div className="panel-detail-row">
-                <dt>{t('appUpdate.latest')}</dt>
-                <dd>{appUpdate ? displayAppVersion(appUpdate.latestVersion) : t('common.detecting')}</dd>
+              <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+                <dt className="text-muted-foreground">{t('appUpdate.latest')}</dt>
+                <dd className="font-mono font-medium">{appUpdate ? displayAppVersion(appUpdate.latestVersion) : t('common.detecting')}</dd>
               </div>
-              <div className="panel-detail-row">
-                <dt>{t('appUpdate.status')}</dt>
-                <dd className={appUpdateError ? 'error' : appUpdate?.updateAvailable ? 'success' : ''}>
+              <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+                <dt className="text-muted-foreground">{t('appUpdate.status')}</dt>
+                <dd className={cn('font-medium', appUpdateError ? 'text-destructive' : appUpdate?.updateAvailable ? 'text-[var(--theme-2f6b3f)]' : undefined)}>
                   {appUpdateTask.running
                     ? t(`appUpdate.phase.${appUpdateTask.phase}` as Parameters<typeof t>[0])
                     : appUpdateError
@@ -814,10 +819,10 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                           : t('appUpdate.phase.checking')}
                 </dd>
               </div>
-              <div className="panel-detail-row">
-                <dt>{t('appUpdate.catalog.label')}</dt>
+              <div className="flex items-center justify-between gap-3 border-t py-2.5 text-sm">
+                <dt className="text-muted-foreground">{t('appUpdate.catalog.label')}</dt>
                 <dd
-                  className={catalogUpdateError ? 'error' : catalogUpdateNotice ? 'success' : ''}
+                  className={cn('font-medium', catalogUpdateError ? 'text-destructive' : catalogUpdateNotice ? 'text-[var(--theme-2f6b3f)]' : undefined)}
                   role={catalogUpdateError ? 'alert' : undefined}
                   aria-live="polite"
                 >
@@ -828,134 +833,112 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
               </div>
             </dl>
 
-            <div className="button-row panel-action-row software-update-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={checkingAppUpdate || appUpdateTask.running}
-                onClick={() => void checkAppUpdate()}
-              >
+            <div className="flex flex-wrap gap-2 border-t p-4">
+              <Button type="button" variant="outline" disabled={checkingAppUpdate || appUpdateTask.running} onClick={() => void checkAppUpdate()}>
                 {checkingAppUpdate ? t('appUpdate.checking') : t('appUpdate.check')}
-              </button>
+              </Button>
               {appUpdate?.updateAvailable && appUpdate.autoUpdateSupported ? (
-                <button
-                  type="button"
-                  className="primary-button"
-                  disabled={appUpdateTask.running}
-                  onClick={requestAppUpdate}
-                >
+                <Button type="button" disabled={appUpdateTask.running} onClick={requestAppUpdate}>
                   {t('appUpdate.installNow')}
-                </button>
+                </Button>
               ) : (
-                <button type="button" className="secondary-button" onClick={() => void openAppRelease()}>
+                <Button type="button" variant="outline" onClick={() => void openAppRelease()}>
                   {t('appUpdate.openRelease')} <ExternalLink size={14} aria-hidden="true" />
-                </button>
+                </Button>
               )}
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={catalogUpdating || appUpdateTask.running}
-                onClick={() => void updateCodexModelCatalog()}
-                title={t('appUpdate.catalog.updateHint')}
-              >
+              <Button type="button" variant="outline" disabled={catalogUpdating || appUpdateTask.running} onClick={() => void updateCodexModelCatalog()} title={t('appUpdate.catalog.updateHint')}>
                 {catalogUpdating
                   ? t('appUpdate.catalog.updating')
                   : t('appUpdate.catalog.update')}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         ) : null}
 
         {view === 'versions' ? (
-        <div className="panel version-panel">
-          <div className="panel-heading">
-            <div className="version-heading-inline">
-              <h2>{t('kernel.versions.title')}</h2>
-              <span className="version-offline-hint">
-                {t('kernel.versions.offlineHint')}
-              </span>
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Card className="gap-1 p-4">
+                <span className="text-xs text-muted-foreground">{t('kernel.versions.current')}</span>
+                <strong className="font-mono text-lg font-semibold">{currentVersion || t('kernel.status.notInstalled')}</strong>
+              </Card>
+              <Card className="gap-1 p-4">
+                <span className="text-xs text-muted-foreground">{t('kernel.versions.latest')}</span>
+                <strong className="font-mono text-lg font-semibold">{latestLabel}</strong>
+              </Card>
+              <Card className="gap-1 p-4">
+                <span className="text-xs text-muted-foreground">{t('kernel.versions.bundled')}</span>
+                <strong className="truncate font-mono text-lg font-semibold" title={bundledCoreError || bundledCore?.assetName}>
+                  {bundledCore?.version ?? (bundledCoreError ? t('common.detectionFailed') : t('kernel.versions.notIncluded'))}
+                </strong>
+              </Card>
+              <Card className="gap-1 p-4">
+                <span className="text-xs text-muted-foreground">{t('kernel.versions.platform')}</span>
+                <strong className="truncate font-mono text-lg font-semibold" title={platformError || undefined}>{platformOsLabel} / {platformArchLabel}</strong>
+              </Card>
             </div>
+
+            <Card className="gap-3 p-4">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Badge
+                  variant={
+                    versionStatusTone === 'success' ? 'success'
+                      : versionStatusTone === 'error' ? 'destructive'
+                      : versionStatusTone === 'update' ? 'warning'
+                      : 'secondary'
+                  }
+                  title={versionStatusLabel}
+                >
+                  {versionStatusLabel}
+                </Badge>
+                <span className="text-sm text-muted-foreground">{t('kernel.versions.offlineHint')}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" disabled={busy} onClick={checkLatest}>
+                  {checkingLatest ? t('kernel.update.checking') : t('kernel.versions.check')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  title={latestVersion ? t('kernel.versions.installVersion', { version: latestVersion }) : t('kernel.versions.installLatest')}
+                  disabled={!latestVersion || installDisabled}
+                  onClick={() => installVersion(latestVersion)}
+                >
+                  {t('kernel.versions.installLatest')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  title={t('kernel.versions.reinstallTitle')}
+                  disabled={!currentVersion || installDisabled}
+                  onClick={() => installVersion(currentVersion)}
+                >
+                  {t('kernel.versions.reinstall')}
+                </Button>
+                <Button
+                  type="button"
+                  title={(bundledCore?.assetName ?? bundledCoreError) || t('kernel.versions.noBundled')}
+                  disabled={!bundledCore || offlineInstallDisabled}
+                  onClick={() => void installBundledCore()}
+                >
+                  {t('kernel.versions.offlineInstall')}
+                </Button>
+              </div>
+            </Card>
           </div>
-
-          <dl className="panel-detail-grid">
-            <div className="panel-detail-row">
-              <dt>{t('kernel.versions.current')}</dt>
-              <dd>{currentVersion || t('kernel.status.notInstalled')}</dd>
-            </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.versions.latest')}</dt>
-              <dd>{latestLabel}</dd>
-            </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.versions.bundled')}</dt>
-              <dd title={bundledCoreError || bundledCore?.assetName}>
-                {bundledCore?.version ?? (bundledCoreError ? t('common.detectionFailed') : t('kernel.versions.notIncluded'))}
-              </dd>
-            </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.versions.platform')}</dt>
-              <dd title={platformError || undefined}>{platformOsLabel} / {platformArchLabel}</dd>
-            </div>
-            <div className="panel-detail-row">
-              <dt>{t('kernel.versions.updateStatus')}</dt>
-              <dd className={versionStatusTone} title={versionStatusLabel}>
-                {versionStatusLabel}
-              </dd>
-            </div>
-          </dl>
-
-          <div className="button-row panel-action-row version-action-row">
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={busy}
-              onClick={checkLatest}
-            >
-              {checkingLatest ? t('kernel.update.checking') : t('kernel.versions.check')}
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              title={latestVersion ? t('kernel.versions.installVersion', { version: latestVersion }) : t('kernel.versions.installLatest')}
-              disabled={!latestVersion || installDisabled}
-              onClick={() => installVersion(latestVersion)}
-            >
-              {t('kernel.versions.installLatest')}
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              title={t('kernel.versions.reinstallTitle')}
-              disabled={!currentVersion || installDisabled}
-              onClick={() => installVersion(currentVersion)}
-            >
-              {t('kernel.versions.reinstall')}
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              title={(bundledCore?.assetName ?? bundledCoreError) || t('kernel.versions.noBundled')}
-              disabled={!bundledCore || offlineInstallDisabled}
-              onClick={() => void installBundledCore()}
-            >
-              {t('kernel.versions.offlineInstall')}
-            </button>
-          </div>
-
-        </div>
         ) : null}
       </div>
 
       {view === 'home' ? (
-      <section className="panel client-api-panel">
-        <div className="panel-heading client-api-heading">
+      <Card className="gap-0 p-0">
+        <div className="flex flex-wrap items-start justify-between gap-3 p-4 pb-3">
           <div>
-            <h2>API URL</h2>
+            <h2 className="text-base font-semibold">{t('kernel.apiUrl.title')}</h2>
             {typeof homeApiKey === 'string' ? (
-              <div className="client-api-key-actions">
+              <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
-                  className="client-api-default-key"
+                  className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm hover:bg-accent"
                   aria-pressed={showHomeApiKey}
                   title={showHomeApiKey ? t('config.keys.hide') : t('config.keys.show')}
                   onClick={() => setShowHomeApiKey((visible) => !visible)}
@@ -968,9 +951,10 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                     <Eye size={14} aria-hidden="true" />
                   )}
                 </button>
-                <button
+                <Button
                   type="button"
-                  className="icon-button quiet client-api-key-copy"
+                  variant="ghost"
+                  size="icon-sm"
                   title={t('config.keys.copy')}
                   aria-label={t('config.keys.copy')}
                   onClick={() =>
@@ -986,41 +970,44 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                   ) : (
                     <Copy size={14} aria-hidden="true" />
                   )}
-                </button>
+                </Button>
               </div>
             ) : homeApiKey === null ? (
-              <p className="client-api-no-key">{t('kernel.access.noConfiguredKey')}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t('kernel.access.noConfiguredKey')}</p>
             ) : (
-              <p className={homeApiKeyError ? 'error' : undefined}>
+              <p className={cn('mt-2 text-sm', homeApiKeyError ? 'text-destructive' : 'text-muted-foreground')}>
                 {homeApiKeyError ? t('common.unavailable') : t('common.loading')}
               </p>
             )}
           </div>
-          <span className={`state-pill ${coreRunning ? 'success' : ''}`}>
+          <Badge variant={coreRunning ? 'success' : 'secondary'}>
             {coreRunning ? t('kernel.access.connectable') : t('kernel.access.waiting')}
-          </span>
+          </Badge>
         </div>
 
-        <div className="client-api-grid">
+        <div className="grid grid-cols-1 gap-3 p-4 pt-1 sm:grid-cols-2 lg:grid-cols-3">
           {apiProfiles.map((profile) => (
-            <article className={`client-api-card ${profile.id}`} key={profile.id}>
-              <div className="client-api-card-heading">
-                <span className="client-api-logo">
-                  <img src={apiProfileIcons[profile.id]} alt="" />
+            <article className="rounded-lg border bg-muted/40 p-3.5" key={profile.id}>
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-card">
+                  <img src={apiProfileIcons[profile.id]} alt="" className="size-4" />
                 </span>
-                <div>
-                  <strong>{profile.name}</strong>
-                  <span>{profile.description}</span>
+                <div className="min-w-0">
+                  <strong className="block text-sm font-semibold">{profile.name}</strong>
+                  <span className="block truncate text-xs text-muted-foreground">{profile.description}</span>
                 </div>
               </div>
 
-              <div className="client-api-values">
-                <div className="client-api-value-row">
-                  <span>{t('kernel.access.localUrl')}</span>
-                  <code title={profile.baseUrl}>{profile.baseUrl}</code>
-                  <button
+              <div className="mt-3 grid gap-2">
+                <div className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{t('kernel.access.localUrl')}</div>
+                    <code className="block truncate font-mono text-xs" title={profile.baseUrl}>{profile.baseUrl}</code>
+                  </div>
+                  <Button
                     type="button"
-                    className="icon-button quiet"
+                    variant="outline"
+                    size="icon-sm"
                     onClick={() =>
                       void copyApiValue(
                         profile.baseUrl,
@@ -1032,24 +1019,27 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                     aria-label={t('kernel.access.copyLocal', { name: profile.name })}
                   >
                     {copiedApiField === `${profile.id}:base` ? (
-                      <Check size={15} aria-hidden="true" />
+                      <Check size={13} aria-hidden="true" />
                     ) : (
-                      <Copy size={15} aria-hidden="true" />
+                      <Copy size={13} aria-hidden="true" />
                     )}
-                  </button>
+                  </Button>
                 </div>
                 {allowLanAccess ? (
-                  <div className="client-api-value-row">
-                    <span>{t('kernel.access.lanUrl')}</span>
-                    <code title={profile.lanUrl || undefined}>
-                      {!lanIpChecked
-                        ? t('kernel.access.detectingIp')
-                        : profile.lanUrl || t('kernel.access.noIp')}
-                    </code>
+                  <div className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{t('kernel.access.lanUrl')}</div>
+                      <code className="block truncate font-mono text-xs" title={profile.lanUrl || undefined}>
+                        {!lanIpChecked
+                          ? t('kernel.access.detectingIp')
+                          : profile.lanUrl || t('kernel.access.noIp')}
+                      </code>
+                    </div>
                     {profile.lanUrl ? (
-                      <button
+                      <Button
                         type="button"
-                        className="icon-button quiet"
+                        variant="outline"
+                        size="icon-sm"
                         onClick={() =>
                           void copyApiValue(
                             profile.lanUrl!,
@@ -1061,84 +1051,73 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                         aria-label={t('kernel.access.copyLan', { name: profile.name })}
                       >
                         {copiedApiField === `${profile.id}:lan` ? (
-                          <Check size={15} aria-hidden="true" />
+                          <Check size={13} aria-hidden="true" />
                         ) : (
-                          <Copy size={15} aria-hidden="true" />
+                          <Copy size={13} aria-hidden="true" />
                         )}
-                      </button>
-                    ) : (
-                      <span className="client-api-copy-placeholder" aria-hidden="true" />
-                    )}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
             </article>
           ))}
         </div>
-      </section>
+      </Card>
       ) : null}
 
       {view === 'versions' && installDialogOpen && progress ? (
-        <div className="install-dialog-backdrop">
-          <div
-            ref={installDialogRef}
-            className={`install-dialog ${installDialogTone}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="install-dialog-title"
-            aria-describedby="install-dialog-message"
-            aria-busy={installTaskRunning}
-            tabIndex={-1}
-          >
-            <div className="install-dialog-heading">
-              <span>{t('kernel.dialog.install')}</span>
-              <h2 id="install-dialog-title">{installDialogTitle}</h2>
+        <Dialog open onOpenChange={(open) => !open && !installDialogActionDisabled && (installTaskRunning ? cancelInstall() : closeInstallDialog())}>
+          <DialogContent showCloseButton={false} className="sm:max-w-md" aria-busy={installTaskRunning}>
+            <div>
+              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t('kernel.dialog.install')}</span>
+              <DialogTitle className="mt-1 text-lg font-semibold">{installDialogTitle}</DialogTitle>
             </div>
 
-            <div className="install-dialog-phase">
-              <span>{t('kernel.dialog.phase')}</span>
-              <strong>{cancellingInstall ? t('kernel.install.cancellingShort') : localizeInstallPhase(progress.phase, t)}</strong>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t('kernel.dialog.phase')}</span>
+              <strong className="font-semibold">{cancellingInstall ? t('kernel.install.cancellingShort') : localizeInstallPhase(progress.phase, t)}</strong>
             </div>
 
-            <div
-              className={`install-progress-track ${
-                progressKnown ? '' : installTaskRunning ? 'unknown is-running' : 'unknown'
-              }`}
-            >
-              <span
-                className="install-progress-fill"
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn('h-full rounded-full bg-primary transition-[width]', !progressKnown && 'w-1/3 animate-pulse')}
                 style={progressKnown ? { width: `${progressPercent}%` } : undefined}
               />
             </div>
 
-            <div className="install-progress-meta">
-              <strong>{progressKnown ? `${progressPercent.toFixed(1)}%` : t('kernel.dialog.unknownProgress')}</strong>
-              <span>{progressText}</span>
+            <div className="flex items-center justify-between text-sm">
+              <strong className="font-semibold tabular-nums">{progressKnown ? `${progressPercent.toFixed(1)}%` : t('kernel.dialog.unknownProgress')}</strong>
+              <span className="text-muted-foreground">{progressText}</span>
             </div>
 
             <div
               id="install-dialog-message"
-              className={`install-dialog-message ${installDialogTone}`}
+              className={cn('min-h-5 text-sm', installDialogTone === 'error' ? 'text-destructive' : installDialogTone === 'success' ? 'text-[var(--theme-2f6b3f)]' : 'text-muted-foreground')}
               aria-live="polite"
             >
               {installDialogMessage || '\u00a0'}
             </div>
 
-            <button
+            <Button
               type="button"
-              className={installTaskRunning ? 'danger-button' : 'primary-button'}
+              variant={installTaskRunning ? 'destructive' : 'default'}
               disabled={installDialogActionDisabled}
               onClick={installTaskRunning ? cancelInstall : closeInstallDialog}
             >
               {installDialogAction}
-            </button>
-          </div>
-        </div>
+            </Button>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {processNotice ? (
         <div
-          className={`config-toast ${processNotice.tone}`}
+          className={cn(
+            'fixed right-6 bottom-6 z-50 flex items-center gap-2.5 rounded-xl border bg-card px-4 py-3 text-sm shadow-lg',
+            processNotice.tone === 'success' && 'border-[var(--theme-b8d1bb)] text-[var(--theme-2f6b3f)]',
+            processNotice.tone === 'error' && 'border-destructive/30 text-destructive',
+          )}
           role="status"
           title={processNotice.message}
         >

@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <img src="src/assets/logo.jpg" width="112" alt="EasyCLIProxyAPI Logo">
+  <img src="src/assets/logo.jpg" width="112" alt="EvelProxyTool Logo">
 </p>
 
-<h1 align="center">EasyCLIProxyAPI</h1>
+<h1 align="center">EvelProxyTool</h1>
 
 <p align="center">
   CLIProxyAPI のポータブルデスクトップコンソール。<br>
@@ -17,7 +17,7 @@
 
 ## 概要
 
-EasyCLIProxyAPI は、[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
+EvelProxyTool は、[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
 をベースにしたグラフィカルなデスクトップ管理ツールです。コアのライフサイクル管理、OAuth 認証、
 API プロバイダー統合、プロトコル変換、認証情報管理、クォータ確認、使用履歴、モデルエイリアス、
 エージェントクライアント設定を一つの画面にまとめます。
@@ -52,7 +52,7 @@ OAuth 画面では、対応プロバイダーのブラウザー認証をまと�
 - Kimi OAuth
 - xAI OAuth
 
-EasyCLIProxyAPI はブラウザーで認証ページを開きます。自動リダイレクトが利用できない場合は、
+EvelProxyTool はブラウザーで認証ページを開きます。自動リダイレクトが利用できない場合は、
 コールバックを手動で完了することもできます。
 
 ### API 接続とプロバイダー統合
@@ -115,10 +115,10 @@ OpenAI、Claude、Gemini、およびその他の互換形式の間で変換で�
 
 ## クイックスタート
 
-1. [GitHub Releases](https://github.com/router-for-me/EasyCLIProxyAPI/releases/latest)
+1. [GitHub Releases](https://github.com/router-for-me/EvelProxyTool/releases/latest)
    から、お使いの OS に対応するパッケージをダウンロードします。
 2. Windows または Linux のアーカイブを展開します。macOS では DMG を開きます。
-3. EasyCLIProxyAPI を起動します。
+3. EvelProxyTool を起動します。
 4. **バージョン管理** 画面を開き、同梱版または最新版の CLIProxyAPI コアをインストールします。
 5. **ホーム** に戻ってコアを起動し、必要なローカル API エンドポイントをコピーするか、OAuth/API プロバイダーを設定します。
 
@@ -130,7 +130,7 @@ OpenAI、Claude、Gemini、およびその他の互換形式の間で変換で�
 
 既存の Linux および macOS インストールでは、クロスプラットフォーム自動更新マーカーを含むリリースへ一度手動で更新する必要があります。そのリリースを起動した後は、以降の更新をアプリ内で実行できます。
 
-v0.2.5 以前を使用している場合は、一度だけ手動で移行してください。EasyCLIProxyAPI を終了し、使用中のアーキテクチャに対応する最新版の完全版 Windows ZIP をダウンロードして、その最上位ディレクトリの内容を既存のインストール先へコピーし、同名ファイルを上書きします。既存のディレクトリを先に削除しないでください。`config.toml`、`oauth`、`cpa-core/config.yaml` などのユーザーデータは保持されます。新しいバージョンを起動した後は、以降のリリースでアプリ内自動更新を利用できます。
+v0.2.5 以前を使用している場合は、一度だけ手動で移行してください。EvelProxyTool を終了し、使用中のアーキテクチャに対応する最新版の完全版 Windows ZIP をダウンロードして、その最上位ディレクトリの内容を既存のインストール先へコピーし、同名ファイルを上書きします。既存のディレクトリを先に削除しないでください。`config.toml`、`oauth`、`cpa-core/config.yaml` などのユーザーデータは保持されます。新しいバージョンを起動した後は、以降のリリースでアプリ内自動更新を利用できます。
 
 ## 対応プラットフォーム
 

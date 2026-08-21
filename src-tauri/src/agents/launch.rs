@@ -11,7 +11,7 @@ pub(crate) fn launch_agent(
     let home = app
         .path()
         .home_dir()
-        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+        .map_err(|error| format!("Failed to resolve user home directory: {error}"))?;
     let config = gui_config_state.snapshot()?;
     let requested_target = target
         .as_deref()
@@ -20,29 +20,29 @@ pub(crate) fn launch_agent(
 
     if client.trim().eq_ignore_ascii_case(PI_AGENT_ID) {
         if requested_target.is_some_and(|value| value != "cli") {
-            return Err("Pi 只支持 CLI 启动方式".to_string());
+            return Err("Pi only supports CLI launch".to_string());
         }
         let status =
             inspect_pi_provider_status(&home, config.port, effective_agent_api_key(&config));
         if !status.installed {
-            return Err("未检测到 Pi CLI，请先安装 Pi 并重新检测".to_string());
+            return Err("Pi CLI not detected; install Pi and re-check".to_string());
         }
         if !status.configured {
-            return Err("请先安装并配置 Pi CLIProxyAPI provider 插件".to_string());
+            return Err("Install and configure the Pi CLIProxyAPI provider plugin first".to_string());
         }
         let executable =
-            find_pi_executable(&home).ok_or_else(|| "未找到 Pi CLI 可执行文件".to_string())?;
+            find_pi_executable(&home).ok_or_else(|| "Pi CLI executable not found".to_string())?;
         let launch_directory = resolve_launch_directory(working_directory.as_deref(), &home)?;
         return launch_cli_agent(&executable, PI_AGENT_NAME, &launch_directory, &[]);
     }
 
     let client = AgentClient::parse(&client)?;
     if !client.supported_platform() {
-        return Err(format!("当前平台不支持启动 {}", client.name()));
+        return Err(format!("Current platform does not support launching {}", client.name()));
     }
     let status = inspect_agent_config(client, &home, config.port, effective_agent_api_key(&config));
     if !status.installed {
-        return Err(format!("未检测到 {}，请先安装并重新检测", client.name()));
+        return Err(format!("{} not detected; install it and re-check", client.name()));
     }
     validate_agent_launch_configuration(client, &status)?;
     if client == AgentClient::Codex && status.oauth_configuration {
@@ -59,16 +59,16 @@ pub(crate) fn launch_agent(
         (AgentClient::ClaudeDesktop, "app") => launch_claude_desktop(&home),
         (AgentClient::ZCode, "app") => {
             let executable = find_zcode_desktop_executable(&home)
-                .ok_or_else(|| "未找到 ZCode 应用程序".to_string())?;
+                .ok_or_else(|| "ZCode application not found".to_string())?;
             launch_desktop_agent(&executable, client.name())
         }
         (AgentClient::Codex, "app") => launch_codex_desktop(&home),
         (AgentClient::ClaudeDesktop | AgentClient::ZCode, "cli") => {
-            Err(format!("{} 不支持 CLI 启动方式", client.name()))
+            Err(format!("{} does not support CLI launch", client.name()))
         }
         (_, "cli") => {
             let executable = find_agent_executable(client, &home)
-                .ok_or_else(|| format!("未找到 {} 的可执行文件", client.name()))?;
+                .ok_or_else(|| format!("Executable for {} not found", client.name()))?;
             let launch_directory = resolve_launch_directory(working_directory.as_deref(), &home)?;
             let environment_to_remove = if client == AgentClient::ClaudeCode {
                 &["ANTHROPIC_API_KEY"][..]
@@ -82,8 +82,8 @@ pub(crate) fn launch_agent(
                 environment_to_remove,
             )
         }
-        (_, "app") => Err(format!("{} 不支持桌面 App 启动方式", client.name())),
-        _ => Err("不支持的智能体启动方式".to_string()),
+        (_, "app") => Err(format!("{} does not support desktop app launch", client.name())),
+        _ => Err("Unsupported agent launch method".to_string()),
     }
 }
 
@@ -95,7 +95,7 @@ pub(crate) async fn restart_codex_app(
     let home = app
         .path()
         .home_dir()
-        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+        .map_err(|error| format!("Failed to resolve user home directory: {error}"))?;
     let config = gui_config_state.snapshot()?;
     let status = inspect_agent_config(
         AgentClient::Codex,
@@ -104,20 +104,20 @@ pub(crate) async fn restart_codex_app(
         effective_agent_api_key(&config),
     );
     if !status.installed {
-        return Err("未检测到 Codex，请先安装并重新检测".to_string());
+        return Err("Codex not detected; install it and re-check".to_string());
     }
     if status.oauth_configuration {
         validate_codex_oauth_login(&home)?;
     }
     let target = find_codex_app_installation(&home)
-        .ok_or_else(|| "未检测到 Codex 桌面应用，请重新检测或改用 Codex CLI".to_string())?;
+        .ok_or_else(|| "Codex desktop app not detected; re-check or use the Codex CLI instead".to_string())?;
 
     tauri::async_runtime::spawn_blocking(move || {
         stop_codex_desktop(&target)?;
         launch_codex_target(&target)
     })
     .await
-    .map_err(|error| format!("重启 Codex App 任务失败: {error}"))?
+    .map_err(|error| format!("Restart Codex App task failed: {error}"))?
 }
 
 fn validate_agent_launch_configuration(
@@ -130,7 +130,7 @@ fn validate_agent_launch_configuration(
         return Ok(());
     }
     Err(format!(
-        "请先为 {} 应用配置修改，确保 CPA 配置生效后再启动",
+        "Apply the configuration changes for {} first to make sure the CPA config takes effect before launching",
         client.name()
     ))
 }
@@ -140,21 +140,21 @@ fn resolve_launch_directory(value: Option<&str>, fallback: &Path) -> Result<Path
         return Ok(fallback.to_path_buf());
     };
     if value.chars().any(char::is_control) {
-        return Err("工作目录包含无效字符".to_string());
+        return Err("Working directory contains invalid characters".to_string());
     }
     let path = PathBuf::from(value);
     if !path.is_absolute() {
-        return Err("工作目录必须是绝对路径".to_string());
+        return Err("Working directory must be an absolute path".to_string());
     }
     if !path.is_dir() {
-        return Err(format!("工作目录不存在: {}", path_to_string(&path)));
+        return Err(format!("Working directory does not exist: {}", path_to_string(&path)));
     }
     Ok(path)
 }
 
 fn launch_codex_desktop(home: &Path) -> Result<(), String> {
     let target = find_codex_app_installation(home)
-        .ok_or_else(|| "未检测到 Codex 桌面应用，请重新检测或改用 Codex CLI".to_string())?;
+        .ok_or_else(|| "Codex desktop app not detected; re-check or use the Codex CLI instead".to_string())?;
     launch_codex_target(&target)
 }
 
@@ -183,7 +183,7 @@ fn stop_codex_desktop(target: &CodexAppTarget) -> Result<(), String> {
     configure_background_command(&mut command);
     let output = command
         .output()
-        .map_err(|error| format!("关闭 Codex App 失败: {error}"))?;
+        .map_err(|error| format!("Failed to close Codex App: {error}"))?;
     if output.status.success() {
         return Ok(());
     }
@@ -195,9 +195,9 @@ fn stop_codex_desktop(target: &CodexAppTarget) -> Result<(), String> {
     .trim()
     .to_string();
     Err(if detail.is_empty() {
-        "Codex App 未能完全关闭".to_string()
+        "Codex App failed to close completely".to_string()
     } else {
-        format!("关闭 Codex App 失败: {detail}")
+        format!("Failed to close Codex App: {detail}")
     })
 }
 
@@ -255,7 +255,7 @@ fn stop_codex_desktop(target: &CodexAppTarget) -> Result<(), String> {
         .file_name()
         .and_then(|name| name.to_str())
         .filter(|name| !name.is_empty())
-        .ok_or_else(|| "无法识别 Codex App 进程名称".to_string())?;
+        .ok_or_else(|| "Could not identify the Codex App process name".to_string())?;
     let application_name = executable
         .ancestors()
         .find(|path| path.extension().and_then(|value| value.to_str()) == Some("app"))
@@ -288,9 +288,9 @@ fn wait_for_unix_process_exit(process_name: &str) -> Result<(), String> {
     let status = Command::new("pgrep")
         .args(["-x", process_name])
         .status()
-        .map_err(|error| format!("检查 Codex App 进程失败: {error}"))?;
+        .map_err(|error| format!("Failed to check Codex App process: {error}"))?;
     if status.success() {
-        Err("Codex App 未能完全关闭".to_string())
+        Err("Codex App failed to close completely".to_string())
     } else {
         Ok(())
     }
@@ -298,7 +298,7 @@ fn wait_for_unix_process_exit(process_name: &str) -> Result<(), String> {
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 fn stop_codex_desktop(_target: &CodexAppTarget) -> Result<(), String> {
-    Err("当前平台不支持重启 Codex App".to_string())
+    Err("Current platform does not support restarting Codex App".to_string())
 }
 
 fn launch_claude_desktop(home: &Path) -> Result<(), String> {
@@ -310,7 +310,7 @@ fn launch_claude_desktop(home: &Path) -> Result<(), String> {
         launch_windows_claude_store_app()
     }
     #[cfg(not(target_os = "windows"))]
-    Err("未检测到 Claude Desktop 应用，请先安装或重新检测".to_string())
+    Err("Claude Desktop app not detected; install it or re-check".to_string())
 }
 
 fn launch_desktop_agent(executable: &Path, label: &str) -> Result<(), String> {
@@ -331,7 +331,7 @@ fn launch_desktop_agent(executable: &Path, label: &str) -> Result<(), String> {
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         let _ = (executable, label);
-        return Err("当前平台不支持桌面智能体".to_string());
+        return Err("Current platform does not support desktop agents".to_string());
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
@@ -344,7 +344,7 @@ fn launch_desktop_agent(executable: &Path, label: &str) -> Result<(), String> {
         command
             .spawn()
             .map(|_| ())
-            .map_err(|error| format!("启动 {label} 失败: {error}"))
+            .map_err(|error| format!("Failed to launch {label}: {error}"))
     }
 }
 
@@ -360,7 +360,7 @@ fn launch_windows_store_app(app_id: &str, label: &str) -> Result<(), String> {
     command
         .spawn()
         .map(|_| ())
-        .map_err(|error| format!("启动 {label} 失败: {error}"))
+        .map_err(|error| format!("Failed to launch {label}: {error}"))
 }
 
 #[cfg(target_os = "windows")]
@@ -390,15 +390,15 @@ Start-Process "shell:AppsFolder\$appId"
     configure_background_command(&mut command);
     let output = command
         .output()
-        .map_err(|error| format!("启动 Claude Desktop 失败: {error}"))?;
+        .map_err(|error| format!("Failed to launch Claude Desktop: {error}"))?;
     if output.status.success() {
         Ok(())
     } else {
         let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
         Err(if detail.is_empty() {
-            "未找到可启动的 Claude Desktop 应用".to_string()
+            "No launchable Claude Desktop app found".to_string()
         } else {
-            format!("启动 Claude Desktop 失败: {detail}")
+            format!("Failed to launch Claude Desktop: {detail}")
         })
     }
 }
@@ -434,12 +434,12 @@ fn launch_cli_agent(
         .arg("-e")
         .arg(script)
         .output()
-        .map_err(|error| format!("启动 {label} 终端失败: {error}"))?;
+        .map_err(|error| format!("Failed to launch {label} terminal: {error}"))?;
     if output.status.success() {
         Ok(())
     } else {
         let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(format!("启动 {label} 终端失败: {detail}"))
+        Err(format!("Failed to launch {label} terminal: {detail}"))
     }
 }
 
@@ -484,8 +484,8 @@ fn launch_cli_agent(
         }
     }
     Err(match last_error {
-        Some(error) => format!("启动 {label} 失败: {error}"),
-        None => format!("启动 {label} 失败：未找到可用的终端程序"),
+        Some(error) => format!("Failed to launch {label}: {error}"),
+        None => format!("Failed to launch {label}: no available terminal program found"),
     })
 }
 
@@ -509,7 +509,7 @@ fn launch_cli_agent(
     command
         .spawn()
         .map(|_| ())
-        .map_err(|error| format!("启动 {label} 失败: {error}"))
+        .map_err(|error| format!("Failed to launch {label}: {error}"))
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
@@ -519,7 +519,7 @@ fn launch_cli_agent(
     _working_directory: &Path,
     _environment_to_remove: &[&str],
 ) -> Result<(), String> {
-    Err(format!("当前平台不支持启动 {label}"))
+    Err(format!("Current platform does not support launching {label}"))
 }
 
 #[cfg(test)]
@@ -530,7 +530,7 @@ mod tests {
     fn relative_launch_directory_is_rejected() {
         let error = resolve_launch_directory(Some("relative/project"), Path::new("/fallback"))
             .expect_err("relative path should be rejected");
-        assert!(error.contains("绝对路径"));
+        assert!(error.contains("absolute path"));
     }
 
     #[test]

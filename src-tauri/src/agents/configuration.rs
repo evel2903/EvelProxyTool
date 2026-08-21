@@ -72,7 +72,7 @@ pub(crate) fn build_agent_updates_with_oauth(
         }
         AgentClient::ClaudeDesktop => {
             if paths.len() != 4 {
-                return Err("Claude Desktop 当前平台配置路径不可用".to_string());
+                return Err("Claude Desktop config paths are unavailable for the current platform".to_string());
             }
             let normal_before = read_optional_text(&paths[0])?;
             let threep_before = read_optional_text(&paths[1])?;
@@ -139,7 +139,7 @@ pub(crate) fn build_agent_updates_with_oauth(
                 path: paths[0].clone(),
                 after,
             }];
-            let catalog = codex_catalog.ok_or_else(|| "无法生成 Codex 模型目录".to_string())?;
+            let catalog = codex_catalog.ok_or_else(|| "Failed to generate Codex model catalog".to_string())?;
             validate_codex_catalog(catalog, model)?;
             updates.push(AgentFileUpdate {
                 path: codex_model_catalog_path(home),
@@ -191,7 +191,7 @@ pub(crate) fn build_agent_updates_with_oauth(
         }
         AgentClient::DeepSeekHarness => {
             if paths.len() != 2 {
-                return Err("DeepSeek Harness 配置路径数量无效".to_string());
+                return Err("Invalid number of DeepSeek Harness config paths".to_string());
             }
             let settings_before = read_optional_text(&paths[0])?;
             let credentials_before = read_optional_text(&paths[1])?;
@@ -284,7 +284,7 @@ pub(crate) fn read_optional_text(path: &Path) -> Result<Option<String>, String> 
     }
     fs::read_to_string(path)
         .map(Some)
-        .map_err(|error| format!("读取配置失败 {}: {error}", path_to_string(path)))
+        .map_err(|error| format!("Failed to read config {}: {error}", path_to_string(path)))
 }
 
 pub(crate) fn read_agent_yaml_mapping_or_empty(
@@ -295,7 +295,7 @@ pub(crate) fn read_agent_yaml_mapping_or_empty(
         return Ok(serde_norway::Mapping::new());
     }
     let content = fs::read_to_string(path)
-        .map_err(|error| format!("读取 {label} 失败 {}: {error}", path_to_string(path)))?;
+        .map_err(|error| format!("Failed to read {label} {}: {error}", path_to_string(path)))?;
     parse_agent_yaml_mapping(Some(&content), label)
 }
 
@@ -307,10 +307,10 @@ pub(crate) fn parse_agent_yaml_mapping(
         return Ok(serde_norway::Mapping::new());
     };
     serde_norway::from_str::<serde_norway::Value>(content)
-        .map_err(|error| format!("{label} YAML 格式无效: {error}"))?
+        .map_err(|error| format!("{label} has invalid YAML format: {error}"))?
         .as_mapping()
         .cloned()
-        .ok_or_else(|| format!("{label} 根节点必须是 YAML 映射"))
+        .ok_or_else(|| format!("{label} root node must be a YAML mapping"))
 }
 
 pub(crate) fn render_agent_yaml_mapping_update<F>(
@@ -335,9 +335,9 @@ where
         .map(|_| existing.unwrap_or_default())
         .unwrap_or("{}\n");
     let mut document = yaml_serde_edit::YamlValue::parse(source)
-        .map_err(|error| format!("{label} YAML 格式无效: {error}"))?;
+        .map_err(|error| format!("{label} has invalid YAML format: {error}"))?;
     render_updated_core_yaml(&mut document, updated)
-        .map_err(|error| format!("更新 {label} 失败: {error}"))
+        .map_err(|error| format!("Failed to update {label}: {error}"))
 }
 
 pub(crate) fn build_deepseek_harness_models(
@@ -356,7 +356,7 @@ pub(crate) fn build_deepseek_harness_models(
                 entry.insert(
                     yaml_key("contextWindow"),
                     serde_norway::to_value(context_window)
-                        .map_err(|error| format!("序列化 Harness 模型上下文失败: {error}"))?,
+                        .map_err(|error| format!("Failed to serialize Harness model context: {error}"))?,
                 );
             }
             Ok(serde_norway::Value::Mapping(entry))
@@ -377,19 +377,19 @@ pub(crate) fn build_deepseek_harness_settings(
             .entry(yaml_key("llm-pi-ai"))
             .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
             .as_mapping_mut()
-            .ok_or_else(|| "DeepSeek Harness llm-pi-ai 必须是映射".to_string())?;
+            .ok_or_else(|| "DeepSeek Harness llm-pi-ai must be a mapping".to_string())?;
         let providers = llm
             .entry(yaml_key("providers"))
             .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
             .as_mapping_mut()
-            .ok_or_else(|| "DeepSeek Harness llm-pi-ai.providers 必须是映射".to_string())?;
+            .ok_or_else(|| "DeepSeek Harness llm-pi-ai.providers must be a mapping".to_string())?;
         let provider = providers
             .entry(yaml_key(DEEPSEEK_HARNESS_PROVIDER_ID))
             .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
             .as_mapping_mut()
-            .ok_or_else(|| "DeepSeek Harness EasyCLIProxyAPI provider 必须是映射".to_string())?;
+            .ok_or_else(|| "DeepSeek Harness EvelProxyTool provider must be a mapping".to_string())?;
         for (key, value) in [
-            ("displayName", "EasyCLIProxyAPI"),
+            ("displayName", "EvelProxyTool"),
             ("apiKeyEnv", DEEPSEEK_HARNESS_CREDENTIAL),
             ("api", "openai-completions"),
             ("baseURL", base_url),
@@ -405,7 +405,7 @@ pub(crate) fn build_deepseek_harness_settings(
             .entry(yaml_key("agent-default-model"))
             .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
             .as_mapping_mut()
-            .ok_or_else(|| "DeepSeek Harness agent-default-model 必须是映射".to_string())?;
+            .ok_or_else(|| "DeepSeek Harness agent-default-model must be a mapping".to_string())?;
         selection.insert(
             yaml_key("provider"),
             serde_norway::Value::String(DEEPSEEK_HARNESS_PROVIDER_ID.to_string()),
@@ -444,7 +444,7 @@ pub(crate) fn write_deepseek_harness_file(
 
         fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|error| {
             format!(
-                "设置 DeepSeek Harness 凭据权限失败 {}: {error}",
+                "Failed to set DeepSeek Harness credentials permissions {}: {error}",
                 path_to_string(path)
             )
         })?;
@@ -478,12 +478,12 @@ pub(crate) fn build_claude_agent_config(
 ) -> Result<String, String> {
     let mut root = match existing.map(str::trim).filter(|value| !value.is_empty()) {
         Some(value) => serde_json::from_str::<serde_json::Value>(value)
-            .map_err(|error| format!("Claude Code settings.json 格式无效: {error}"))?,
+            .map_err(|error| format!("Claude Code settings.json has invalid format: {error}"))?,
         None => serde_json::json!({}),
     };
     let root = root
         .as_object_mut()
-        .ok_or_else(|| "Claude Code settings.json 根节点必须是对象".to_string())?;
+        .ok_or_else(|| "Claude Code settings.json root node must be an object".to_string())?;
     let mappings = mappings
         .cloned()
         .unwrap_or_else(|| ClaudeDesktopModelMappings::all(model));
@@ -553,7 +553,7 @@ pub(crate) fn build_claude_agent_config(
         serde_json::Value::String(model_settings.sonnet),
     );
     let mut rendered = serde_json::to_string_pretty(&serde_json::Value::Object(root.clone()))
-        .map_err(|error| format!("生成 Claude Code 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to generate Claude Code config: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
 }
@@ -564,13 +564,13 @@ pub(crate) fn parse_agent_json_object(
 ) -> Result<serde_json::Map<String, serde_json::Value>, String> {
     let value = match existing.map(str::trim).filter(|value| !value.is_empty()) {
         Some(value) => serde_json::from_str::<serde_json::Value>(value)
-            .map_err(|error| format!("{label} 格式无效: {error}"))?,
+            .map_err(|error| format!("{label} has invalid format: {error}"))?,
         None => serde_json::json!({}),
     };
     value
         .as_object()
         .cloned()
-        .ok_or_else(|| format!("{label} 根节点必须是对象"))
+        .ok_or_else(|| format!("{label} root node must be an object"))
 }
 
 pub(crate) fn ensure_json_object_entry<'a>(
@@ -602,7 +602,7 @@ pub(crate) fn render_agent_json(
     label: &str,
 ) -> Result<String, String> {
     let mut rendered = serde_json::to_string_pretty(&serde_json::Value::Object(root))
-        .map_err(|error| format!("生成 {label} 失败: {error}"))?;
+        .map_err(|error| format!("Failed to generate {label}: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
 }
@@ -640,9 +640,9 @@ pub(crate) fn ordered_agent_models(
 pub(crate) fn build_claude_desktop_deployment_config(
     existing: Option<&str>,
 ) -> Result<String, String> {
-    let mut root = parse_agent_json_object(existing, "Claude Desktop 配置")?;
+    let mut root = parse_agent_json_object(existing, "Claude Desktop config")?;
     root.insert("deploymentMode".to_string(), serde_json::json!("3p"));
-    render_agent_json(root, "Claude Desktop 配置")
+    render_agent_json(root, "Claude Desktop config")
 }
 
 pub(crate) fn build_claude_desktop_profile(
@@ -653,7 +653,7 @@ pub(crate) fn build_claude_desktop_profile(
     models: &[AgentModelOption],
     mappings: Option<&ClaudeDesktopModelMappings>,
 ) -> Result<String, String> {
-    let mut root = parse_agent_json_object(existing, "Claude Desktop 网关配置")?;
+    let mut root = parse_agent_json_object(existing, "Claude Desktop gateway config")?;
     root.remove("coworkEgressAllowedHosts");
     root.insert(
         "disableDeploymentModeChooser".to_string(),
@@ -721,7 +721,7 @@ pub(crate) fn build_claude_desktop_profile(
         "inferenceModels".to_string(),
         serde_json::Value::Array(deduplicated_models),
     );
-    render_agent_json(root, "Claude Desktop 网关配置")
+    render_agent_json(root, "Claude Desktop gateway config")
 }
 
 pub(crate) fn claude_desktop_inference_model(
@@ -758,7 +758,7 @@ pub(crate) fn claude_desktop_inference_model(
 }
 
 pub(crate) fn build_claude_desktop_meta(existing: Option<&str>) -> Result<String, String> {
-    let mut root = parse_agent_json_object(existing, "Claude Desktop 配置索引")?;
+    let mut root = parse_agent_json_object(existing, "Claude Desktop config index")?;
     let entries = ensure_json_array_entry(&mut root, "entries");
     let mut managed_entry = None;
     let mut retained_entries = Vec::with_capacity(entries.len());
@@ -778,14 +778,14 @@ pub(crate) fn build_claude_desktop_meta(existing: Option<&str>) -> Result<String
         "id".to_string(),
         serde_json::json!(CLAUDE_DESKTOP_PROFILE_ID),
     );
-    managed_entry.insert("name".to_string(), serde_json::json!("EasyCLIProxyAPI"));
+    managed_entry.insert("name".to_string(), serde_json::json!("EvelProxyTool"));
     retained_entries.push(serde_json::Value::Object(managed_entry));
     *entries = retained_entries;
     root.insert(
         "appliedId".to_string(),
         serde_json::json!(CLAUDE_DESKTOP_PROFILE_ID),
     );
-    render_agent_json(root, "Claude Desktop 配置索引")
+    render_agent_json(root, "Claude Desktop config index")
 }
 
 pub(crate) fn update_agent_json_file<F>(path: &Path, label: &str, update: F) -> Result<bool, String>
@@ -796,14 +796,14 @@ where
         return Ok(false);
     }
     let content = fs::read_to_string(path)
-        .map_err(|error| format!("读取 {label} 失败 {}: {error}", path_to_string(path)))?;
+        .map_err(|error| format!("Failed to read {label} {}: {error}", path_to_string(path)))?;
     let mut root = parse_agent_json_object(Some(&content), label)?;
     if !update(&mut root) {
         return Ok(false);
     }
     if root.is_empty() {
         fs::remove_file(path)
-            .map_err(|error| format!("删除空的 {label} 失败 {}: {error}", path_to_string(path)))?;
+            .map_err(|error| format!("Failed to delete empty {label} {}: {error}", path_to_string(path)))?;
     } else {
         let rendered = render_agent_json(root, label)?;
         write_bytes_directly(path, rendered.as_bytes())?;
@@ -815,12 +815,12 @@ pub(crate) fn remove_claude_desktop_managed_configuration(
     paths: &[PathBuf],
 ) -> Result<Vec<String>, String> {
     if paths.len() != 4 {
-        return Err("Claude Desktop 当前平台配置路径不可用".to_string());
+        return Err("Claude Desktop config paths are unavailable for the current platform".to_string());
     }
     let mut changed = Vec::new();
     for (path, label) in [
-        (&paths[0], "Claude Desktop 主配置"),
-        (&paths[1], "Claude Desktop 3P 配置"),
+        (&paths[0], "Claude Desktop main config"),
+        (&paths[1], "Claude Desktop 3P config"),
     ] {
         if update_agent_json_file(path, label, |root| {
             if root
@@ -838,7 +838,7 @@ pub(crate) fn remove_claude_desktop_managed_configuration(
         }
     }
 
-    if update_agent_json_file(&paths[2], "Claude Desktop 网关配置", |root| {
+    if update_agent_json_file(&paths[2], "Claude Desktop gateway config", |root| {
         let mut updated = false;
         for key in [
             "coworkEgressAllowedHosts",
@@ -856,7 +856,7 @@ pub(crate) fn remove_claude_desktop_managed_configuration(
         changed.push(path_to_string(&paths[2]));
     }
 
-    if update_agent_json_file(&paths[3], "Claude Desktop 配置索引", |root| {
+    if update_agent_json_file(&paths[3], "Claude Desktop config index", |root| {
         let mut updated = false;
         if root.get("appliedId").and_then(serde_json::Value::as_str)
             == Some(CLAUDE_DESKTOP_PROFILE_ID)
@@ -892,9 +892,9 @@ pub(crate) fn remove_claude_code_managed_configuration(
     paths: &[PathBuf],
 ) -> Result<Vec<String>, String> {
     let Some(path) = paths.first() else {
-        return Err("Claude Code 当前平台配置路径不可用".to_string());
+        return Err("Claude Code config path is unavailable for the current platform".to_string());
     };
-    let updated = update_agent_json_file(path, "Claude Code 配置", |root| {
+    let updated = update_agent_json_file(path, "Claude Code config", |root| {
         let managed_model = root
             .get("env")
             .and_then(serde_json::Value::as_object)
@@ -949,16 +949,16 @@ pub(crate) fn remove_codex_managed_configuration(paths: &[PathBuf]) -> Result<Ve
     use toml_edit::{Document, Item};
 
     let Some(path) = paths.first() else {
-        return Err("Codex 当前平台配置路径不可用".to_string());
+        return Err("Codex config path is unavailable for the current platform".to_string());
     };
     if !path.is_file() {
         return Ok(Vec::new());
     }
     let content = fs::read_to_string(path)
-        .map_err(|error| format!("读取 Codex 配置失败 {}: {error}", path_to_string(path)))?;
+        .map_err(|error| format!("Failed to read Codex config {}: {error}", path_to_string(path)))?;
     let mut document = content
         .parse::<Document>()
-        .map_err(|error| format!("解析 Codex 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse Codex config: {error}"))?;
     let managed_selected =
         document.get("model_provider").and_then(Item::as_str) == Some(MANAGED_AGENT_PROVIDER_ID);
     let managed_catalog =
@@ -992,10 +992,10 @@ pub(crate) fn remove_codex_managed_configuration(paths: &[PathBuf]) -> Result<Ve
     }
     let rendered = document.to_string();
     toml::from_str::<toml::Value>(&rendered)
-        .map_err(|error| format!("验证恢复后的 Codex 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate restored Codex config: {error}"))?;
     if rendered.trim().is_empty() {
         fs::remove_file(path).map_err(|error| {
-            format!("删除空的 Codex 配置失败 {}: {error}", path_to_string(path))
+            format!("Failed to delete empty Codex config {}: {error}", path_to_string(path))
         })?;
     } else {
         write_bytes_directly(path, rendered.as_bytes())?;
@@ -1006,7 +1006,7 @@ pub(crate) fn remove_codex_managed_configuration(paths: &[PathBuf]) -> Result<Ve
         if catalog_path.is_file() {
             fs::remove_file(&catalog_path).map_err(|error| {
                 format!(
-                    "删除 Codex CPA 模型目录失败 {}: {error}",
+                    "Failed to delete Codex CPA model catalog {}: {error}",
                     path_to_string(&catalog_path)
                 )
             })?;
@@ -1020,10 +1020,10 @@ pub(crate) fn remove_opencode_managed_configuration(
     paths: &[PathBuf],
 ) -> Result<Vec<String>, String> {
     let Some(path) = paths.first() else {
-        return Err("OpenCode 当前平台配置路径不可用".to_string());
+        return Err("OpenCode config path is unavailable for the current platform".to_string());
     };
     let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
-    let updated = update_agent_json_file(path, "OpenCode 配置", |root| {
+    let updated = update_agent_json_file(path, "OpenCode config", |root| {
         let mut changed = false;
         if root
             .get("model")
@@ -1052,12 +1052,12 @@ pub(crate) fn remove_opencode_managed_configuration(
 
 pub(crate) fn remove_zcode_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
     if paths.is_empty() {
-        return Err("ZCode 当前平台配置路径不可用".to_string());
+        return Err("ZCode config path is unavailable for the current platform".to_string());
     }
     let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
     let mut changed_paths = Vec::new();
     for path in paths {
-        let updated = update_agent_json_file(path, "ZCode 配置", |root| {
+        let updated = update_agent_json_file(path, "ZCode config", |root| {
             let mut changed = false;
             let remove_model = if root
                 .get("model")
@@ -1143,16 +1143,16 @@ pub(crate) fn remove_managed_toml_client_configuration(
     use toml_edit::{Document, Item};
 
     let Some(path) = paths.first() else {
-        return Err(format!("{label} 当前平台配置路径不可用"));
+        return Err(format!("{label} config path is unavailable for the current platform"));
     };
     if !path.is_file() {
         return Ok(Vec::new());
     }
     let content = fs::read_to_string(path)
-        .map_err(|error| format!("读取 {label} 配置失败 {}: {error}", path_to_string(path)))?;
+        .map_err(|error| format!("Failed to read {label} config {}: {error}", path_to_string(path)))?;
     let mut document = content
         .parse::<Document>()
-        .map_err(|error| format!("解析 {label} 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse {label} config: {error}"))?;
     let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
     let mut changed = false;
 
@@ -1224,11 +1224,11 @@ pub(crate) fn remove_managed_toml_client_configuration(
     }
     let rendered = document.to_string();
     toml::from_str::<toml::Value>(&rendered)
-        .map_err(|error| format!("验证恢复后的 {label} 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate restored {label} config: {error}"))?;
     if rendered.trim().is_empty() {
         fs::remove_file(path).map_err(|error| {
             format!(
-                "删除空的 {label} 配置失败 {}: {error}",
+                "Failed to delete empty {label} config {}: {error}",
                 path_to_string(path)
             )
         })?;
@@ -1250,19 +1250,19 @@ where
         return Ok(false);
     }
     let content = fs::read_to_string(path)
-        .map_err(|error| format!("读取 {label} 失败 {}: {error}", path_to_string(path)))?;
+        .map_err(|error| format!("Failed to read {label} {}: {error}", path_to_string(path)))?;
     let value = json5::from_str::<serde_json::Value>(&content)
-        .map_err(|error| format!("解析 {label} 失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse {label}: {error}"))?;
     let mut root = value
         .as_object()
         .cloned()
-        .ok_or_else(|| format!("{label} 根节点必须是对象"))?;
+        .ok_or_else(|| format!("{label} root node must be an object"))?;
     if !update(&mut root) {
         return Ok(false);
     }
     if root.is_empty() {
         fs::remove_file(path)
-            .map_err(|error| format!("删除空的 {label} 失败 {}: {error}", path_to_string(path)))?;
+            .map_err(|error| format!("Failed to delete empty {label} {}: {error}", path_to_string(path)))?;
     } else {
         let rendered = render_agent_json(root, label)?;
         let comments = extract_json5_comments(&content);
@@ -1280,10 +1280,10 @@ pub(crate) fn remove_openclaw_managed_configuration(
     paths: &[PathBuf],
 ) -> Result<Vec<String>, String> {
     let Some(path) = paths.first() else {
-        return Err("OpenClaw 当前平台配置路径不可用".to_string());
+        return Err("OpenClaw config path is unavailable for the current platform".to_string());
     };
     let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
-    let updated = update_agent_json5_file(path, "OpenClaw 配置", |root| {
+    let updated = update_agent_json5_file(path, "OpenClaw config", |root| {
         let mut changed = false;
         if let Some(models) = root
             .get_mut("models")
@@ -1351,19 +1351,19 @@ pub(crate) fn remove_hermes_managed_configuration(
     paths: &[PathBuf],
 ) -> Result<Vec<String>, String> {
     let Some(path) = paths.first() else {
-        return Err("Hermes 当前平台配置路径不可用".to_string());
+        return Err("Hermes config path is unavailable for the current platform".to_string());
     };
     if !path.is_file() {
         return Ok(Vec::new());
     }
     let content = fs::read_to_string(path)
-        .map_err(|error| format!("读取 Hermes 配置失败 {}: {error}", path_to_string(path)))?;
+        .map_err(|error| format!("Failed to read Hermes config {}: {error}", path_to_string(path)))?;
     let mut document = yaml_serde_edit::YamlValue::parse(&content)
-        .map_err(|error| format!("解析 Hermes 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse Hermes config: {error}"))?;
     let mut updated = document.get().clone();
     let root = updated
         .as_mapping_mut()
-        .ok_or_else(|| "Hermes 配置根节点必须是映射".to_string())?;
+        .ok_or_else(|| "Hermes config root node must be a mapping".to_string())?;
     let mut changed = false;
     let providers_empty = if let Some(providers) = root
         .get_mut(yaml_key("custom_providers"))
@@ -1407,7 +1407,7 @@ pub(crate) fn remove_hermes_managed_configuration(
     }
     if root.is_empty() {
         fs::remove_file(path).map_err(|error| {
-            format!("删除空的 Hermes 配置失败 {}: {error}", path_to_string(path))
+            format!("Failed to delete empty Hermes config {}: {error}", path_to_string(path))
         })?;
     } else {
         let rendered = render_updated_core_yaml(&mut document, updated)?;
@@ -1476,12 +1476,12 @@ pub(crate) fn remove_deepseek_harness_managed_configuration(
     paths: &[PathBuf],
 ) -> Result<Vec<String>, String> {
     if paths.len() != 2 {
-        return Err("DeepSeek Harness 配置路径数量无效".to_string());
+        return Err("Invalid number of DeepSeek Harness config paths".to_string());
     }
     let mut changed_paths = Vec::new();
     if paths[0].is_file() {
         let current = fs::read_to_string(&paths[0])
-            .map_err(|error| format!("读取 DeepSeek Harness settings 失败: {error}"))?;
+            .map_err(|error| format!("Failed to read DeepSeek Harness settings: {error}"))?;
         let mut changed = false;
         let rendered = render_agent_yaml_mapping_update(
             Some(&current),
@@ -1495,7 +1495,7 @@ pub(crate) fn remove_deepseek_harness_managed_configuration(
             let root = parse_agent_yaml_mapping(Some(&rendered), "DeepSeek Harness settings")?;
             if root.is_empty() {
                 fs::remove_file(&paths[0])
-                    .map_err(|error| format!("删除空的 DeepSeek Harness settings 失败: {error}"))?;
+                    .map_err(|error| format!("Failed to delete empty DeepSeek Harness settings: {error}"))?;
             } else {
                 write_bytes_directly(&paths[0], rendered.as_bytes())?;
             }
@@ -1504,7 +1504,7 @@ pub(crate) fn remove_deepseek_harness_managed_configuration(
     }
     if paths[1].is_file() {
         let current = fs::read_to_string(&paths[1])
-            .map_err(|error| format!("读取 DeepSeek Harness credentials 失败: {error}"))?;
+            .map_err(|error| format!("Failed to read DeepSeek Harness credentials: {error}"))?;
         let mut changed = false;
         let rendered = render_agent_yaml_mapping_update(
             Some(&current),
@@ -1518,7 +1518,7 @@ pub(crate) fn remove_deepseek_harness_managed_configuration(
             let root = parse_agent_yaml_mapping(Some(&rendered), "DeepSeek Harness credentials")?;
             if root.is_empty() {
                 fs::remove_file(&paths[1]).map_err(|error| {
-                    format!("删除空的 DeepSeek Harness credentials 失败: {error}")
+                    format!("Failed to delete empty DeepSeek Harness credentials: {error}")
                 })?;
             } else {
                 write_deepseek_harness_file(&paths[1], rendered.as_bytes(), true)?;
@@ -1566,8 +1566,8 @@ pub(crate) fn build_restored_claude_code_config(
     current: &str,
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
-    let mut root = parse_agent_json_object(Some(current), "当前 Claude Code 配置")?;
-    let original_root = parse_restored_json_object(original, "原始 Claude Code 配置")?;
+    let mut root = parse_agent_json_object(Some(current), "current Claude Code config")?;
+    let original_root = parse_restored_json_object(original, "original Claude Code config")?;
     restore_json_key(&mut root, original_root.as_ref(), "model");
     let original_env = original_root
         .as_ref()
@@ -1600,7 +1600,7 @@ pub(crate) fn build_restored_claude_code_config(
     } else {
         restore_json_key(&mut root, original_root.as_ref(), "env");
     }
-    render_restored_json(root, original.is_some(), "恢复后的 Claude Code 配置")
+    render_restored_json(root, original.is_some(), "restored Claude Code config")
 }
 
 pub(crate) fn build_restored_claude_desktop_config(
@@ -1608,8 +1608,8 @@ pub(crate) fn build_restored_claude_desktop_config(
     current: &str,
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
-    let mut root = parse_agent_json_object(Some(current), "当前 Claude Desktop 配置")?;
-    let original_root = parse_restored_json_object(original, "原始 Claude Desktop 配置")?;
+    let mut root = parse_agent_json_object(Some(current), "current Claude Desktop config")?;
+    let original_root = parse_restored_json_object(original, "original Claude Desktop config")?;
     match index {
         0 | 1 => restore_json_key(&mut root, original_root.as_ref(), "deploymentMode"),
         2 => {
@@ -1656,17 +1656,17 @@ pub(crate) fn build_restored_claude_desktop_config(
                 root.insert("entries".to_string(), serde_json::Value::Array(entries));
             }
         }
-        _ => return Err("Claude Desktop 配置文件索引无效".to_string()),
+        _ => return Err("Invalid Claude Desktop config file index".to_string()),
     }
-    render_restored_json(root, original.is_some(), "恢复后的 Claude Desktop 配置")
+    render_restored_json(root, original.is_some(), "restored Claude Desktop config")
 }
 
 pub(crate) fn build_restored_opencode_config(
     current: &str,
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
-    let mut root = parse_agent_json_object(Some(current), "当前 OpenCode 配置")?;
-    let original_root = parse_restored_json_object(original, "原始 OpenCode 配置")?;
+    let mut root = parse_agent_json_object(Some(current), "current OpenCode config")?;
+    let original_root = parse_restored_json_object(original, "original OpenCode config")?;
     for key in ["$schema", "model"] {
         restore_json_key(&mut root, original_root.as_ref(), key);
     }
@@ -1731,15 +1731,15 @@ pub(crate) fn build_restored_opencode_config(
     } else {
         restore_json_key(&mut root, original_root.as_ref(), "provider");
     }
-    render_restored_json(root, original.is_some(), "恢复后的 OpenCode 配置")
+    render_restored_json(root, original.is_some(), "restored OpenCode config")
 }
 
 pub(crate) fn build_restored_zcode_config(
     current: &str,
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
-    let mut root = parse_agent_json_object(Some(current), "当前 ZCode 配置")?;
-    let original_root = parse_restored_json_object(original, "原始 ZCode 配置")?;
+    let mut root = parse_agent_json_object(Some(current), "current ZCode config")?;
+    let original_root = parse_restored_json_object(original, "original ZCode config")?;
     restore_json_key(&mut root, original_root.as_ref(), "model");
     let original_provider = original_root
         .as_ref()
@@ -1811,7 +1811,7 @@ pub(crate) fn build_restored_zcode_config(
     } else {
         restore_json_key(&mut root, original_root.as_ref(), "provider");
     }
-    render_restored_json(root, original.is_some(), "恢复后的 ZCode 配置")
+    render_restored_json(root, original.is_some(), "restored ZCode config")
 }
 
 pub(crate) fn build_restored_kimi_code_config(
@@ -1855,9 +1855,9 @@ pub(crate) fn build_restored_managed_toml_client_config(
 ) -> Result<Option<String>, String> {
     use toml_edit::Item;
 
-    let mut current_document = parse_codex_document(Some(current), &format!("当前 {label} 配置"))?;
+    let mut current_document = parse_codex_document(Some(current), &format!("current {label} config"))?;
     let original_document = original
-        .map(|content| parse_codex_document(Some(content), &format!("原始 {label} 配置")))
+        .map(|content| parse_codex_document(Some(content), &format!("original {label} config")))
         .transpose()?;
     if let Some(original_document) = original_document.as_ref() {
         merge_missing_codex_table_items(
@@ -1968,7 +1968,7 @@ pub(crate) fn build_restored_managed_toml_client_config(
     }
     let rendered = current_document.to_string();
     toml::from_str::<toml::Value>(&rendered)
-        .map_err(|error| format!("验证恢复后的 {label} 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate restored {label} config: {error}"))?;
     if original.is_none() && rendered.trim().is_empty() {
         Ok(None)
     } else {
@@ -1981,18 +1981,18 @@ pub(crate) fn build_restored_openclaw_config(
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
     let current_value = json5::from_str::<serde_json::Value>(current)
-        .map_err(|error| format!("当前 OpenClaw 配置格式无效: {error}"))?;
+        .map_err(|error| format!("Current OpenClaw config has invalid format: {error}"))?;
     let mut root = current_value
         .as_object()
         .cloned()
-        .ok_or_else(|| "当前 OpenClaw 配置根节点必须是对象".to_string())?;
+        .ok_or_else(|| "Current OpenClaw config root node must be an object".to_string())?;
     let original_root = original
         .map(|content| {
             json5::from_str::<serde_json::Value>(content)
-                .map_err(|error| format!("原始 OpenClaw 配置格式无效: {error}"))?
+                .map_err(|error| format!("Original OpenClaw config has invalid format: {error}"))?
                 .as_object()
                 .cloned()
-                .ok_or_else(|| "原始 OpenClaw 配置根节点必须是对象".to_string())
+                .ok_or_else(|| "Original OpenClaw config root node must be an object".to_string())
         })
         .transpose()?;
     let original_models = original_root
@@ -2133,7 +2133,7 @@ pub(crate) fn build_restored_openclaw_config(
     if root.is_empty() && original.is_none() {
         return Ok(None);
     }
-    let rendered = render_agent_json(root, "恢复后的 OpenClaw 配置")?;
+    let rendered = render_agent_json(root, "restored OpenClaw config")?;
     let comments = extract_json5_comments(current);
     Ok(Some(if comments.is_empty() {
         rendered
@@ -2159,15 +2159,15 @@ pub(crate) fn build_restored_hermes_config(
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
     let mut document = yaml_serde_edit::YamlValue::parse(current)
-        .map_err(|error| format!("当前 Hermes 配置格式无效: {error}"))?;
+        .map_err(|error| format!("Current Hermes config has invalid format: {error}"))?;
     let mut updated = document.get().clone();
     let root = updated
         .as_mapping_mut()
-        .ok_or_else(|| "当前 Hermes 配置根节点必须是映射".to_string())?;
+        .ok_or_else(|| "Current Hermes config root node must be a mapping".to_string())?;
     let original_value = original
         .map(|content| {
             serde_norway::from_str::<serde_norway::Value>(content)
-                .map_err(|error| format!("原始 Hermes 配置格式无效: {error}"))
+                .map_err(|error| format!("Original Hermes config has invalid format: {error}"))
         })
         .transpose()?;
     let original_root = original_value
@@ -2263,12 +2263,12 @@ pub(crate) fn restore_deepseek_harness_provider(
             .entry(yaml_key("llm-pi-ai"))
             .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
             .as_mapping_mut()
-            .ok_or_else(|| "当前 DeepSeek Harness llm-pi-ai 必须是映射".to_string())?;
+            .ok_or_else(|| "Current DeepSeek Harness llm-pi-ai must be a mapping".to_string())?;
         let providers = llm
             .entry(yaml_key("providers"))
             .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
             .as_mapping_mut()
-            .ok_or_else(|| "当前 DeepSeek Harness llm-pi-ai.providers 必须是映射".to_string())?;
+            .ok_or_else(|| "Current DeepSeek Harness llm-pi-ai.providers must be a mapping".to_string())?;
         providers.insert(yaml_key(DEEPSEEK_HARNESS_PROVIDER_ID), original_provider);
     } else {
         let mut remove_llm = false;
@@ -2300,17 +2300,17 @@ pub(crate) fn build_restored_deepseek_harness_settings(
     current: &str,
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
-    let original_root = parse_agent_yaml_mapping(original, "原始 DeepSeek Harness settings")?;
+    let original_root = parse_agent_yaml_mapping(original, "original DeepSeek Harness settings")?;
     let rendered = render_agent_yaml_mapping_update(
         Some(current),
-        "当前 DeepSeek Harness settings",
+        "current DeepSeek Harness settings",
         |root| {
             restore_deepseek_harness_provider(root, Some(&original_root))?;
             restore_yaml_key(root, Some(&original_root), "agent-default-model");
             Ok(())
         },
     )?;
-    let root = parse_agent_yaml_mapping(Some(&rendered), "恢复后的 DeepSeek Harness settings")?;
+    let root = parse_agent_yaml_mapping(Some(&rendered), "restored DeepSeek Harness settings")?;
     Ok((!root.is_empty() || original.is_some()).then_some(rendered))
 }
 
@@ -2318,16 +2318,16 @@ pub(crate) fn build_restored_deepseek_harness_credentials(
     current: &str,
     original: Option<&str>,
 ) -> Result<Option<String>, String> {
-    let original_root = parse_agent_yaml_mapping(original, "原始 DeepSeek Harness credentials")?;
+    let original_root = parse_agent_yaml_mapping(original, "original DeepSeek Harness credentials")?;
     let rendered = render_agent_yaml_mapping_update(
         Some(current),
-        "当前 DeepSeek Harness credentials",
+        "current DeepSeek Harness credentials",
         |root| {
             restore_yaml_key(root, Some(&original_root), DEEPSEEK_HARNESS_CREDENTIAL);
             Ok(())
         },
     )?;
-    let root = parse_agent_yaml_mapping(Some(&rendered), "恢复后的 DeepSeek Harness credentials")?;
+    let root = parse_agent_yaml_mapping(Some(&rendered), "restored DeepSeek Harness credentials")?;
     Ok((!root.is_empty() || original.is_some()).then_some(rendered))
 }
 
@@ -2374,12 +2374,12 @@ pub(crate) fn build_agent_session_restored_bytes(
         return Ok(original.map(ToOwned::to_owned));
     }
     let current = std::str::from_utf8(current)
-        .map_err(|_| format!("当前智能体配置不是 UTF-8 文本: {}", path_to_string(path)))?;
+        .map_err(|_| format!("Current agent config is not valid UTF-8 text: {}", path_to_string(path)))?;
     let original_bytes = original;
     let original = original_bytes
         .map(|bytes| {
             std::str::from_utf8(bytes)
-                .map_err(|_| format!("原智能体配置不是 UTF-8 文本: {}", path_to_string(path)))
+                .map_err(|_| format!("Original agent config is not valid UTF-8 text: {}", path_to_string(path)))
         })
         .transpose()?;
     let restored = match client {
@@ -2388,7 +2388,7 @@ pub(crate) fn build_agent_session_restored_bytes(
             let index = paths
                 .iter()
                 .position(|candidate| candidate == path)
-                .ok_or_else(|| "Claude Desktop 恢复路径不匹配".to_string())?;
+                .ok_or_else(|| "Claude Desktop restore path mismatch".to_string())?;
             build_restored_claude_desktop_config(index, current, original)?
         }
         AgentClient::Codex => build_restored_codex_agent_config(Some(current), original)?,
@@ -2399,11 +2399,11 @@ pub(crate) fn build_agent_session_restored_bytes(
             let index = paths
                 .iter()
                 .position(|candidate| candidate == path)
-                .ok_or_else(|| "DeepSeek Harness 恢复路径不匹配".to_string())?;
+                .ok_or_else(|| "DeepSeek Harness restore path mismatch".to_string())?;
             match index {
                 0 => build_restored_deepseek_harness_settings(current, original)?,
                 1 => build_restored_deepseek_harness_credentials(current, original)?,
-                _ => return Err("DeepSeek Harness 恢复路径索引无效".to_string()),
+                _ => return Err("Invalid DeepSeek Harness restore path index".to_string()),
             }
         }
         AgentClient::ZCode => build_restored_zcode_config(current, original)?,
@@ -2442,7 +2442,7 @@ pub(crate) fn build_codex_agent_config_with_oauth(
     let mut document = match existing.filter(|value| !value.trim().is_empty()) {
         Some(value) => value
             .parse::<Document>()
-            .map_err(|error| format!("Codex config.toml 格式无效: {error}"))?,
+            .map_err(|error| format!("Codex config.toml has invalid format: {error}"))?,
         None => Document::new(),
     };
     set_codex_table_item(
@@ -2465,7 +2465,7 @@ pub(crate) fn build_codex_agent_config_with_oauth(
     }
     let providers = document["model_providers"]
         .as_table_mut()
-        .ok_or_else(|| "Codex model_providers 必须是 TOML 表".to_string())?;
+        .ok_or_else(|| "Codex model_providers must be a TOML table".to_string())?;
     if !providers
         .get(MANAGED_AGENT_PROVIDER_ID)
         .is_some_and(toml_edit::Item::is_table)
@@ -2476,8 +2476,8 @@ pub(crate) fn build_codex_agent_config_with_oauth(
     let provider = providers
         .get_mut(MANAGED_AGENT_PROVIDER_ID)
         .and_then(Item::as_table_mut)
-        .ok_or_else(|| "Codex cpa-gui provider 必须是 TOML 表".to_string())?;
-    set_codex_table_item(provider, "name", value("EasyCLIProxyAPI"));
+        .ok_or_else(|| "Codex cpa-gui provider must be a TOML table".to_string())?;
+    set_codex_table_item(provider, "name", value("EvelProxyTool"));
     set_codex_table_item(provider, "base_url", value(base_url));
     set_codex_table_item(provider, "wire_api", value("responses"));
     set_codex_table_item(provider, "experimental_bearer_token", value(api_key));
@@ -2488,7 +2488,7 @@ pub(crate) fn build_codex_agent_config_with_oauth(
     }
     let rendered = document.to_string();
     toml::from_str::<toml::Value>(&rendered)
-        .map_err(|error| format!("验证 Codex 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate Codex config: {error}"))?;
     Ok(rendered)
 }
 
@@ -2546,7 +2546,7 @@ pub(crate) fn parse_codex_document(
     match content.filter(|value| !value.trim().is_empty()) {
         Some(value) => value
             .parse::<Document>()
-            .map_err(|error| format!("{label} 格式无效: {error}")),
+            .map_err(|error| format!("{label} has invalid format: {error}")),
         None => Ok(Document::new()),
     }
 }
@@ -2572,14 +2572,14 @@ pub(crate) fn ensure_codex_provider_table(
     let providers = root
         .get_mut("model_providers")
         .and_then(Item::as_table_mut)
-        .ok_or_else(|| "Codex model_providers 必须是 TOML 表".to_string())?;
+        .ok_or_else(|| "Codex model_providers must be a TOML table".to_string())?;
     if !providers.contains_key(MANAGED_AGENT_PROVIDER_ID) {
         providers.insert(MANAGED_AGENT_PROVIDER_ID, Item::Table(Table::new()));
     }
     providers
         .get_mut(MANAGED_AGENT_PROVIDER_ID)
         .and_then(Item::as_table_mut)
-        .ok_or_else(|| "Codex cpa-gui provider 必须是 TOML 表".to_string())
+        .ok_or_else(|| "Codex cpa-gui provider must be a TOML table".to_string())
 }
 
 pub(crate) fn merge_missing_codex_table_items(
@@ -2606,9 +2606,9 @@ pub(crate) fn build_restored_codex_agent_config(
 ) -> Result<Option<String>, String> {
     use toml_edit::Item;
 
-    let mut current_document = parse_codex_document(current, "当前 Codex config.toml")?;
+    let mut current_document = parse_codex_document(current, "current Codex config.toml")?;
     let original_document = original
-        .map(|content| parse_codex_document(Some(content), "原始 Codex config.toml"))
+        .map(|content| parse_codex_document(Some(content), "original Codex config.toml"))
         .transpose()?;
     if let Some(original_document) = original_document.as_ref() {
         merge_missing_codex_table_items(
@@ -2683,7 +2683,7 @@ pub(crate) fn build_restored_codex_agent_config(
 
     let rendered = current_document.to_string();
     toml::from_str::<toml::Value>(&rendered)
-        .map_err(|error| format!("验证恢复后的 Codex 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate restored Codex config: {error}"))?;
     if original.is_none() && rendered.trim().is_empty() {
         Ok(None)
     } else {
@@ -2693,19 +2693,19 @@ pub(crate) fn build_restored_codex_agent_config(
 
 pub(crate) fn validate_codex_catalog(catalog: &str, model: &str) -> Result<(), String> {
     let root: serde_json::Value = serde_json::from_str(catalog)
-        .map_err(|error| format!("Codex 模型目录格式无效: {error}"))?;
+        .map_err(|error| format!("Codex model catalog has invalid format: {error}"))?;
     let models = root
         .get("models")
         .and_then(serde_json::Value::as_array)
         .filter(|models| !models.is_empty())
-        .ok_or_else(|| "Codex 模型目录必须包含非空 models 数组".to_string())?;
+        .ok_or_else(|| "Codex model catalog must contain a non-empty models array".to_string())?;
     if !models.iter().any(|entry| {
         entry
             .get("slug")
             .and_then(serde_json::Value::as_str)
             .is_some_and(|slug| slug.eq_ignore_ascii_case(model))
     }) {
-        return Err(format!("默认模型 {model} 不在生成的 Codex 模型目录中"));
+        return Err(format!("Default model {model} is not present in the generated Codex model catalog"));
     }
     Ok(())
 }
@@ -2733,7 +2733,7 @@ pub(crate) fn build_opencode_agent_config(
         "npm".to_string(),
         serde_json::json!("@ai-sdk/openai-compatible"),
     );
-    managed_provider.insert("name".to_string(), serde_json::json!("EasyCLIProxyAPI"));
+    managed_provider.insert("name".to_string(), serde_json::json!("EvelProxyTool"));
     let options = ensure_json_object_entry(managed_provider, "options");
     options.insert("baseURL".to_string(), serde_json::json!(base_url));
     options.insert("apiKey".to_string(), serde_json::json!(api_key));
@@ -2742,7 +2742,7 @@ pub(crate) fn build_opencode_agent_config(
         "model".to_string(),
         serde_json::json!(format!("{MANAGED_AGENT_PROVIDER_ID}/{model}")),
     );
-    render_agent_json(root, "OpenCode 配置")
+    render_agent_json(root, "OpenCode config")
 }
 
 pub(crate) fn build_zcode_agent_config(
@@ -2792,7 +2792,7 @@ fn build_zcode_config(
         .collect::<serde_json::Map<_, _>>();
     let managed_provider = ensure_json_object_entry(providers, MANAGED_AGENT_PROVIDER_ID);
     managed_provider.insert("enabled".to_string(), serde_json::json!(true));
-    managed_provider.insert("name".to_string(), serde_json::json!("EasyCLIProxyAPI"));
+    managed_provider.insert("name".to_string(), serde_json::json!("EvelProxyTool"));
     managed_provider.insert("source".to_string(), serde_json::json!("custom"));
     managed_provider.insert("kind".to_string(), serde_json::json!("anthropic"));
     managed_provider.insert("defaultKind".to_string(), serde_json::json!("anthropic"));
@@ -2812,7 +2812,7 @@ fn build_zcode_config(
     } else {
         root.insert("model".to_string(), serde_json::json!(model));
     }
-    render_agent_json(root, "ZCode 配置")
+    render_agent_json(root, "ZCode config")
 }
 
 pub(crate) fn ensure_toml_child_table<'a>(
@@ -2887,7 +2887,7 @@ pub(crate) fn build_kimi_code_agent_config(
     }
     let rendered = document.to_string();
     toml::from_str::<toml::Value>(&rendered)
-        .map_err(|error| format!("验证 Kimi Code 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate Kimi Code config: {error}"))?;
     Ok(rendered)
 }
 
@@ -2933,7 +2933,7 @@ pub(crate) fn build_grok_build_agent_config(
     }
     let rendered = document.to_string();
     toml::from_str::<toml::Value>(&rendered)
-        .map_err(|error| format!("验证 Grok Build 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate Grok Build config: {error}"))?;
     Ok(rendered)
 }
 
@@ -2946,12 +2946,12 @@ pub(crate) fn build_openclaw_agent_config(
 ) -> Result<String, String> {
     let mut root = match existing.map(str::trim).filter(|value| !value.is_empty()) {
         Some(value) => json5::from_str::<serde_json::Value>(value)
-            .map_err(|error| format!("OpenClaw openclaw.json 格式无效: {error}"))?,
+            .map_err(|error| format!("OpenClaw openclaw.json has invalid format: {error}"))?,
         None => serde_json::json!({}),
     };
     let root = root
         .as_object_mut()
-        .ok_or_else(|| "OpenClaw openclaw.json 根节点必须是对象".to_string())?;
+        .ok_or_else(|| "OpenClaw openclaw.json root node must be an object".to_string())?;
     let ordered_models = ordered_agent_models(available_models, model);
     let models = ensure_json_object_entry(root, "models");
     models
@@ -2995,7 +2995,7 @@ pub(crate) fn build_openclaw_agent_config(
             .unwrap_or_else(|| serde_json::json!({}));
         model_catalog.insert(name, value);
     }
-    let rendered = render_agent_json(root.clone(), "OpenClaw 配置")?;
+    let rendered = render_agent_json(root.clone(), "OpenClaw config")?;
     let comments = existing.map(extract_json5_comments).unwrap_or_default();
     if comments.is_empty() {
         Ok(rendered)
@@ -3096,13 +3096,13 @@ pub(crate) fn build_hermes_agent_config(
 ) -> Result<String, String> {
     let original = match existing.map(str::trim).filter(|value| !value.is_empty()) {
         Some(value) => serde_norway::from_str::<serde_norway::Value>(value)
-            .map_err(|error| format!("Hermes config.yaml 格式无效: {error}"))?,
+            .map_err(|error| format!("Hermes config.yaml has invalid format: {error}"))?,
         None => serde_norway::Value::Mapping(serde_norway::Mapping::new()),
     };
     let mut root = original.clone();
     let mapping = root
         .as_mapping_mut()
-        .ok_or_else(|| "Hermes config.yaml 根节点必须是映射".to_string())?;
+        .ok_or_else(|| "Hermes config.yaml root node must be a mapping".to_string())?;
     let providers = ensure_yaml_sequence_entry(mapping, "custom_providers");
     let mut managed_provider = None;
     let mut retained_providers = Vec::with_capacity(providers.len());
@@ -3129,10 +3129,10 @@ pub(crate) fn build_hermes_agent_config(
         "model": model,
         "models": provider_models
     }))
-    .map_err(|error| format!("生成 Hermes provider 失败: {error}"))?;
+    .map_err(|error| format!("Failed to generate Hermes provider: {error}"))?;
     let canonical_provider = canonical_provider
         .as_mapping()
-        .ok_or_else(|| "生成 Hermes provider 失败: 根节点不是映射".to_string())?;
+        .ok_or_else(|| "Failed to generate Hermes provider: root node is not a mapping".to_string())?;
     let mut managed_provider = managed_provider.unwrap_or_default();
     for (key, value) in canonical_provider {
         managed_provider.insert(key.clone(), value.clone());
@@ -3151,9 +3151,9 @@ pub(crate) fn build_hermes_agent_config(
     let rendered = if let Some(existing) = existing.filter(|value| !value.trim().is_empty()) {
         render_yaml_value_changes(existing, &original, &root)?
     } else {
-        serde_norway::to_string(&root).map_err(|error| format!("生成 Hermes 配置失败: {error}"))?
+        serde_norway::to_string(&root).map_err(|error| format!("Failed to generate Hermes config: {error}"))?
     };
     serde_norway::from_str::<serde_norway::Value>(&rendered)
-        .map_err(|error| format!("验证 Hermes 配置失败: {error}"))?;
+        .map_err(|error| format!("Failed to validate Hermes config: {error}"))?;
     Ok(rendered)
 }

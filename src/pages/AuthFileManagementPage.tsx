@@ -1,16 +1,9 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
-  Copy,
-  FileDown,
-  FolderOpen,
-  Import,
   LoaderCircle,
   Pencil,
-  RefreshCw,
   Search,
-  Trash2,
-  X,
 } from 'lucide-react';
 import antigravityIcon from '../assets/icons/antigravity.svg';
 import claudeIcon from '../assets/icons/claude.svg';
@@ -19,14 +12,6 @@ import geminiIcon from '../assets/icons/gemini.svg';
 import grokIcon from '../assets/icons/grok.svg';
 import kimiIcon from '../assets/icons/kimi-light.svg';
 import vertexIcon from '../assets/icons/vertex.svg';
-import {
-  formatDate,
-  managementApi,
-  readBoolean,
-  readNumber,
-  readString,
-  responseList,
-} from '../services/managementApi';
 import {
   formatQuotaTimestamp,
   idleQuota,
@@ -43,6 +28,12 @@ import {
   useQuotaCache,
 } from '../services/quotaCache';
 import {
+  managementApi,
+  readBoolean,
+  readString,
+  responseList,
+} from '../services/managementApi';
+import {
   authFileName,
   dedupeAuthFiles,
   isRuntimeOnlyAuthFile,
@@ -57,8 +48,21 @@ import {
   type OAuthModelDefinition,
 } from '../services/oauthModels';
 import { getCurrentLocale, translate, useI18n } from '../i18n';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
-type AuthFile = Record<string, unknown>;
+export type AuthFile = Record<string, unknown>;
 
 type PriorityEditor = {
   fileName: string;
@@ -67,7 +71,7 @@ type PriorityEditor = {
   error: string;
 };
 
-const providerIcons: Record<string, string> = {
+export const providerIcons: Record<string, string> = {
   antigravity: antigravityIcon,
   claude: claudeIcon,
   codex: codexIcon,
@@ -77,7 +81,7 @@ const providerIcons: Record<string, string> = {
   xai: grokIcon,
 };
 
-const providerName = (file: AuthFile) => {
+export const providerName = (file: AuthFile) => {
   const value = readString(file, 'provider', 'type', 'account_type').toLowerCase();
   if (value === 'anthropic') return 'Claude';
   if (value === 'anti-gravity') return 'Antigravity';
@@ -85,65 +89,69 @@ const providerName = (file: AuthFile) => {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : translate(getCurrentLocale(), 'authFiles.unknownProvider');
 };
 
-const providerKey = (file: AuthFile) => {
+export const providerKey = (file: AuthFile) => {
   const value = readString(file, 'provider', 'type', 'account_type').toLowerCase();
   return value === 'anthropic' ? 'claude' : value === 'anti-gravity' ? 'antigravity' : value;
 };
 
-const fileName = authFileName;
+export const fileName = authFileName;
 
-const isRuntimeOnly = isRuntimeOnlyAuthFile;
+export const isRuntimeOnly = isRuntimeOnlyAuthFile;
 
-const statusText = (file: AuthFile) => {
+export const statusText = (file: AuthFile) => {
   if (readBoolean(file, 'disabled')) return translate(getCurrentLocale(), 'authFiles.status.disabled');
   if (readBoolean(file, 'unavailable')) return translate(getCurrentLocale(), 'authFiles.status.unavailable');
   return readString(file, 'status') || translate(getCurrentLocale(), 'authFiles.status.ready');
 };
 
-function AuthFileQuotaSummary({ quota }: { quota: QuotaState }) {
+export function AuthFileQuotaSummary({ quota }: { quota: QuotaState }) {
   const { locale, t } = useI18n();
   if (quota.status === 'loading') {
     return (
-      <div className="auth-file-quota loading">
-        <LoaderCircle size={13} className="spin" />
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <LoaderCircle size={13} className="animate-spin" />
         <span>{t('authFiles.quota.loading')}</span>
       </div>
     );
   }
   if (quota.status === 'error') {
     return (
-      <div className="auth-file-quota error" title={quota.error}>
-        <span>{t('authFiles.quota.failed')}</span>
-        {quota.error ? <small>{quota.error}</small> : null}
+      <div className="flex flex-col gap-0.5 text-xs" title={quota.error}>
+        <span className="text-destructive">{t('authFiles.quota.failed')}</span>
+        {quota.error ? <span className="max-w-[240px] truncate text-muted-foreground">{quota.error}</span> : null}
       </div>
     );
   }
   if (quota.status !== 'success') return null;
 
   return (
-    <div className="auth-file-quota" aria-label={t('authFiles.quota.aria')}>
-      {quota.plan ? <span className="auth-file-quota-plan">{quota.plan}</span> : null}
+    <div className="flex flex-wrap items-center gap-1.5" aria-label={t('authFiles.quota.aria')}>
+      {quota.plan ? <Badge variant="secondary">{quota.plan}</Badge> : null}
       {quota.rows.length > 0 ? quota.rows.map((row, index) => {
         const detail = [row.detail, row.reset].filter(Boolean).join(' · ');
         return (
-          <span className="auth-file-quota-item" key={`${row.label}-${index}`} title={detail || undefined}>
-            <span>{row.label}</span>
-            <strong>{row.remainingPercent === null ? '—' : `${Math.round(row.remainingPercent)}%`}</strong>
-            {row.reset ? <small>{row.reset}</small> : null}
+          <span
+            key={`${row.label}-${index}`}
+            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+            title={detail || undefined}
+          >
+            <span className="text-muted-foreground">{row.label}</span>
+            <strong className="font-semibold text-foreground">{row.remainingPercent === null ? '—' : `${Math.round(row.remainingPercent)}%`}</strong>
+            {row.reset ? <span className="text-muted-foreground">{row.reset}</span> : null}
           </span>
         );
-      }) : <span className="auth-file-quota-empty">{t('authFiles.quota.empty')}</span>}
+      }) : <span className="text-xs text-muted-foreground">{t('authFiles.quota.empty')}</span>}
       {quota.resetCredits !== undefined ? (
-        <span className="auth-file-quota-credit">{t('authFiles.quota.resets', { count: quota.resetCredits })}</span>
+        <span className="text-xs text-muted-foreground">{t('authFiles.quota.resets', { count: quota.resetCredits })}</span>
       ) : null}
       {quota.resetCreditsEarliestExpiry ? (
-        <span className="auth-file-quota-credit">{t('authFiles.quota.expiry', { time: formatQuotaTimestamp(quota.resetCreditsEarliestExpiry, locale) })}</span>
+        <span className="text-xs text-muted-foreground">{t('authFiles.quota.expiry', { time: formatQuotaTimestamp(quota.resetCreditsEarliestExpiry, locale) })}</span>
       ) : null}
     </div>
   );
 }
 
-export function AuthFileManagementPage() {
+export function useAuthFileManager() {
   const { t } = useI18n();
   const [files, setFiles] = useState<AuthFile[]>([]);
   const [filter, setFilter] = useState('');
@@ -192,7 +200,7 @@ export function AuthFileManagementPage() {
     }
   }, []);
 
-  const refreshQuota = async (file: AuthFile) => {
+  const refreshQuota = useCallback(async (file: AuthFile) => {
     if (readBoolean(file, 'disabled')) return;
     const key = quotaKey(file);
     const cacheGeneration = captureQuotaCacheGeneration();
@@ -201,14 +209,14 @@ export function AuthFileManagementPage() {
     commitQuotaCacheIfCurrent(cacheGeneration, () => {
       updateQuotaCache((current) => ({ ...current, [key]: result }));
     });
-  };
+  }, []);
 
-  const closeOauthModels = () => {
+  const closeOauthModels = useCallback(() => {
     oauthModelRequestRef.current += 1;
     setOauthModelProvider('');
-  };
+  }, []);
 
-  const openOauthModels = async (file: AuthFile) => {
+  const openOauthModels = useCallback(async (file: AuthFile) => {
     const provider = providerKey(file);
     if (!provider) return;
     const requestId = oauthModelRequestRef.current + 1;
@@ -238,9 +246,9 @@ export function AuthFileManagementPage() {
     } finally {
       if (oauthModelRequestRef.current === requestId) setOauthModelLoading(false);
     }
-  };
+  }, [t]);
 
-  const saveOauthModels = async () => {
+  const saveOauthModels = useCallback(async () => {
     if (!oauthModelProvider) return;
     const excludedModels = exclusionsForOpenOAuthModels(
       oauthExcludedRules,
@@ -263,7 +271,7 @@ export function AuthFileManagementPage() {
     } finally {
       setOauthModelSaving(false);
     }
-  };
+  }, [closeOauthModels, oauthExcludedRules, oauthModelProvider, oauthModelProviderLabel, oauthModels, openOauthModelNames, t]);
 
   const visibleOauthModels = useMemo(() => {
     const query = oauthModelSearch.trim().toLowerCase();
@@ -276,7 +284,7 @@ export function AuthFileManagementPage() {
   const allVisibleOauthModelsOpen = visibleOauthModels.length > 0
     && visibleOauthModels.every((model) => openOauthModelNames.has(model.id.toLowerCase()));
 
-  const toggleOauthModel = (model: OAuthModelDefinition) => {
+  const toggleOauthModel = useCallback((model: OAuthModelDefinition) => {
     const key = model.id.toLowerCase();
     setOpenOauthModelNames((current) => {
       const next = new Set(current);
@@ -284,9 +292,9 @@ export function AuthFileManagementPage() {
       else next.add(key);
       return next;
     });
-  };
+  }, []);
 
-  const toggleAllVisibleOauthModels = () => {
+  const toggleAllVisibleOauthModels = useCallback(() => {
     setOpenOauthModelNames((current) => {
       const next = new Set(current);
       visibleOauthModels.forEach((model) => {
@@ -296,7 +304,7 @@ export function AuthFileManagementPage() {
       });
       return next;
     });
-  };
+  }, [allVisibleOauthModelsOpen, visibleOauthModels]);
 
   useEffect(() => {
     void loadFiles();
@@ -327,7 +335,7 @@ export function AuthFileManagementPage() {
     });
   }, [files, filter, providerFilter, statusFilter]);
 
-  const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = '';
     if (selected.length === 0) return;
@@ -352,9 +360,9 @@ export function AuthFileManagementPage() {
     } finally {
       setBusy(false);
     }
-  };
+  }, [loadFiles, t]);
 
-  const toggleStatus = async (file: AuthFile) => {
+  const toggleStatus = useCallback(async (file: AuthFile) => {
     const name = fileName(file);
     setBusy(true);
     setError('');
@@ -370,9 +378,9 @@ export function AuthFileManagementPage() {
     } finally {
       setBusy(false);
     }
-  };
+  }, [loadFiles, t]);
 
-  const openPriorityEditor = (file: AuthFile) => {
+  const openPriorityEditor = useCallback((file: AuthFile) => {
     const priority = parseAuthFilePriority(file.priority);
     setPriorityEditor({
       fileName: fileName(file),
@@ -380,13 +388,17 @@ export function AuthFileManagementPage() {
       value: priority === undefined || priority === 0 ? '' : String(priority),
       error: '',
     });
-  };
+  }, []);
 
-  const closePriorityEditor = () => {
-    if (!busy) setPriorityEditor(null);
-  };
+  const closePriorityEditor = useCallback(() => {
+    setPriorityEditor((current) => (busy ? current : null));
+  }, [busy]);
 
-  const savePriority = async () => {
+  const updatePriorityDraft = useCallback((value: string) => {
+    setPriorityEditor((current) => (current ? { ...current, value, error: '' } : current));
+  }, []);
+
+  const savePriority = useCallback(async () => {
     if (!priorityEditor || busy) return;
     const priority = normalizeAuthFilePriorityInput(priorityEditor.value);
     if (priority === null) {
@@ -415,9 +427,9 @@ export function AuthFileManagementPage() {
     } finally {
       setBusy(false);
     }
-  };
+  }, [busy, loadFiles, priorityEditor, t]);
 
-  const deleteFile = async (file: AuthFile) => {
+  const deleteFile = useCallback(async (file: AuthFile) => {
     const name = fileName(file);
     if (isRuntimeOnly(file)) {
       setError(t('authFiles.runtimeDeleteError'));
@@ -435,9 +447,9 @@ export function AuthFileManagementPage() {
     } finally {
       setBusy(false);
     }
-  };
+  }, [loadFiles, t]);
 
-  const openAuthFilesDirectory = async () => {
+  const openAuthFilesDirectory = useCallback(async () => {
     setBusy(true);
     setError('');
     try {
@@ -447,9 +459,9 @@ export function AuthFileManagementPage() {
     } finally {
       setBusy(false);
     }
-  };
+  }, []);
 
-  const copyName = async (name: string) => {
+  const copyName = useCallback(async (name: string) => {
     try {
       await navigator.clipboard.writeText(name);
       setCopied(name);
@@ -457,192 +469,195 @@ export function AuthFileManagementPage() {
     } catch {
       setError(t('common.copyFailed'));
     }
+  }, [t]);
+
+  const disabledCount = useMemo(() => files.filter((file) => readBoolean(file, 'disabled')).length, [files]);
+  const runtimeCount = useMemo(() => files.filter(isRuntimeOnly).length, [files]);
+
+  return {
+    files,
+    filter,
+    setFilter,
+    providerFilter,
+    setProviderFilter,
+    statusFilter,
+    setStatusFilter,
+    loading,
+    busy,
+    error,
+    notice,
+    copied,
+    quotas,
+    fileInputRef,
+    loadFiles,
+    refreshQuota,
+    handleUpload,
+    toggleStatus,
+    deleteFile,
+    openAuthFilesDirectory,
+    copyName,
+    providers,
+    visibleFiles,
+    disabledCount,
+    runtimeCount,
+    priorityEditor,
+    openPriorityEditor,
+    closePriorityEditor,
+    updatePriorityDraft,
+    savePriority,
+    oauthModelProvider,
+    oauthModelProviderLabel,
+    oauthModels,
+    visibleOauthModels,
+    allVisibleOauthModelsOpen,
+    openOauthModelNames,
+    oauthModelSearch,
+    setOauthModelSearch,
+    oauthModelLoading,
+    oauthModelSaving,
+    oauthModelError,
+    openOauthModels,
+    closeOauthModels,
+    saveOauthModels,
+    toggleOauthModel,
+    toggleAllVisibleOauthModels,
+    setOpenOauthModelNames,
   };
+}
 
-  const disabledCount = files.filter((file) => readBoolean(file, 'disabled')).length;
-  const runtimeCount = files.filter(isRuntimeOnly).length;
+export type AuthFileManager = ReturnType<typeof useAuthFileManager>;
 
+export function PriorityEditorDialog({
+  editor,
+  busy,
+  onChange,
+  onClose,
+  onSave,
+}: {
+  editor: PriorityEditor;
+  busy: boolean;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const { t } = useI18n();
   return (
-    <section className="page management-page auth-files-page">
-      <header className="management-header">
-        <div>
-          <span>Auth Files</span>
-          <h1>{t('authFiles.title')}</h1>
-        </div>
-        <div className="management-heading-actions">
-          <span className="muted-summary">{t('authFiles.summary', { files: files.length, disabled: disabledCount })}</span>
-          <button type="button" className="secondary-button compact-button" onClick={() => void loadFiles()} disabled={loading || busy}>
-            <RefreshCw size={16} />{t('common.refresh')}
-          </button>
-          <button type="button" className="secondary-button compact-button" onClick={() => void openAuthFilesDirectory()} disabled={busy}>
-            <FolderOpen size={16} />{t('authFiles.openDirectory')}
-          </button>
-          <button type="button" className="primary-button compact-button" onClick={() => fileInputRef.current?.click()} disabled={busy}>
-            <Import size={16} />{t('authFiles.import')}
-          </button>
-          <input ref={fileInputRef} type="file" accept=".json,application/json" multiple hidden onChange={(event) => void handleUpload(event)} />
-        </div>
-      </header>
-
-      {error ? <div className="management-alert error">{error}</div> : null}
-      {notice ? <div className="management-alert success">{notice}</div> : null}
-
-      <section className="panel auth-files-panel real-auth-files-panel">
-        <div className="management-toolbar auth-files-toolbar">
-          <Search size={16} />
-          <input value={filter} onChange={(event) => setFilter(event.currentTarget.value)} placeholder={t('authFiles.searchPlaceholder')} />
-          <select value={providerFilter} onChange={(event) => setProviderFilter(event.currentTarget.value)}>
-            <option value="all">{t('authFiles.filter.allProviders')}</option>
-            {providers.map((provider) => <option key={provider} value={provider}>{provider}</option>)}
-          </select>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.currentTarget.value as typeof statusFilter)}>
-            <option value="all">{t('authFiles.filter.allStatuses')}</option>
-            <option value="enabled">{t('authFiles.filter.enabled')}</option>
-            <option value="disabled">{t('authFiles.filter.disabled')}</option>
-            <option value="runtime">{t('authFiles.filter.runtime')}</option>
-          </select>
-        </div>
-
-        {loading ? (
-          <div className="management-loading"><LoaderCircle size={20} className="spin" />{t('authFiles.loading')}</div>
-        ) : visibleFiles.length === 0 ? (
-          <div className="management-empty"><FileDown size={24} /><strong>{files.length ? t('authFiles.empty.filtered') : t('authFiles.empty.none')}</strong><span>{files.length ? t('authFiles.empty.tryFilter') : t('authFiles.empty.upload')}</span></div>
-        ) : (
-          <div className="real-auth-file-list">
-            {visibleFiles.map((file) => {
-              const name = fileName(file);
-              const icon = providerIcons[providerKey(file)] ?? geminiIcon;
-              const disabled = readBoolean(file, 'disabled');
-              const priority = parseAuthFilePriority(file.priority) ?? 0;
-              return (
-                <article className={`real-auth-file-row ${disabled ? 'disabled' : ''}`} key={`${name}-${readString(file, 'auth_index', 'authIndex')}`}>
-                  <img src={icon} alt="" className="provider-logo" />
-                  <div className="auth-file-main">
-                    <div className="auth-file-title"><strong title={name}>{name}</strong><span className={`state-pill ${disabled ? 'error' : readBoolean(file, 'unavailable') ? 'error' : 'success'}`} title={readString(file, 'status_message', 'statusMessage') || undefined}>{statusText(file)}</span></div>
-                    <span>{providerName(file)}{readString(file, 'email', 'account', 'label') ? ` · ${readString(file, 'email', 'account', 'label')}` : ''}</span>
-                  </div>
-                  <div className="auth-file-meta">
-                    <span>{readNumber(file, 'size') === null ? t('authFiles.unknownSize') : `${Math.ceil((readNumber(file, 'size') ?? 0) / 1024)} KB`}</span>
-                    <span>{formatDate(file.modtime ?? file.updated_at ?? file.last_refresh)}</span>
-                    {isRuntimeOnly(file) ? <span className="state-pill">{t('authFiles.runtime')}</span> : null}
-                  </div>
-                  <div className="auth-file-actions">
-                    {quotaProviderForFile(file) ? <button type="button" className="secondary-button compact-button" onClick={() => void refreshQuota(file)} disabled={busy || disabled || quotas[quotaKey(file)]?.status === 'loading'}>{disabled ? t('authFiles.status.disabled') : quotas[quotaKey(file)]?.status === 'loading' ? t('authFiles.quota.querying') : quotas[quotaKey(file)]?.status === 'success' ? t('authFiles.quota.refresh') : t('authFiles.quota.fetch')}</button> : null}
-                    {providerKey(file) ? <button type="button" className="secondary-button compact-button" onClick={() => void openOauthModels(file)} disabled={busy} title={t('authFiles.models.settings')}>{t('authFiles.models.button')}</button> : null}
-                    <button type="button" className="secondary-button compact-button auth-file-priority-button" onClick={() => openPriorityEditor(file)} disabled={busy} title={t('authFiles.priority.hint')}><Pencil size={14} />{t('authFiles.priority.button', { priority })}</button>
-                    <button type="button" className="icon-button quiet" onClick={() => void copyName(name)} disabled={busy} title={t('authFiles.copyName')}>{copied === name ? <Check size={16} /> : <Copy size={16} />}</button>
-                    <button type="button" className="secondary-button compact-button" onClick={() => void toggleStatus(file)} disabled={busy}>{disabled ? t('common.enable') : t('common.disable')}</button>
-                    <button type="button" className="icon-button danger" onClick={() => void deleteFile(file)} disabled={busy || isRuntimeOnly(file)} title={t('common.delete')}><Trash2 size={16} /></button>
-                  </div>
-                  {quotaProviderForFile(file) && quotas[quotaKey(file)]?.status !== 'idle' ? <AuthFileQuotaSummary quota={quotas[quotaKey(file)] ?? idleQuota()} /> : null}
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-      {runtimeCount > 0 ? <p className="page-footnote">{t('authFiles.runtimeFootnote', { count: runtimeCount })}</p> : null}
-
-      {priorityEditor ? (
-        <div className="config-dialog-backdrop" onMouseDown={(event) => event.currentTarget === event.target && closePriorityEditor()}>
-          <form
-            className="config-dialog auth-priority-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="auth-priority-title"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void savePriority();
-            }}
-          >
-            <div className="config-dialog-heading">
-              <div><Pencil size={19} /><h2 id="auth-priority-title">{t('authFiles.priority.title')}</h2></div>
-              <button type="button" className="icon-button quiet" onClick={closePriorityEditor} disabled={busy} title={t('common.close')}><X size={18} /></button>
-            </div>
-            <div className="auth-priority-target" title={priorityEditor.fileName}>{priorityEditor.fileName}</div>
-            <label className="auth-priority-field" htmlFor="auth-file-priority-input">
-              <span>{t('authFiles.priority.label')}</span>
-              <input
-                id="auth-file-priority-input"
-                autoFocus
-                type="text"
-                inputMode="numeric"
-                value={priorityEditor.value}
-                placeholder={t('authFiles.priority.placeholder')}
-                disabled={busy}
-                aria-invalid={Boolean(priorityEditor.error)}
-                onChange={(event) => {
-                  const value = event.currentTarget.value;
-                  setPriorityEditor((current) => current
-                    ? { ...current, value, error: '' }
-                    : current);
-                }}
-              />
-              <small>{t('authFiles.priority.hint')}</small>
-            </label>
-            <div className={`config-form-message ${priorityEditor.error ? 'error' : ''}`} role={priorityEditor.error ? 'alert' : undefined}>
-              {priorityEditor.error || ' '}
-            </div>
-            <div className="config-dialog-actions two-actions">
-              <button type="button" className="secondary-button" onClick={closePriorityEditor} disabled={busy}>{t('common.cancel')}</button>
-              <button type="submit" className="primary-button" disabled={busy}>{busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}{busy ? t('common.saving') : t('common.save')}</button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-
-      {oauthModelProvider ? (
-        <div className="model-discovery-backdrop" onMouseDown={(event) => event.currentTarget === event.target && !oauthModelSaving && closeOauthModels()}>
-          <section className="model-discovery-dialog" role="dialog" aria-modal="true" aria-labelledby="oauth-model-title">
-            <div className="model-discovery-header">
-              <div><h2 id="oauth-model-title">{t('authFiles.models.title')}</h2><span>{t('authFiles.models.description', { provider: oauthModelProviderLabel })}</span></div>
-              <button type="button" className="icon-button quiet" onClick={closeOauthModels} disabled={oauthModelSaving} title={t('common.close')}><X size={18} /></button>
-            </div>
-
-            <div className="model-discovery-search">
-              <Search size={16} aria-hidden="true" />
-              <input value={oauthModelSearch} onChange={(event) => setOauthModelSearch(event.currentTarget.value)} placeholder={t('authFiles.models.search')} />
-            </div>
-
-            <div className="model-discovery-toolbar">
-              <span>{t('authFiles.models.summary', { total: oauthModels.length, open: openOauthModelNames.size })}</span>
-              <div>
-                <button type="button" className="secondary-button compact-button" onClick={toggleAllVisibleOauthModels} disabled={oauthModelLoading || visibleOauthModels.length === 0}>{allVisibleOauthModelsOpen ? t('authFiles.models.closeVisible') : t('authFiles.models.openVisible')}</button>
-                <button type="button" className="secondary-button compact-button" onClick={() => setOpenOauthModelNames(new Set(oauthModels.map((model) => model.id.toLowerCase())))} disabled={oauthModelLoading || oauthModels.length === 0 || openOauthModelNames.size === oauthModels.length}>{t('authFiles.models.openAll')}</button>
-                <button type="button" className="secondary-button compact-button" onClick={() => setOpenOauthModelNames(new Set())} disabled={oauthModelLoading || openOauthModelNames.size === 0}>{t('authFiles.models.closeAll')}</button>
-              </div>
-            </div>
-
-            <div className="model-discovery-content">
-              {oauthModelLoading ? (
-                <div className="model-discovery-message"><LoaderCircle size={20} className="spin" />{t('authFiles.models.loading')}</div>
-              ) : oauthModelError ? (
-                <div className="model-discovery-message error"><strong>{t('authFiles.models.loadFailed')}</strong><span>{oauthModelError}</span></div>
-              ) : visibleOauthModels.length === 0 ? (
-                <div className="model-discovery-message"><strong>{oauthModels.length ? t('authFiles.models.noMatch') : t('authFiles.models.empty')}</strong></div>
-              ) : (
-                <div className="model-discovery-list">
-                  {visibleOauthModels.map((model) => {
-                    const checked = openOauthModelNames.has(model.id.toLowerCase());
-                    return (
-                      <label className={`model-discovery-row ${checked ? 'selected' : ''}`} key={model.id}>
-                        <input type="checkbox" checked={checked} onChange={() => toggleOauthModel(model)} />
-                        <span><strong title={model.id}>{model.id}</strong>{model.displayName ? <small title={model.displayName}>{model.displayName}</small> : null}</span>
-                        {checked ? <Check size={16} aria-hidden="true" /> : null}
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="model-discovery-actions">
-              <button type="button" className="secondary-button" onClick={closeOauthModels} disabled={oauthModelSaving}>{t('common.cancel')}</button>
-              <button type="button" className="primary-button" onClick={() => void saveOauthModels()} disabled={oauthModelLoading || oauthModelSaving || oauthModels.length === 0}>{oauthModelSaving ? t('common.saving') : t('authFiles.models.save', { count: openOauthModelNames.size })}</button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-    </section>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil size={16} aria-hidden="true" />{t('authFiles.priority.title')}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 truncate text-sm text-muted-foreground" title={editor.fileName}>{editor.fileName}</div>
+          <label className="mt-3 grid gap-1.5 text-sm" htmlFor="auth-file-priority-input">
+            <span className="font-medium">{t('authFiles.priority.label')}</span>
+            <Input
+              id="auth-file-priority-input"
+              autoFocus
+              type="text"
+              inputMode="numeric"
+              value={editor.value}
+              placeholder={t('authFiles.priority.placeholder')}
+              disabled={busy}
+              aria-invalid={Boolean(editor.error)}
+              onChange={(event) => onChange(event.currentTarget.value)}
+            />
+            <span className="text-xs text-muted-foreground">{t('authFiles.priority.hint')}</span>
+          </label>
+          {editor.error ? <p className="mt-2 text-xs text-destructive" role="alert">{editor.error}</p> : null}
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
+              {busy ? t('common.saving') : t('common.save')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
+
+export function OauthModelDialog({ manager }: { manager: AuthFileManager }) {
+  const { t } = useI18n();
+  const {
+    oauthModelProviderLabel,
+    oauthModelSearch,
+    setOauthModelSearch,
+    oauthModels,
+    visibleOauthModels,
+    allVisibleOauthModelsOpen,
+    openOauthModelNames,
+    oauthModelLoading,
+    oauthModelSaving,
+    oauthModelError,
+    closeOauthModels,
+    saveOauthModels,
+    toggleOauthModel,
+    toggleAllVisibleOauthModels,
+    setOpenOauthModelNames,
+  } = manager;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !oauthModelSaving && closeOauthModels()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('authFiles.models.title')}</DialogTitle>
+          <DialogDescription>{t('authFiles.models.description', { provider: oauthModelProviderLabel })}</DialogDescription>
+        </DialogHeader>
+
+        <div className="relative">
+          <Search size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input className="pl-8" value={oauthModelSearch} onChange={(event) => setOauthModelSearch(event.currentTarget.value)} placeholder={t('authFiles.models.search')} />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">{t('authFiles.models.summary', { total: oauthModels.length, open: openOauthModelNames.size })}</span>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={toggleAllVisibleOauthModels} disabled={oauthModelLoading || visibleOauthModels.length === 0}>{allVisibleOauthModelsOpen ? t('authFiles.models.closeVisible') : t('authFiles.models.openVisible')}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setOpenOauthModelNames(new Set(oauthModels.map((model) => model.id.toLowerCase())))} disabled={oauthModelLoading || oauthModels.length === 0 || openOauthModelNames.size === oauthModels.length}>{t('authFiles.models.openAll')}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setOpenOauthModelNames(new Set())} disabled={oauthModelLoading || openOauthModelNames.size === 0}>{t('authFiles.models.closeAll')}</Button>
+          </div>
+        </div>
+
+        <div className="max-h-80 overflow-y-auto rounded-lg border">
+          {oauthModelLoading ? (
+            <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground"><LoaderCircle size={20} className="animate-spin" aria-hidden="true" />{t('authFiles.models.loading')}</div>
+          ) : oauthModelError ? (
+            <div className="p-4 text-sm"><strong className="block text-destructive">{t('authFiles.models.loadFailed')}</strong><span className="text-muted-foreground">{oauthModelError}</span></div>
+          ) : visibleOauthModels.length === 0 ? (
+            <div className="p-4 text-sm text-muted-foreground">{oauthModels.length ? t('authFiles.models.noMatch') : t('authFiles.models.empty')}</div>
+          ) : (
+            <div className="divide-y">
+              {visibleOauthModels.map((model) => {
+                const checked = openOauthModelNames.has(model.id.toLowerCase());
+                return (
+                  <label key={model.id} className={cn('flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/50', checked && 'bg-accent/40')}>
+                    <Checkbox checked={checked} onCheckedChange={() => toggleOauthModel(model)} />
+                    <span className="flex min-w-0 flex-col">
+                      <strong className="truncate font-medium" title={model.id}>{model.id}</strong>
+                      {model.displayName ? <span className="truncate text-xs text-muted-foreground" title={model.displayName}>{model.displayName}</span> : null}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={closeOauthModels} disabled={oauthModelSaving}>{t('common.cancel')}</Button>
+          <Button type="button" onClick={() => void saveOauthModels()} disabled={oauthModelLoading || oauthModelSaving || oauthModels.length === 0}>{oauthModelSaving ? t('common.saving') : t('authFiles.models.save', { count: openOauthModelNames.size })}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Re-exported for callers that only need quota helpers alongside auth files.
+export { quotaProviderForFile, quotaKey, idleQuota };

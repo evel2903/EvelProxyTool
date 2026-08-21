@@ -4,6 +4,19 @@ import { listen } from '@tauri-apps/api/event';
 import { Activity, BarChart3, CircleDollarSign, Clock3, Database, List, Pencil, RefreshCw, ShieldCheck, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react';
 import { getCurrentLocale, useI18n } from '../i18n';
 import { formatUsageNumber } from '../services/usageNumber';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type UsageTab = 'overview' | 'analysis' | 'events' | 'pricing';
 type UsageRange = '4h' | '24h' | 'today' | '7d' | '30d' | 'all' | 'custom';
@@ -365,43 +378,103 @@ export function UsageRecordsPage() {
   );
 
   return (
-    <section className="page management-page usage-records-page">
-      <header className="management-header usage-records-header">
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <span>Local Usage</span>
-          <h1>{t('usage.title')}</h1>
+          <span className="block text-xs font-bold tracking-wide text-muted-foreground uppercase">{t('usage.eyebrow')}</span>
+          <h1 className="mt-1 text-2xl font-bold">{t('usage.title')}</h1>
         </div>
-        <div className={`usage-collector-state ${collectorTone}`} title={status?.message}>
-          <span className="status-dot" />
+        <div className="flex items-center gap-2.5 rounded-lg border bg-card px-3.5 py-2.5" title={status?.message}>
+          <span className={cn('size-1.5 rounded-full', collectorTone === 'success' ? 'bg-[var(--theme-2f6b3f)]' : collectorTone === 'error' ? 'bg-destructive' : 'bg-muted-foreground')} />
           <div>
-            <strong>{status?.state === 'collecting' ? t('usage.collector.collecting') : status?.state === 'error' ? t('usage.collector.error') : t('usage.collector.waiting')}</strong>
-            <span>{t('usage.longTermRecords', { count: compactNumber(status?.totalRecords ?? 0) })}</span>
+            <strong className="block text-sm font-semibold">{status?.state === 'collecting' ? t('usage.collector.collecting') : status?.state === 'error' ? t('usage.collector.error') : t('usage.collector.waiting')}</strong>
+            <span className="block text-xs text-muted-foreground">{t('usage.longTermRecords', { count: compactNumber(status?.totalRecords ?? 0) })}</span>
           </div>
         </div>
       </header>
 
-      {error ? <div className="management-alert error">{error}</div> : null}
+      {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">{error}</div> : null}
 
-      <div className="usage-tabs" role="tablist" aria-label={t('usage.pageLabel')}>
-        <button type="button" className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}><Activity size={15} />{t('usage.tab.overview')}</button>
-        <button type="button" className={activeTab === 'analysis' ? 'active' : ''} onClick={() => setActiveTab('analysis')}><BarChart3 size={15} />{t('usage.tab.analysis')}</button>
-        <button type="button" className={activeTab === 'events' ? 'active' : ''} onClick={() => setActiveTab('events')}><List size={15} />{t('usage.tab.events')}</button>
-        <button type="button" className={activeTab === 'pricing' ? 'active' : ''} onClick={() => setActiveTab('pricing')}><CircleDollarSign size={15} />{t('usage.tab.pricing')}</button>
+      <div className="inline-flex w-fit gap-0.5 rounded-lg bg-muted p-0.5" role="tablist" aria-label={t('usage.pageLabel')}>
+        {([
+          ['overview', Activity, t('usage.tab.overview')],
+          ['analysis', BarChart3, t('usage.tab.analysis')],
+          ['events', List, t('usage.tab.events')],
+          ['pricing', CircleDollarSign, t('usage.tab.pricing')],
+        ] as const).map(([id, Icon, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+              activeTab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+            onClick={() => setActiveTab(id)}
+          >
+            <Icon size={14} aria-hidden="true" />{label}
+          </button>
+        ))}
       </div>
 
-      <section className="panel usage-filter-panel">
-        <select value={range} onChange={(event) => { setRange(event.currentTarget.value as UsageRange); setPage(1); }} aria-label={t('usage.filter.timeRange')}>
-          <option value="4h">{t('usage.range.4h')}</option><option value="24h">{t('usage.range.24h')}</option><option value="today">{t('usage.range.today')}</option><option value="7d">{t('usage.range.7d')}</option><option value="30d">{t('usage.range.30d')}</option><option value="all">{t('usage.range.all')}</option><option value="custom">{t('usage.range.custom')}</option>
-        </select>
-        <select value={model} onChange={(event) => changeFilter(setModel, event.currentTarget.value)} aria-label={t('usage.filter.model')}><option value="">{t('usage.filter.allModels')}</option>{filterOptions(optionsAnalysis.models).map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}</select>
-        <select value={provider} onChange={(event) => changeFilter(setProvider, event.currentTarget.value)} aria-label="Provider"><option value="">{t('usage.filter.allProviders')}</option>{filterOptions(optionsAnalysis.providers).map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}</select>
-        <select value={source} onChange={(event) => changeFilter(setSource, event.currentTarget.value)} aria-label={t('usage.filter.source')}><option value="">{t('usage.filter.allSources')}</option>{filterOptions(optionsAnalysis.sources).map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}</select>
-        <select value={apiKeyHash} onChange={(event) => changeFilter(setApiKeyHash, event.currentTarget.value)} aria-label="API Key"><option value="">{t('usage.filter.allKeys')}</option>{filterOptions(optionsAnalysis.apiKeys).map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}</select>
-        <select value={result} onChange={(event) => changeFilter(setResult, event.currentTarget.value)} aria-label={t('usage.filter.result')}><option value="all">{t('usage.filter.allResults')}</option><option value="success">{t('usage.result.success')}</option><option value="failed">{t('usage.result.failed')}</option></select>
-        {range === 'custom' ? <div className="usage-custom-range"><input type="datetime-local" value={customStart} onChange={(event) => setCustomStart(event.currentTarget.value)} aria-label={t('usage.filter.startTime')} /><span>{t('usage.filter.to')}</span><input type="datetime-local" value={customEnd} onChange={(event) => setCustomEnd(event.currentTarget.value)} aria-label={t('usage.filter.endTime')} /></div> : null}
-      </section>
+      <Card className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Select value={range} onValueChange={(value) => { setRange(value as UsageRange); setPage(1); }}>
+          <SelectTrigger aria-label={t('usage.filter.timeRange')}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="4h">{t('usage.range.4h')}</SelectItem>
+            <SelectItem value="24h">{t('usage.range.24h')}</SelectItem>
+            <SelectItem value="today">{t('usage.range.today')}</SelectItem>
+            <SelectItem value="7d">{t('usage.range.7d')}</SelectItem>
+            <SelectItem value="30d">{t('usage.range.30d')}</SelectItem>
+            <SelectItem value="all">{t('usage.range.all')}</SelectItem>
+            <SelectItem value="custom">{t('usage.range.custom')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={model || 'all'} onValueChange={(value) => changeFilter(setModel, value === 'all' ? '' : value)}>
+          <SelectTrigger aria-label={t('usage.filter.model')}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('usage.filter.allModels')}</SelectItem>
+            {filterOptions(optionsAnalysis.models).map((item) => <SelectItem value={item.key} key={item.key}>{item.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={provider || 'all'} onValueChange={(value) => changeFilter(setProvider, value === 'all' ? '' : value)}>
+          <SelectTrigger aria-label={t('usage.column.provider')}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('usage.filter.allProviders')}</SelectItem>
+            {filterOptions(optionsAnalysis.providers).map((item) => <SelectItem value={item.key} key={item.key}>{item.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={source || 'all'} onValueChange={(value) => changeFilter(setSource, value === 'all' ? '' : value)}>
+          <SelectTrigger aria-label={t('usage.filter.source')}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('usage.filter.allSources')}</SelectItem>
+            {filterOptions(optionsAnalysis.sources).map((item) => <SelectItem value={item.key} key={item.key}>{item.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={apiKeyHash || 'all'} onValueChange={(value) => changeFilter(setApiKeyHash, value === 'all' ? '' : value)}>
+          <SelectTrigger aria-label={t('usage.column.apiKey')}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('usage.filter.allKeys')}</SelectItem>
+            {filterOptions(optionsAnalysis.apiKeys).map((item) => <SelectItem value={item.key} key={item.key}>{item.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={result} onValueChange={(value) => changeFilter(setResult, value)}>
+          <SelectTrigger aria-label={t('usage.filter.result')}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('usage.filter.allResults')}</SelectItem>
+            <SelectItem value="success">{t('usage.result.success')}</SelectItem>
+            <SelectItem value="failed">{t('usage.result.failed')}</SelectItem>
+          </SelectContent>
+        </Select>
+        {range === 'custom' ? (
+          <div className="col-span-full flex flex-wrap items-center gap-2 border-t pt-3">
+            <Input type="datetime-local" className="w-auto" value={customStart} onChange={(event) => setCustomStart(event.currentTarget.value)} aria-label={t('usage.filter.startTime')} />
+            <span className="text-sm text-muted-foreground">{t('usage.filter.to')}</span>
+            <Input type="datetime-local" className="w-auto" value={customEnd} onChange={(event) => setCustomEnd(event.currentTarget.value)} aria-label={t('usage.filter.endTime')} />
+          </div>
+        ) : null}
+      </Card>
 
-      {showInitialLoading ? <div className="usage-initial-loading"><Database size={22} /><span>{t('usage.loading')}</span></div> : null}
+      {showInitialLoading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Database size={20} aria-hidden="true" /><span>{t('usage.loading')}</span></div> : null}
 
       {activeTab === 'overview' && overview ? <OverviewView overview={overview} /> : null}
       {activeTab === 'analysis' ? <AnalysisView analysis={analysis} overview={overview} /> : null}
@@ -421,11 +494,37 @@ function OverviewView({ overview }: { overview: UsageOverview }) {
     { icon: Database, label: t('usage.stat.cacheHitRate'), value: `${(overview.cacheHitRate * 100).toFixed(1)}%`, meta: t('usage.stat.cacheHitMeta', { hit: compactNumber(overview.cacheReadTokens), input: compactNumber(overview.inputTokens) }) },
     { icon: CircleDollarSign, label: t('usage.stat.estimatedCost'), value: formatUsd(overview.estimatedCost), meta: t('usage.stat.costMeta', { priced: compactNumber(overview.pricedRequests), total: compactNumber(overview.totalRequests) }) },
   ];
-  return <div className="usage-overview-layout">
-    <div className="usage-stat-grid">{cards.map(({ icon: Icon, label, value, meta }) => <article className="panel usage-stat-card" key={label}><span><Icon size={16} />{label}</span><strong>{value}</strong><small title={meta}>{meta}</small></article>)}</div>
-    <section className="panel usage-trend-panel"><div className="usage-section-heading"><div><strong>{t('usage.trend.title')}</strong><span>{t('usage.trend.description')}</span></div></div>{overview.timeline.length ? <UsageTrend points={overview.timeline} /> : <UsageEmpty />}</section>
-    <section className="panel usage-health-panel"><div className="usage-section-heading"><div><strong>{t('usage.token.title')}</strong><span>{t('usage.token.description')}</span></div></div><div className="usage-token-breakdown"><TokenMetric label={t('usage.token.input')} value={overview.inputTokens} total={overview.totalTokens} /><TokenMetric label={t('usage.token.output')} value={overview.outputTokens} total={overview.totalTokens} /><TokenMetric label={t('usage.token.reasoning')} value={overview.reasoningTokens} total={overview.totalTokens} /><TokenMetric label={t('usage.token.cacheRead')} value={overview.cacheReadTokens} total={overview.totalTokens} /><TokenMetric label={t('usage.token.cacheCreation')} value={overview.cacheCreationTokens} total={overview.totalTokens} /></div></section>
-  </div>;
+  return (
+    <div className="grid gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        {cards.map(({ icon: Icon, label, value, meta }) => (
+          <Card className="gap-2 p-3.5" key={label}>
+            <span className="flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground"><Icon size={14} aria-hidden="true" />{label}</span>
+            <strong className="text-xl font-bold tracking-tight tabular-nums">{value}</strong>
+            <small className="truncate text-[11px] text-muted-foreground" title={meta}>{meta}</small>
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.9fr_1fr]">
+        <Card className="gap-1 p-4 pb-3.5">
+          <strong className="text-sm font-semibold">{t('usage.trend.title')}</strong>
+          <span className="text-xs text-muted-foreground">{t('usage.trend.description')}</span>
+          {overview.timeline.length ? <UsageTrend points={overview.timeline} /> : <UsageEmpty />}
+        </Card>
+        <Card className="gap-1 p-4">
+          <strong className="text-sm font-semibold">{t('usage.token.title')}</strong>
+          <span className="text-xs text-muted-foreground">{t('usage.token.description')}</span>
+          <div className="mt-2 grid gap-3">
+            <TokenMetric label={t('usage.token.input')} value={overview.inputTokens} total={overview.totalTokens} />
+            <TokenMetric label={t('usage.token.output')} value={overview.outputTokens} total={overview.totalTokens} />
+            <TokenMetric label={t('usage.token.reasoning')} value={overview.reasoningTokens} total={overview.totalTokens} />
+            <TokenMetric label={t('usage.token.cacheRead')} value={overview.cacheReadTokens} total={overview.totalTokens} />
+            <TokenMetric label={t('usage.token.cacheCreation')} value={overview.cacheCreationTokens} total={overview.totalTokens} />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
 }
 
 function UsageTrend({ points }: { points: TimelinePoint[] }) {
@@ -433,12 +532,33 @@ function UsageTrend({ points }: { points: TimelinePoint[] }) {
   const recent = points.slice(-48);
   const max = Math.max(...recent.map((point) => point.requests), 1);
   const polyline = recent.map((point, index) => `${recent.length === 1 ? 50 : index * 100 / (recent.length - 1)},${28 - point.requests * 24 / max}`).join(' ');
-  return <div className="usage-trend"><svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-label={t('usage.trend.aria')}><polyline points={polyline} fill="none" vectorEffect="non-scaling-stroke" /></svg><div className="usage-trend-labels"><span>{recent[0]?.hour ?? ''}</span><strong>{compactNumber(recent.reduce((sum, point) => sum + point.tokens, 0))} Token</strong><span>{recent[recent.length - 1]?.hour ?? ''}</span></div></div>;
+  return (
+    <div className="mt-2">
+      <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-label={t('usage.trend.aria')} className="h-44 w-full">
+        <polyline points={polyline} fill="none" stroke="var(--theme-2d2a26)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="mt-2.5 flex justify-between font-mono text-[11.5px] text-muted-foreground">
+        <span>{recent[0]?.hour ?? ''}</span>
+        <strong className="font-medium text-foreground">{compactNumber(recent.reduce((sum, point) => sum + point.tokens, 0))} Token</strong>
+        <span>{recent[recent.length - 1]?.hour ?? ''}</span>
+      </div>
+    </div>
+  );
 }
 
 function TokenMetric({ label, value, total }: { label: string; value: number; total: number }) {
   const percent = total ? Math.min(value * 100 / total, 100) : 0;
-  return <div><span><strong>{label}</strong><small>{compactNumber(value)}</small></span><i><b style={{ width: `${percent}%` }} /></i></div>;
+  return (
+    <div>
+      <div className="flex justify-between text-[12.5px]">
+        <strong className="font-medium">{label}</strong>
+        <small className="text-muted-foreground tabular-nums">{compactNumber(value)}</small>
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
 }
 
 function AnalysisView({ analysis, overview }: { analysis: UsageAnalysis; overview: UsageOverview | null }) {
@@ -450,19 +570,110 @@ function AnalysisView({ analysis, overview }: { analysis: UsageAnalysis; overvie
     failures: point.failure,
     tokens: point.tokens,
   })).sort((left, right) => right.tokens - left.tokens);
-  return <div className="usage-analysis-grid"><CategoryPanel title={t('usage.analysis.models')} items={analysis.models} /><CategoryPanel title="Provider" items={analysis.providers} /><CategoryPanel title={t('usage.analysis.sources')} items={analysis.sources} compactLabels /><CategoryPanel title={t('usage.analysis.keys')} items={analysis.apiKeys} /><CategoryPanel title={t('usage.analysis.hours')} items={hours} /></div>;
+  return (
+    <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+      <CategoryPanel title={t('usage.analysis.models')} items={analysis.models} />
+      <CategoryPanel title={t('usage.column.provider')} items={analysis.providers} />
+      <CategoryPanel title={t('usage.analysis.sources')} items={analysis.sources} compactLabels />
+      <CategoryPanel title={t('usage.analysis.keys')} items={analysis.apiKeys} />
+      <CategoryPanel title={t('usage.analysis.hours')} items={hours} />
+    </div>
+  );
 }
 
 function CategoryPanel({ title, items, compactLabels = false }: { title: string; items: UsageCategory[]; compactLabels?: boolean }) {
   const { t } = useI18n();
   const max = Math.max(...items.map((item) => item.tokens), 1);
   const total = items.reduce((sum, item) => sum + item.tokens, 0);
-  return <section className={`panel usage-category-panel${compactLabels ? ' compact-labels' : ''}`}><div className="usage-section-heading"><div><strong>{title}</strong><span>{t('usage.analysis.sortedByTokens')}</span></div></div>{items.length ? <div className="usage-category-list">{items.slice(0, 10).map((item) => <div key={item.key}><span><strong title={item.label}>{item.label}</strong><small>{t('usage.analysis.itemMeta', { requests: compactNumber(item.requests), percent: total ? (item.tokens * 100 / total).toFixed(1) : '0.0', tokens: compactNumber(item.tokens) })}</small></span><i><b style={{ width: `${item.tokens * 100 / max}%` }} /></i></div>)}</div> : <UsageEmpty />}</section>;
+  return (
+    <Card className="gap-1 p-4">
+      <div className="flex items-baseline justify-between">
+        <strong className="text-sm font-semibold">{title}</strong>
+        <span className="text-xs text-muted-foreground">{t('usage.analysis.sortedByTokens')}</span>
+      </div>
+      {items.length ? (
+        <div className="mt-2 grid gap-3">
+          {items.slice(0, 10).map((item) => (
+            <div key={item.key}>
+              <div className={cn('flex justify-between gap-3 text-[12.5px]', compactLabels ? undefined : 'font-mono')}>
+                <span className="truncate font-medium" title={item.label}>{item.label}</span>
+                <span className="shrink-0 text-muted-foreground">
+                  {t('usage.analysis.itemMeta', { requests: compactNumber(item.requests), percent: total ? (item.tokens * 100 / total).toFixed(1) : '0.0', tokens: compactNumber(item.tokens) })}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${item.tokens * 100 / max}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <UsageEmpty />}
+    </Card>
+  );
 }
 
 function EventsView({ events, onPage }: { events: UsageEventPage; onPage: (page: number) => void }) {
   const { t } = useI18n();
-  return <section className="panel usage-events-panel"><div className="usage-events-summary"><span>{t('usage.events.total', { count: compactNumber(events.total) })}</span><span>{t('usage.events.page', { page: events.page, total: events.totalPages })}</span></div>{events.items.length ? <div className="usage-table-wrap"><table className="usage-events-table"><thead><tr><th>{t('usage.column.time')}</th><th>{t('usage.column.model')}</th><th>Provider</th><th>{t('usage.column.source')}</th><th>API Key</th><th>{t('usage.column.input')}</th><th>{t('usage.column.output')}</th><th>{t('usage.column.reasoning')}</th><th>{t('usage.column.cache')}</th><th>{t('usage.column.total')}</th><th>{t('usage.column.result')}</th><th>{t('usage.column.latency')}</th><th>{t('usage.column.ttft')}</th></tr></thead><tbody>{events.items.map((record) => <tr key={record.id}><td>{formatTime(record.timestamp)}</td><td className="usage-stacked-cell"><strong title={record.alias || record.model}>{record.alias || record.model}</strong>{record.alias || record.reasoning_effort ? <small title={record.model}>{record.alias ? record.model : ''}{record.alias && record.reasoning_effort ? ' · ' : ''}{record.reasoning_effort}</small> : null}</td><td title={record.provider}>{record.provider || '—'}</td><td title={record.source_display || undefined}>{record.source_display || '—'}</td><td className="usage-stacked-cell"><strong title={record.api_key_remark}>{record.api_key_remark || t('usage.key.noRemark')}</strong><small>{record.api_key_display || '—'}</small></td><td>{compactNumber(record.tokens.input_tokens)}</td><td>{compactNumber(record.tokens.output_tokens)}</td><td>{compactNumber(record.tokens.reasoning_tokens)}</td><td>{compactNumber(record.tokens.cache_read_tokens)}</td><td><strong>{compactNumber(record.tokens.total_tokens)}</strong></td><td><span className={`usage-result ${record.failed ? 'failed' : 'success'}`}>{record.failed ? t('usage.result.failed') : t('usage.result.success')}</span></td><td>{record.latency_ms} ms</td><td>{record.ttft_ms == null ? '—' : `${record.ttft_ms} ms`}</td></tr>)}</tbody></table></div> : <UsageEmpty />}<div className="usage-pagination"><button type="button" className="secondary-button" disabled={events.page <= 1} onClick={() => onPage(events.page - 1)}>{t('usage.previous')}</button><button type="button" className="secondary-button" disabled={events.page >= events.totalPages} onClick={() => onPage(events.page + 1)}>{t('usage.next')}</button></div></section>;
+  return (
+    <Card className="gap-0 p-0">
+      <div className="flex items-center justify-between gap-3 p-4 pb-3 text-sm">
+        <span className="text-muted-foreground">{t('usage.events.total', { count: compactNumber(events.total) })}</span>
+        <span className="text-muted-foreground">{t('usage.events.page', { page: events.page, total: events.totalPages })}</span>
+      </div>
+      {events.items.length ? (
+        <div className="overflow-x-auto border-t">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('usage.column.time')}</TableHead>
+                <TableHead>{t('usage.column.model')}</TableHead>
+                <TableHead>{t('usage.column.provider')}</TableHead>
+                <TableHead>{t('usage.column.source')}</TableHead>
+                <TableHead>{t('usage.column.apiKey')}</TableHead>
+                <TableHead>{t('usage.column.input')}</TableHead>
+                <TableHead>{t('usage.column.output')}</TableHead>
+                <TableHead>{t('usage.column.reasoning')}</TableHead>
+                <TableHead>{t('usage.column.cache')}</TableHead>
+                <TableHead>{t('usage.column.total')}</TableHead>
+                <TableHead>{t('usage.column.result')}</TableHead>
+                <TableHead>{t('usage.column.latency')}</TableHead>
+                <TableHead>{t('usage.column.ttft')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events.items.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell className="font-mono text-xs whitespace-nowrap text-muted-foreground">{formatTime(record.timestamp)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <strong className="block font-mono text-xs" title={record.alias || record.model}>{record.alias || record.model}</strong>
+                    {record.alias || record.reasoning_effort ? <small className="block text-[11px] text-muted-foreground" title={record.model}>{record.alias ? record.model : ''}{record.alias && record.reasoning_effort ? ' · ' : ''}{record.reasoning_effort}</small> : null}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground" title={record.provider}>{record.provider || '—'}</TableCell>
+                  <TableCell className="whitespace-nowrap" title={record.source_display || undefined}>{record.source_display || '—'}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <strong className="block text-xs" title={record.api_key_remark}>{record.api_key_remark || t('usage.key.noRemark')}</strong>
+                    <small className="block text-[11px] text-muted-foreground">{record.api_key_display || '—'}</small>
+                  </TableCell>
+                  <TableCell className="tabular-nums">{compactNumber(record.tokens.input_tokens)}</TableCell>
+                  <TableCell className="tabular-nums">{compactNumber(record.tokens.output_tokens)}</TableCell>
+                  <TableCell className="tabular-nums">{compactNumber(record.tokens.reasoning_tokens)}</TableCell>
+                  <TableCell className="tabular-nums">{compactNumber(record.tokens.cache_read_tokens)}</TableCell>
+                  <TableCell className="font-semibold tabular-nums">{compactNumber(record.tokens.total_tokens)}</TableCell>
+                  <TableCell><Badge variant={record.failed ? 'destructive' : 'success'}>{record.failed ? t('usage.result.failed') : t('usage.result.success')}</Badge></TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{record.latency_ms} ms</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{record.ttft_ms == null ? '—' : `${record.ttft_ms} ms`}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : <div className="border-t p-8"><UsageEmpty /></div>}
+      <div className="flex items-center justify-between gap-3 border-t p-3">
+        <Button type="button" variant="outline" size="sm" disabled={events.page <= 1} onClick={() => onPage(events.page - 1)}>{t('usage.previous')}</Button>
+        <Button type="button" variant="outline" size="sm" disabled={events.page >= events.totalPages} onClick={() => onPage(events.page + 1)}>{t('usage.next')}</Button>
+      </div>
+    </Card>
+  );
 }
 
 type PriceDraft = {
@@ -568,37 +779,82 @@ function PricingView({ pricing, query, onChanged }: { pricing: UsagePricing; que
     }
   };
 
-  return <section className="panel usage-pricing-panel">
-    <div className="usage-pricing-toolbar">
-      <div className="usage-pricing-summary">
-        <strong>{formatUsd(pricing.totalCost)}</strong>
-        <span>{t('usage.pricing.coverage', { priced: compactNumber(pricing.pricedRequests), total: compactNumber(pricing.totalRequests), saved: compactNumber(pricing.savedPrices) })}</span>
+  return (
+    <Card className="gap-0 p-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 pb-3">
+        <div>
+          <strong className="text-xl font-bold tabular-nums">{formatUsd(pricing.totalCost)}</strong>
+          <span className="block text-xs text-muted-foreground">{t('usage.pricing.coverage', { priced: compactNumber(pricing.pricedRequests), total: compactNumber(pricing.totalRequests), saved: compactNumber(pricing.savedPrices) })}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder={t('usage.pricing.search')} aria-label={t('usage.pricing.search')} className="w-52" />
+          <Button type="button" variant="outline" size="sm" onClick={() => setDraft(emptyPriceDraft())}>{t('usage.pricing.add')}</Button>
+          <Button type="button" size="sm" disabled={syncing} onClick={() => void syncPrices()}><RefreshCw size={14} className={syncing ? 'animate-spin' : undefined} />{syncing ? t('usage.pricing.syncing') : t('usage.pricing.sync')}</Button>
+        </div>
       </div>
-      <div className="usage-pricing-actions">
-        <input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder={t('usage.pricing.search')} aria-label={t('usage.pricing.search')} />
-        <button type="button" className="secondary-button" onClick={() => setDraft(emptyPriceDraft())}>{t('usage.pricing.add')}</button>
-        <button type="button" className="primary-button" disabled={syncing} onClick={() => void syncPrices()}><RefreshCw size={14} className={syncing ? 'spin' : ''} />{syncing ? t('usage.pricing.syncing') : t('usage.pricing.sync')}</button>
-      </div>
-    </div>
 
-    {localError ? <div className="management-alert error">{localError}</div> : null}
-    {message ? <div className="management-alert success">{message}</div> : null}
+      {localError ? <div className="mx-4 mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{localError}</div> : null}
+      {message ? <div className="mx-4 mb-3 rounded-lg border border-[var(--theme-b8d1bb)] bg-[var(--theme-f1f8f1)] px-3 py-2 text-sm text-[var(--theme-2f6b3f)]">{message}</div> : null}
 
-    {draft ? <div className="usage-price-editor">
-      <label><span>{t('usage.pricing.model')}</span><input value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.currentTarget.value })} placeholder="gpt-5.6-terra" /></label>
-      <label><span>{t('usage.pricing.prompt')}</span><input type="number" min="0" step="0.0001" value={draft.prompt} onChange={(event) => setDraft({ ...draft, prompt: event.currentTarget.value })} /></label>
-      <label><span>{t('usage.pricing.completion')}</span><input type="number" min="0" step="0.0001" value={draft.completion} onChange={(event) => setDraft({ ...draft, completion: event.currentTarget.value })} /></label>
-      <label><span>{t('usage.pricing.cache')}</span><input type="number" min="0" step="0.0001" value={draft.cache} onChange={(event) => setDraft({ ...draft, cache: event.currentTarget.value })} /></label>
-      <label><span>{t('usage.pricing.cacheRead')}</span><input type="number" min="0" step="0.0001" value={draft.cacheRead} onChange={(event) => setDraft({ ...draft, cacheRead: event.currentTarget.value })} placeholder={t('usage.pricing.optional')} /></label>
-      <label><span>{t('usage.pricing.cacheCreation')}</span><input type="number" min="0" step="0.0001" value={draft.cacheCreation} onChange={(event) => setDraft({ ...draft, cacheCreation: event.currentTarget.value })} placeholder={t('usage.pricing.optional')} /></label>
-      <div className="usage-price-editor-actions"><button type="button" className="secondary-button" onClick={() => setDraft(null)}><X size={14} />{t('common.cancel')}</button><button type="button" className="primary-button" disabled={saving} onClick={() => void savePrice()}>{saving ? t('usage.pricing.saving') : t('common.save')}</button></div>
-    </div> : null}
+      {draft ? (
+        <div className="mx-4 mb-4 grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-3">
+          <label className="grid gap-1.5"><span className="text-xs font-medium">{t('usage.pricing.model')}</span><Input value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.currentTarget.value })} placeholder="gpt-5.6-terra" /></label>
+          <label className="grid gap-1.5"><span className="text-xs font-medium">{t('usage.pricing.prompt')}</span><Input type="number" min="0" step="0.0001" value={draft.prompt} onChange={(event) => setDraft({ ...draft, prompt: event.currentTarget.value })} /></label>
+          <label className="grid gap-1.5"><span className="text-xs font-medium">{t('usage.pricing.completion')}</span><Input type="number" min="0" step="0.0001" value={draft.completion} onChange={(event) => setDraft({ ...draft, completion: event.currentTarget.value })} /></label>
+          <label className="grid gap-1.5"><span className="text-xs font-medium">{t('usage.pricing.cache')}</span><Input type="number" min="0" step="0.0001" value={draft.cache} onChange={(event) => setDraft({ ...draft, cache: event.currentTarget.value })} /></label>
+          <label className="grid gap-1.5"><span className="text-xs font-medium">{t('usage.pricing.cacheRead')}</span><Input type="number" min="0" step="0.0001" value={draft.cacheRead} onChange={(event) => setDraft({ ...draft, cacheRead: event.currentTarget.value })} placeholder={t('usage.pricing.optional')} /></label>
+          <label className="grid gap-1.5"><span className="text-xs font-medium">{t('usage.pricing.cacheCreation')}</span><Input type="number" min="0" step="0.0001" value={draft.cacheCreation} onChange={(event) => setDraft({ ...draft, cacheCreation: event.currentTarget.value })} placeholder={t('usage.pricing.optional')} /></label>
+          <div className="col-span-full flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setDraft(null)}><X size={14} aria-hidden="true" />{t('common.cancel')}</Button>
+            <Button type="button" disabled={saving} onClick={() => void savePrice()}>{saving ? t('usage.pricing.saving') : t('common.save')}</Button>
+          </div>
+        </div>
+      ) : null}
 
-    {visibleRows.length ? <div className="usage-table-wrap usage-pricing-table-wrap"><table className="usage-pricing-table"><thead><tr><th>{t('usage.pricing.model')}</th><th>{t('usage.pricing.calls')}</th><th>Token</th><th>{t('usage.pricing.cost')}</th><th>{t('usage.pricing.prompt')}</th><th>{t('usage.pricing.completion')}</th><th>{t('usage.pricing.cacheRead')}</th><th>{t('usage.pricing.cacheCreation')}</th><th>{t('usage.pricing.actions')}</th></tr></thead><tbody>{visibleRows.map((row) => <tr key={row.model}><td><strong>{row.model}</strong></td><td>{compactNumber(row.requests)}</td><td>{compactNumber(row.totalTokens)}</td><td><strong>{row.price ? formatUsd(row.estimatedCost) : '—'}</strong></td><td>{row.price ? priceUnit(row.price.prompt) : '—'}</td><td>{row.price ? priceUnit(row.price.completion) : '—'}</td><td>{row.price ? priceUnit(row.price.cacheReadConfigured || row.price.cacheRead > 0 ? row.price.cacheRead : row.price.cache) : '—'}</td><td>{row.price ? priceUnit(row.price.cacheCreationConfigured || row.price.cacheCreation > 0 ? row.price.cacheCreation : row.price.prompt) : '—'}</td><td><div className="usage-price-row-actions"><button type="button" className="icon-button" title={t('common.edit')} onClick={() => setDraft(priceDraftFor(row.model, row.price))}><Pencil size={14} /></button>{row.price?.source === 'manual' ? <button type="button" className="icon-button danger" title={t('common.delete')} onClick={() => void deletePrice(row.model)}><Trash2 size={14} /></button> : null}</div></td></tr>)}</tbody></table></div> : <UsageEmpty />}
-  </section>;
+      {visibleRows.length ? (
+        <div className="overflow-x-auto border-t">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('usage.pricing.model')}</TableHead>
+                <TableHead>{t('usage.pricing.calls')}</TableHead>
+                <TableHead>{t('usage.column.token')}</TableHead>
+                <TableHead>{t('usage.pricing.cost')}</TableHead>
+                <TableHead>{t('usage.pricing.prompt')}</TableHead>
+                <TableHead>{t('usage.pricing.completion')}</TableHead>
+                <TableHead>{t('usage.pricing.cacheRead')}</TableHead>
+                <TableHead>{t('usage.pricing.cacheCreation')}</TableHead>
+                <TableHead>{t('usage.pricing.actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleRows.map((row) => (
+                <TableRow key={row.model}>
+                  <TableCell className="font-mono font-medium whitespace-nowrap">{row.model}</TableCell>
+                  <TableCell className="tabular-nums">{compactNumber(row.requests)}</TableCell>
+                  <TableCell className="tabular-nums">{compactNumber(row.totalTokens)}</TableCell>
+                  <TableCell className="font-semibold tabular-nums">{row.price ? formatUsd(row.estimatedCost) : '—'}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{row.price ? priceUnit(row.price.prompt) : '—'}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{row.price ? priceUnit(row.price.completion) : '—'}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{row.price ? priceUnit(row.price.cacheReadConfigured || row.price.cacheRead > 0 ? row.price.cacheRead : row.price.cache) : '—'}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{row.price ? priceUnit(row.price.cacheCreationConfigured || row.price.cacheCreation > 0 ? row.price.cacheCreation : row.price.prompt) : '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button type="button" variant="ghost" size="icon-sm" title={t('common.edit')} onClick={() => setDraft(priceDraftFor(row.model, row.price))}><Pencil size={14} aria-hidden="true" /></Button>
+                      {row.price?.source === 'manual' ? <Button type="button" variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" title={t('common.delete')} onClick={() => void deletePrice(row.model)}><Trash2 size={14} aria-hidden="true" /></Button> : null}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : <div className="border-t p-8"><UsageEmpty /></div>}
+    </Card>
+  );
 }
 
 function UsageEmpty() {
   const { t } = useI18n();
-  return <div className="usage-empty"><TriangleAlert size={18} /><span>{t('usage.empty')}</span></div>;
+  return <div className="grid justify-items-center gap-2 py-8 text-center text-sm text-muted-foreground"><TriangleAlert size={18} aria-hidden="true" /><span>{t('usage.empty')}</span></div>;
 }

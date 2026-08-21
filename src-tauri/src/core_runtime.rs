@@ -27,7 +27,7 @@ pub(crate) fn install_bundled_core(
     state: tauri::State<'_, CoreDownloadState>,
 ) -> Result<CoreInstallResult, String> {
     let (info, archive_path) = bundled_core_archive()?
-        .ok_or_else(|| "当前发行包没有匹配此系统架构的内置内核".to_string())?;
+        .ok_or_else(|| "No bundled core matches this system architecture in the current release package".to_string())?;
     let token = CancellationToken::new();
     state.start(token, Some(info.version.clone()))?;
     let result = install_bundled_core_inner(&window, state.inner(), &info, &archive_path);
@@ -49,11 +49,11 @@ pub(crate) fn auto_install_bundled_core_if_missing(app: &tauri::AppHandle) -> Re
     }
 
     let (info, archive_path) = bundled_core_archive()?
-        .ok_or_else(|| "未检测到 CPA 内核，且当前发行包没有匹配的离线内核".to_string())?;
+        .ok_or_else(|| "No CPA core detected, and the current release package has no matching offline core".to_string())?;
     let window = app
         .get_webview_window("main")
         .map(|webview| webview.as_ref().window())
-        .ok_or_else(|| "无法获取主窗口，不能自动安装离线内核".to_string())?;
+        .ok_or_else(|| "Failed to get the main window; cannot auto-install the offline core".to_string())?;
     let state = app.state::<CoreDownloadState>();
     state.start(CancellationToken::new(), Some(info.version.clone()))?;
     let result = install_bundled_core_inner(&window, state.inner(), &info, &archive_path);
@@ -173,7 +173,7 @@ pub(crate) async fn install_core_version_inner(
 ) -> Result<CoreInstallResult, String> {
     let platform = current_core_platform()?;
     let client = http_client(proxy_url)?;
-    state.progress(window, "检查版本", 0, None, true);
+    state.progress(window, "Checking version", 0, None, true);
     let release = fetch_release_cancelable(&client, version.as_deref(), &token).await?;
     let asset = select_release_asset(&release, &platform)?;
 
@@ -183,7 +183,7 @@ pub(crate) async fn install_core_version_inner(
     let download_dir = base_dir.join("cpa-core.download");
 
     if current_core_status(None, None)?.running {
-        return Err("CPA 内核正在运行，请先停止后再安装或更新".to_string());
+        return Err("The CPA core is running; stop it before installing or updating".to_string());
     }
 
     reset_dir(&staging_dir)?;
@@ -192,7 +192,7 @@ pub(crate) async fn install_core_version_inner(
     let archive_file_name = Path::new(&asset.name)
         .file_name()
         .and_then(|file_name| file_name.to_str())
-        .ok_or_else(|| format!("非法 asset 文件名: {}", asset.name))?;
+        .ok_or_else(|| format!("Invalid asset file name: {}", asset.name))?;
     let archive_path = download_dir.join(archive_file_name);
 
     let downloaded = download_asset(&client, asset, &archive_path, window, state, &token).await?;
@@ -201,7 +201,7 @@ pub(crate) async fn install_core_version_inner(
     ensure_not_cancelled(&token, Some(&archive_path))?;
     state.progress(
         window,
-        "解压中",
+        "Extracting",
         downloaded.size,
         Some(downloaded.size),
         false,
@@ -209,15 +209,15 @@ pub(crate) async fn install_core_version_inner(
     match platform.archive_kind.as_str() {
         "tar.gz" => extract_tar_gz(&archive_path, &staging_dir)?,
         "zip" => extract_zip(&archive_path, &staging_dir)?,
-        other => return Err(format!("不支持的压缩包类型: {other}")),
+        other => return Err(format!("Unsupported archive type: {other}")),
     }
     ensure_not_cancelled(&token, Some(&archive_path))?;
 
     let binary_path = find_core_binary(&staging_dir)
-        .ok_or_else(|| "解压后未找到 CPA 内核二进制文件".to_string())?;
+        .ok_or_else(|| "CPA core binary not found after extraction".to_string())?;
     let binary_relative_path = binary_path
         .strip_prefix(&staging_dir)
-        .map_err(|err| format!("计算内核二进制相对路径失败: {err}"))?
+        .map_err(|err| format!("Failed to compute the core binary's relative path: {err}"))?
         .to_path_buf();
     migrate_core_config_for_update(&install_dir, &staging_dir)?;
     preserve_bundled_core_assets(&install_dir, &staging_dir)?;
@@ -253,18 +253,18 @@ pub(crate) fn install_bundled_core_inner(
     let staging_dir = base_dir.join("cpa-core.staging");
 
     if current_core_status(None, None)?.running {
-        return Err("CPA 内核正在运行，请先停止后再使用内置内核".to_string());
+        return Err("The CPA core is running; stop it before using the bundled core".to_string());
     }
 
     let archive_size = fs::metadata(archive_path)
-        .map_err(|error| format!("读取内置内核压缩包失败: {error}"))?
+        .map_err(|error| format!("Failed to read the bundled core archive: {error}"))?
         .len();
-    state.progress(window, "校验内置内核", 0, Some(archive_size), false);
+    state.progress(window, "Verifying bundled core", 0, Some(archive_size), false);
     validate_bundled_core_checksum(archive_path)?;
     reset_dir(&staging_dir)?;
     state.progress(
         window,
-        "解压内置内核",
+        "Extracting bundled core",
         archive_size,
         Some(archive_size),
         false,
@@ -272,14 +272,14 @@ pub(crate) fn install_bundled_core_inner(
     match platform.archive_kind.as_str() {
         "tar.gz" => extract_tar_gz(archive_path, &staging_dir)?,
         "zip" => extract_zip(archive_path, &staging_dir)?,
-        other => return Err(format!("不支持的内置压缩包类型: {other}")),
+        other => return Err(format!("Unsupported bundled archive type: {other}")),
     }
 
     let binary_path = find_core_binary(&staging_dir)
-        .ok_or_else(|| "内置压缩包中没有 CPA 内核二进制文件".to_string())?;
+        .ok_or_else(|| "The bundled archive does not contain a CPA core binary".to_string())?;
     let binary_relative_path = binary_path
         .strip_prefix(&staging_dir)
-        .map_err(|error| format!("计算内置内核二进制路径失败: {error}"))?
+        .map_err(|error| format!("Failed to compute the bundled core binary path: {error}"))?
         .to_path_buf();
     migrate_core_config_for_update(&install_dir, &staging_dir)?;
     preserve_bundled_core_assets(&install_dir, &staging_dir)?;
@@ -313,7 +313,7 @@ pub(crate) async fn fetch_release(
     let github_result = match atom_result {
         Ok(release) => Ok(release),
         Err(atom_error) => fetch_release_from_page(client).await.map_err(|page_error| {
-            format!("GitHub 发布源请求失败: {atom_error}；release 页面请求失败: {page_error}")
+            format!("GitHub release feed request failed: {atom_error}; release page request failed: {page_error}")
         }),
     };
     match github_result {
@@ -326,7 +326,7 @@ pub(crate) async fn fetch_release(
                 .await
                 .map_err(|gitcode_error| {
                     format!(
-                        "GitHub 内核发布源失败: {github_error}；GitCode 回退源失败: {gitcode_error}"
+                        "GitHub core release source failed: {github_error}; GitCode fallback source failed: {gitcode_error}"
                     )
                 })
         }
@@ -344,12 +344,12 @@ pub(crate) async fn fetch_release_from_gitcode(
         .header(reqwest::header::USER_AGENT, USER_AGENT)
         .send()
         .await
-        .map_err(|error| format!("查询 GitCode 最新内核发行版失败: {error}"))?
+        .map_err(|error| format!("Failed to query the latest GitCode core release: {error}"))?
         .error_for_status()
-        .map_err(|error| format!("读取 GitCode 最新内核发行版失败: {error}"))?
+        .map_err(|error| format!("Failed to read the latest GitCode core release: {error}"))?
         .json::<GitcodeRelease>()
         .await
-        .map_err(|error| format!("解析 GitCode 最新内核发行版失败: {error}"))?;
+        .map_err(|error| format!("Failed to parse the latest GitCode core release: {error}"))?;
     validate_release_tag(&release.tag_name)?;
     Ok(release_from_gitcode_tag(&release.tag_name, repository))
 }
@@ -363,19 +363,19 @@ pub(crate) async fn fetch_release_from_page(
         .header(reqwest::header::USER_AGENT, USER_AGENT)
         .send()
         .await
-        .map_err(|err| format!("GitHub release 页面请求失败: {err}"))?;
+        .map_err(|err| format!("GitHub release page request failed: {err}"))?;
     let status = response.status();
     let final_url = response.url().clone();
     if !status.is_success() {
         let body = response
             .text()
             .await
-            .map_err(|err| format!("读取 GitHub release 页面失败: {err}"))?;
+            .map_err(|err| format!("Failed to read the GitHub release page: {err}"))?;
         return Err(format_github_error(status.as_u16(), &body));
     }
 
     let tag = release_tag_from_url(&final_url)
-        .ok_or_else(|| "GitHub release 页面没有返回版本标签".to_string())?;
+        .ok_or_else(|| "The GitHub release page did not return a version tag".to_string())?;
     Ok(release_from_tag(&tag))
 }
 
@@ -391,17 +391,17 @@ pub(crate) async fn fetch_release_from_atom(
         .header(reqwest::header::USER_AGENT, USER_AGENT)
         .send()
         .await
-        .map_err(|err| format!("GitHub Atom feed 请求失败: {err}"))?;
+        .map_err(|err| format!("GitHub Atom feed request failed: {err}"))?;
     let status = response.status();
     let body = response
         .text()
         .await
-        .map_err(|err| format!("读取 GitHub Atom feed 失败: {err}"))?;
+        .map_err(|err| format!("Failed to read the GitHub Atom feed: {err}"))?;
     if !status.is_success() {
         return Err(format_github_error(status.as_u16(), &body));
     }
     let tag = release_tag_from_atom(&body)
-        .ok_or_else(|| "GitHub Atom feed 没有返回版本标签".to_string())?;
+        .ok_or_else(|| "The GitHub Atom feed did not return a version tag".to_string())?;
     Ok(release_from_tag(&tag))
 }
 
@@ -491,7 +491,7 @@ pub(crate) fn release_tag_from_url(url: &reqwest::Url) -> Option<String> {
 pub(crate) fn is_app_update_available(current: &str, latest: &str) -> Result<bool, String> {
     let parse = |value: &str| {
         semver::Version::parse(value.trim().trim_start_matches('v'))
-            .map_err(|error| format!("无法解析版本号 {value}: {error}"))
+            .map_err(|error| format!("Failed to parse version number {value}: {error}"))
     };
     Ok(parse(latest)? > parse(current)?)
 }
@@ -554,14 +554,14 @@ pub(crate) fn parse_release_assets(html: &str) -> Vec<GithubAsset> {
 pub(crate) fn format_github_error(status: u16, body: &str) -> String {
     if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
         if let Some(message) = value.get("message").and_then(|item| item.as_str()) {
-            return format!("GitHub 返回错误 ({status}): {}", message.trim());
+            return format!("GitHub returned an error ({status}): {}", message.trim());
         }
     }
     let body = body.trim();
     if body.is_empty() {
-        format!("GitHub 返回错误 ({status})")
+        format!("GitHub returned an error ({status})")
     } else {
-        format!("GitHub 返回错误 ({status}): {}", truncate_for_error(body))
+        format!("GitHub returned an error ({status}): {}", truncate_for_error(body))
     }
 }
 
@@ -572,7 +572,7 @@ pub(crate) async fn fetch_release_cancelable(
 ) -> Result<GithubRelease, String> {
     tokio::select! {
         result = fetch_release(client, version) => result,
-        _ = token.cancelled() => Err("已取消下载".to_string()),
+        _ = token.cancelled() => Err("Download cancelled".to_string()),
     }
 }
 
@@ -585,7 +585,7 @@ pub(crate) fn apply_configured_proxy(
         return Ok(builder);
     }
     let proxy =
-        reqwest::Proxy::all(proxy_url).map_err(|error| format!("代理 URL 无效: {error}"))?;
+        reqwest::Proxy::all(proxy_url).map_err(|error| format!("Invalid proxy URL: {error}"))?;
     Ok(builder.proxy(proxy))
 }
 
@@ -608,7 +608,7 @@ pub(crate) fn http_client(proxy_url: &str) -> Result<reqwest::Client, String> {
             .read_timeout(Duration::from_secs(30))
             .timeout(Duration::from_secs(600)),
         proxy_url,
-        "创建 HTTP 客户端失败",
+        "Failed to create HTTP client",
     )
 }
 
@@ -623,10 +623,10 @@ pub(crate) fn select_release_asset<'a>(
         .filter(|asset| asset.name == expected_name && !asset.name.contains("_no-plugin"));
     let asset = matches
         .next()
-        .ok_or_else(|| format!("未找到匹配当前平台的 release asset: {expected_name}"))?;
+        .ok_or_else(|| format!("No release asset matches the current platform: {expected_name}"))?;
 
     if matches.next().is_some() {
-        return Err(format!("找到多个匹配的 release asset: {expected_name}"));
+        return Err(format!("Found multiple matching release assets: {expected_name}"));
     }
 
     Ok(asset)
@@ -658,7 +658,7 @@ pub(crate) async fn download_asset(
         if index > 0 {
             state.progress(
                 window,
-                "GitHub 下载失败，正在切换到 GitCode",
+                "GitHub download failed, switching to GitCode",
                 0,
                 asset.size,
                 true,
@@ -689,9 +689,9 @@ pub(crate) async fn download_asset(
     }
     if failures.is_empty() {
         let _ = fs::remove_file(archive_path);
-        return Err("内核发行版没有可用的下载地址".to_string());
+        return Err("The core release has no available download URL".to_string());
     }
-    Err(format!("所有内核下载源均失败: {}", failures.join("；")))
+    Err(format!("All core download sources failed: {}", failures.join("; ")))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -705,7 +705,7 @@ pub(crate) async fn download_asset_inner(
     state: &CoreDownloadState,
     token: &CancellationToken,
 ) -> Result<DownloadedArchive, String> {
-    state.progress(window, "准备下载", 0, expected_total, true);
+    state.progress(window, "Preparing download", 0, expected_total, true);
     ensure_not_cancelled(token, Some(archive_path))?;
 
     let request = client
@@ -713,34 +713,34 @@ pub(crate) async fn download_asset_inner(
         .header(reqwest::header::USER_AGENT, USER_AGENT)
         .send();
     let response = tokio::select! {
-        response = request => response.map_err(|err| format!("下载内核压缩包失败: {err}"))?,
-        _ = token.cancelled() => return Err("已取消下载".to_string()),
+        response = request => response.map_err(|err| format!("Failed to download the core archive: {err}"))?,
+        _ = token.cancelled() => return Err("Download cancelled".to_string()),
     }
     .error_for_status()
-    .map_err(|err| format!("下载地址返回错误状态: {err}"))?;
+    .map_err(|err| format!("Download URL returned an error status: {err}"))?;
     let total = expected_total.or_else(|| response.content_length());
     let mut stream = response.bytes_stream();
     let mut file =
-        File::create(archive_path).map_err(|err| format!("创建内核压缩包失败: {err}"))?;
+        File::create(archive_path).map_err(|err| format!("Failed to create the core archive: {err}"))?;
     let mut downloaded = 0_u64;
     let mut hasher = Sha256::new();
 
     while let Some(chunk) = tokio::select! {
         chunk = stream.next() => chunk,
-        _ = token.cancelled() => return Err("已取消下载".to_string()),
+        _ = token.cancelled() => return Err("Download cancelled".to_string()),
     } {
         ensure_not_cancelled(token, Some(archive_path))?;
 
-        let chunk = chunk.map_err(|err| format!("读取下载数据失败: {err}"))?;
+        let chunk = chunk.map_err(|err| format!("Failed to read downloaded data: {err}"))?;
         file.write_all(&chunk)
-            .map_err(|err| format!("保存下载数据失败: {err}"))?;
+            .map_err(|err| format!("Failed to save downloaded data: {err}"))?;
         hasher.update(&chunk);
         downloaded += chunk.len() as u64;
-        state.progress(window, "下载中", downloaded, total, true);
+        state.progress(window, "Downloading", downloaded, total, true);
     }
 
     file.flush()
-        .map_err(|err| format!("刷新内核压缩包失败: {err}"))?;
+        .map_err(|err| format!("Failed to flush the core archive: {err}"))?;
     ensure_not_cancelled(token, Some(archive_path))?;
 
     let sha256 = format!("{:x}", hasher.finalize());
@@ -761,7 +761,7 @@ pub(crate) fn ensure_not_cancelled(
             let _ = fs::remove_file(archive_path);
         }
 
-        return Err("已取消下载".to_string());
+        return Err("Download cancelled".to_string());
     }
 
     Ok(())
@@ -775,13 +775,13 @@ pub(crate) fn current_core_platform() -> Result<CorePlatform, String> {
         "linux" => ("linux", "tar.gz"),
         "macos" => ("darwin", "tar.gz"),
         "windows" => ("windows", "zip"),
-        other => return Err(format!("不支持的操作系统: {other}")),
+        other => return Err(format!("Unsupported operating system: {other}")),
     };
 
     let asset_arch = match arch {
         "x86_64" => "amd64",
         "aarch64" => "aarch64",
-        other => return Err(format!("不支持的 CPU 架构: {other}")),
+        other => return Err(format!("Unsupported CPU architecture: {other}")),
     };
 
     Ok(CorePlatform {
@@ -814,13 +814,13 @@ pub(crate) fn current_core_status(
     let current_version = read_core_metadata(&install_dir).map(|metadata| metadata.version);
 
     let message = if starting {
-        "CPA 内核正在启动".to_string()
+        "CPA core is starting".to_string()
     } else if !installed {
-        "未安装 CPA 内核，请先安装最新版".to_string()
+        "CPA core is not installed; install the latest version first".to_string()
     } else if running {
-        "CPA 内核正在运行".to_string()
+        "CPA core is running".to_string()
     } else {
-        "CPA 内核已安装，当前未运行".to_string()
+        "CPA core is installed but not running".to_string()
     };
 
     Ok(CoreStatus {
@@ -849,18 +849,18 @@ pub(crate) fn start_core_process_inner(
     if !gui_config.auth_dir.trim().is_empty() {
         let auth_dir = auth_dir_path_for_core(&gui_config.auth_dir, &install_dir);
         fs::create_dir_all(&auth_dir)
-            .map_err(|error| format!("创建凭证目录失败 {}: {error}", path_to_string(&auth_dir)))?;
+            .map_err(|error| format!("Failed to create credential directory {}: {error}", path_to_string(&auth_dir)))?;
     }
     let binary_path = find_core_binary(&install_dir)
-        .ok_or_else(|| "未安装 CPA 内核，请先安装最新版".to_string())?;
+        .ok_or_else(|| "CPA core is not installed; install the latest version first".to_string())?;
 
     if process_state.managed_pid().is_some() || is_core_running(&binary_path) {
-        return Err("CPA 内核已经在运行".to_string());
+        return Err("CPA core is already running".to_string());
     }
     let management_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), gui_config.port);
     if TcpStream::connect_timeout(&management_address, Duration::from_millis(250)).is_ok() {
         return Err(format!(
-            "端口 {} 已被其他程序占用，请更换端口后重试",
+            "Port {} is already in use by another program; change the port and try again",
             gui_config.port
         ));
     }
@@ -879,7 +879,7 @@ pub(crate) fn start_core_process_inner(
 
     let mut child = command
         .spawn()
-        .map_err(|err| format!("启动 CPA 内核失败: {err}"))?;
+        .map_err(|err| format!("Failed to start the CPA core: {err}"))?;
 
     if let Err(error) = wait_for_core_management_port(&mut child, management_address) {
         let _ = terminate_child(&mut child);
@@ -899,16 +899,16 @@ pub(crate) fn wait_for_core_management_port(
     loop {
         if let Some(status) = child
             .try_wait()
-            .map_err(|err| format!("检查 CPA 内核启动状态失败: {err}"))?
+            .map_err(|err| format!("Failed to check CPA core startup status: {err}"))?
         {
-            return Err(format!("CPA 内核启动后立即退出: {status}"));
+            return Err(format!("CPA core exited immediately after starting: {status}"));
         }
         if TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_ok() {
             return Ok(());
         }
         if Instant::now() >= deadline {
             return Err(format!(
-                "CPA 内核启动超时：10 秒内未监听管理端口 {}",
+                "CPA core startup timed out: management port {} was not listening after 10 seconds",
                 address.port()
             ));
         }
@@ -930,7 +930,7 @@ pub(crate) fn configure_child_lifetime(command: &mut Command) {
 
                 if libc::getppid() != parent_process_id {
                     return Err(io::Error::other(
-                        "EasyCLIProxyAPI exited before the core process started",
+                        "EvelProxyTool exited before the core process started",
                     ));
                 }
 
@@ -983,11 +983,11 @@ pub(crate) fn stop_core_process_inner(process_state: &CoreProcessState) -> Resul
 
     let install_dir = core_install_dir()?;
     let binary_path = find_core_binary(&install_dir)
-        .ok_or_else(|| "未安装 CPA 内核，请先安装最新版".to_string())?;
+        .ok_or_else(|| "CPA core is not installed; install the latest version first".to_string())?;
     let process_ids = find_core_process_ids(&binary_path);
 
     if process_ids.is_empty() {
-        return Err("CPA 内核当前未运行".to_string());
+        return Err("CPA core is not currently running".to_string());
     }
 
     for process_id in process_ids {
@@ -1002,11 +1002,11 @@ pub(crate) fn core_install_dir() -> Result<PathBuf, String> {
 }
 
 pub(crate) fn executable_dir() -> Result<PathBuf, String> {
-    let exe_path = env::current_exe().map_err(|err| format!("读取当前程序路径失败: {err}"))?;
+    let exe_path = env::current_exe().map_err(|err| format!("Failed to read the current program path: {err}"))?;
     exe_path
         .parent()
         .map(|path| path.to_path_buf())
-        .ok_or_else(|| format!("当前程序路径没有父目录: {}", path_to_string(&exe_path)))
+        .ok_or_else(|| format!("Current program path has no parent directory: {}", path_to_string(&exe_path)))
 }
 
 pub(crate) fn macos_app_resources_dir(executable_dir: &Path) -> Option<PathBuf> {
@@ -1030,7 +1030,7 @@ pub(crate) fn core_base_dir() -> Result<PathBuf, String> {
     if macos_app_resources_dir(&executable_dir).is_some() {
         let home_dir = env::var_os("HOME")
             .map(PathBuf::from)
-            .ok_or_else(|| "无法确定 macOS 用户目录".to_string())?;
+            .ok_or_else(|| "Failed to determine the macOS user directory".to_string())?;
         return Ok(home_dir
             .join("Library")
             .join("Application Support")
@@ -1081,7 +1081,7 @@ pub(crate) fn bundled_core_archive() -> Result<Option<(BundledCoreInfo, PathBuf)
                 continue;
             }
             let size_bytes = fs::metadata(&archive_path)
-                .map_err(|error| format!("读取内置内核信息失败: {error}"))?
+                .map_err(|error| format!("Failed to read bundled core info: {error}"))?
                 .len();
             return Ok(Some((
                 BundledCoreInfo {
@@ -1105,7 +1105,7 @@ pub(crate) fn bundled_core_archive() -> Result<Option<(BundledCoreInfo, PathBuf)
             continue;
         }
         for entry in fs::read_dir(archive_dir)
-            .map_err(|error| format!("读取内置内核目录失败: {error}"))?
+            .map_err(|error| format!("Failed to read the bundled core directory: {error}"))?
             .filter_map(Result::ok)
         {
             let name = entry.file_name().to_string_lossy().into_owned();
@@ -1132,7 +1132,7 @@ pub(crate) fn bundled_core_archive() -> Result<Option<(BundledCoreInfo, PathBuf)
     matches.sort_by(|left, right| left.0.cmp(&right.0));
     if matches.len() > 1 {
         return Err(format!(
-            "发现多个匹配当前平台的内置内核，请在 {} 中指定发行版本",
+            "Found multiple bundled cores matching the current platform; specify the release version in {}",
             CORE_VERSION_FILE
         ));
     }
@@ -1140,7 +1140,7 @@ pub(crate) fn bundled_core_archive() -> Result<Option<(BundledCoreInfo, PathBuf)
         return Ok(None);
     };
     let size_bytes = fs::metadata(&archive_path)
-        .map_err(|error| format!("读取内置内核信息失败: {error}"))?
+        .map_err(|error| format!("Failed to read bundled core info: {error}"))?
         .len();
     Ok(Some((
         BundledCoreInfo {
@@ -1167,7 +1167,7 @@ pub(crate) fn preserve_bundled_core_assets(
         return Ok(());
     }
     for entry in fs::read_dir(source_dir)
-        .map_err(|error| format!("读取内置内核文件失败: {error}"))?
+        .map_err(|error| format!("Failed to read bundled core files: {error}"))?
         .filter_map(Result::ok)
     {
         let path = entry.path();
@@ -1182,7 +1182,7 @@ pub(crate) fn preserve_bundled_core_assets(
             continue;
         }
         fs::copy(&path, target_dir.join(&name))
-            .map_err(|error| format!("保留内置内核文件 {name} 失败: {error}"))?;
+            .map_err(|error| format!("Failed to preserve bundled core file {name}: {error}"))?;
     }
     Ok(())
 }
@@ -1193,14 +1193,14 @@ pub(crate) fn preserve_selected_bundled_core_asset(
 ) -> Result<(), String> {
     let archive_name = archive_path
         .file_name()
-        .ok_or_else(|| "内置内核压缩包文件名无效".to_string())?;
+        .ok_or_else(|| "Invalid bundled core archive file name".to_string())?;
     fs::copy(archive_path, target_dir.join(archive_name))
-        .map_err(|error| format!("保留所选内置内核压缩包失败: {error}"))?;
+        .map_err(|error| format!("Failed to preserve the selected bundled core archive: {error}"))?;
     if let Some(source_dir) = archive_path.parent() {
         let checksums = source_dir.join(CORE_CHECKSUMS_FILE);
         if checksums.is_file() {
             fs::copy(&checksums, target_dir.join(CORE_CHECKSUMS_FILE))
-                .map_err(|error| format!("保留内置内核校验文件失败: {error}"))?;
+                .map_err(|error| format!("Failed to preserve the bundled core checksum file: {error}"))?;
         }
     }
     Ok(())
@@ -1221,7 +1221,7 @@ pub(crate) fn migrate_core_config_for_update(
     let template_path = target_dir.join(CORE_EXAMPLE_CONFIG_FILE);
     if !template_path.is_file() {
         return Err(format!(
-            "新版内核缺少配置模板，已取消更新: {}",
+            "The new core version is missing its config template; update cancelled: {}",
             path_to_string(&template_path)
         ));
     }
@@ -1229,7 +1229,7 @@ pub(crate) fn migrate_core_config_for_update(
         Ok(content) => String::from_utf8_lossy(&content).into_owned(),
         Err(error) => {
             eprintln!(
-                "读取旧版内核配置失败，将使用新版默认配置继续更新 {}: {error}",
+                "Failed to read the old core config; continuing the update with the new default config {}: {error}",
                 path_to_string(&old_config_path)
             );
             String::new()
@@ -1237,7 +1237,7 @@ pub(crate) fn migrate_core_config_for_update(
     };
     let template = fs::read_to_string(&template_path).map_err(|error| {
         format!(
-            "读取新版内核配置模板失败 {}: {error}",
+            "Failed to read the new core config template {}: {error}",
             path_to_string(&template_path)
         )
     })?;
@@ -1245,7 +1245,7 @@ pub(crate) fn migrate_core_config_for_update(
     let config_path = target_dir.join(CORE_CONFIG_FILE);
     fs::write(&config_path, migrated).map_err(|error| {
         format!(
-            "写入迁移后的新版内核配置失败 {}: {error}",
+            "Failed to write the migrated new core config {}: {error}",
             path_to_string(&config_path)
         )
     })?;
@@ -1254,7 +1254,7 @@ pub(crate) fn migrate_core_config_for_update(
 
 pub(crate) fn validate_bundled_core_checksum(archive_path: &Path) -> Result<(), String> {
     let Some(directory) = archive_path.parent() else {
-        return Err("内置内核压缩包没有父目录".to_string());
+        return Err("Bundled core archive has no parent directory".to_string());
     };
     let checksums_path = directory.join(CORE_CHECKSUMS_FILE);
     if !checksums_path.is_file() {
@@ -1263,9 +1263,9 @@ pub(crate) fn validate_bundled_core_checksum(archive_path: &Path) -> Result<(), 
     let archive_name = archive_path
         .file_name()
         .and_then(|value| value.to_str())
-        .ok_or_else(|| "内置内核压缩包文件名无效".to_string())?;
+        .ok_or_else(|| "Invalid bundled core archive file name".to_string())?;
     let checksums = fs::read_to_string(&checksums_path)
-        .map_err(|error| format!("读取内置内核校验文件失败: {error}"))?;
+        .map_err(|error| format!("Failed to read the bundled core checksum file: {error}"))?;
     let expected = checksums.lines().find_map(|line| {
         let mut fields = line.split_whitespace();
         let digest = fields.next()?;
@@ -1273,23 +1273,23 @@ pub(crate) fn validate_bundled_core_checksum(archive_path: &Path) -> Result<(), 
         (name == archive_name && digest.len() == 64).then(|| digest.to_ascii_lowercase())
     });
     let Some(expected) = expected else {
-        return Err(format!("校验文件中没有 {archive_name} 的 SHA-256"));
+        return Err(format!("Checksum file has no SHA-256 for {archive_name}"));
     };
     let actual = sha256_file(archive_path)?;
     if actual != expected {
-        return Err("内置内核压缩包 SHA-256 校验失败".to_string());
+        return Err("Bundled core archive SHA-256 verification failed".to_string());
     }
     Ok(())
 }
 
 pub(crate) fn sha256_file(path: &Path) -> Result<String, String> {
-    let mut file = File::open(path).map_err(|error| format!("打开校验文件失败: {error}"))?;
+    let mut file = File::open(path).map_err(|error| format!("Failed to open checksum file: {error}"))?;
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 64 * 1024];
     loop {
         let read = file
             .read(&mut buffer)
-            .map_err(|error| format!("读取校验文件失败: {error}"))?;
+            .map_err(|error| format!("Failed to read checksum file: {error}"))?;
         if read == 0 {
             break;
         }
@@ -1310,8 +1310,8 @@ pub(crate) fn write_core_metadata(
 ) -> Result<(), String> {
     let metadata_path = install_dir.join(CORE_METADATA_FILE);
     let content = serde_json::to_string_pretty(metadata)
-        .map_err(|err| format!("生成内核元数据失败: {err}"))?;
-    fs::write(metadata_path, content).map_err(|err| format!("写入内核元数据失败: {err}"))
+        .map_err(|err| format!("Failed to generate core metadata: {err}"))?;
+    fs::write(metadata_path, content).map_err(|err| format!("Failed to write core metadata: {err}"))
 }
 
 pub(crate) fn validate_downloaded_asset(
@@ -1335,7 +1335,7 @@ pub(crate) fn validate_download_metadata(
     if let Some(expected_total) = expected_total {
         if downloaded != expected_total {
             return Err(format!(
-                "下载大小校验失败: 实际 {downloaded} 字节，期望 {expected_total} 字节"
+                "Download size verification failed: got {downloaded} bytes, expected {expected_total} bytes"
             ));
         }
     }
@@ -1347,7 +1347,7 @@ pub(crate) fn validate_download_metadata(
             .to_ascii_lowercase();
 
         if !expected.is_empty() && sha256 != expected {
-            return Err("下载文件 SHA-256 校验失败".to_string());
+            return Err("Downloaded file SHA-256 verification failed".to_string());
         }
     }
 
@@ -1362,7 +1362,7 @@ pub(crate) fn cleanup_core_work_dirs() -> Result<(), String> {
         let path = base_dir.join(name);
         if path.exists() {
             if let Err(err) = fs::remove_dir_all(&path) {
-                last_error = Some(format!("清理临时目录失败 {}: {err}", path_to_string(&path)));
+                last_error = Some(format!("Failed to clean up temp directory {}: {err}", path_to_string(&path)));
             }
         }
     }
@@ -1507,7 +1507,7 @@ pub(crate) fn attach_child_to_windows_job(child: &Child) -> Result<isize, String
         let job = CreateJobObjectW(ptr::null(), ptr::null());
         if job.is_null() {
             return Err(format!(
-                "创建 CPA 内核进程作业失败: {}",
+                "Failed to create the CPA core process job: {}",
                 io::Error::last_os_error()
             ));
         }
@@ -1523,14 +1523,14 @@ pub(crate) fn attach_child_to_windows_job(child: &Child) -> Result<isize, String
         if configured == 0 {
             let error = io::Error::last_os_error();
             CloseHandle(job);
-            return Err(format!("配置 CPA 内核进程作业失败: {error}"));
+            return Err(format!("Failed to configure the CPA core process job: {error}"));
         }
 
         let process_handle = child.as_raw_handle() as HANDLE;
         if AssignProcessToJobObject(job, process_handle) == 0 {
             let error = io::Error::last_os_error();
             CloseHandle(job);
-            return Err(format!("托管 CPA 内核子进程失败: {error}"));
+            return Err(format!("Failed to assign the CPA core child process to the job: {error}"));
         }
 
         Ok(job as isize)
@@ -1551,10 +1551,10 @@ pub(crate) fn terminate_child(child: &mut Child) -> Result<(), String> {
     {
         child
             .kill()
-            .map_err(|err| format!("关闭 CPA 内核进程失败: {err}"))?;
+            .map_err(|err| format!("Failed to close the CPA core process: {err}"))?;
         child
             .wait()
-            .map_err(|err| format!("等待 CPA 内核进程退出失败: {err}"))?;
+            .map_err(|err| format!("Failed to wait for the CPA core process to exit: {err}"))?;
         Ok(())
     }
 
@@ -1567,16 +1567,16 @@ pub(crate) fn terminate_child(child: &mut Child) -> Result<(), String> {
             match child.try_wait() {
                 Ok(Some(_)) => return Ok(()),
                 Ok(None) => thread::sleep(Duration::from_millis(100)),
-                Err(err) => return Err(format!("检查 CPA 内核进程状态失败: {err}")),
+                Err(err) => return Err(format!("Failed to check CPA core process status: {err}")),
             }
         }
 
         child
             .kill()
-            .map_err(|err| format!("强制关闭 CPA 内核进程失败: {err}"))?;
+            .map_err(|err| format!("Failed to force-close the CPA core process: {err}"))?;
         child
             .wait()
-            .map_err(|err| format!("等待 CPA 内核进程退出失败: {err}"))?;
+            .map_err(|err| format!("Failed to wait for the CPA core process to exit: {err}"))?;
 
         Ok(())
     }
@@ -1595,12 +1595,12 @@ pub(crate) fn terminate_process_id(process_id: u32) -> Result<(), String> {
         configure_background_command(&mut command);
         let status = command
             .status()
-            .map_err(|err| format!("关闭 CPA 内核进程失败: {err}"))?;
+            .map_err(|err| format!("Failed to close the CPA core process: {err}"))?;
 
         if status.success() {
             Ok(())
         } else {
-            Err(format!("关闭 CPA 内核进程失败: PID {process_id}"))
+            Err(format!("Failed to close the CPA core process: PID {process_id}"))
         }
     }
 
@@ -1624,12 +1624,12 @@ pub(crate) fn send_process_signal(process_id: u32, signal: &str) -> Result<(), S
     let status = Command::new("kill")
         .args([format!("-{signal}"), process_id.to_string()])
         .status()
-        .map_err(|err| format!("发送进程信号失败: {err}"))?;
+        .map_err(|err| format!("Failed to send process signal: {err}"))?;
 
     if status.success() {
         Ok(())
     } else {
-        Err(format!("发送进程信号失败: PID {process_id}"))
+        Err(format!("Failed to send process signal: PID {process_id}"))
     }
 }
 
@@ -1646,56 +1646,56 @@ pub(crate) fn is_process_alive(process_id: u32) -> bool {
 pub(crate) fn reset_dir(path: &Path) -> Result<(), String> {
     if path.exists() {
         fs::remove_dir_all(path)
-            .map_err(|err| format!("清理目录失败 {}: {err}", path_to_string(path)))?;
+            .map_err(|err| format!("Failed to clean up directory {}: {err}", path_to_string(path)))?;
     }
 
-    fs::create_dir_all(path).map_err(|err| format!("创建目录失败 {}: {err}", path_to_string(path)))
+    fs::create_dir_all(path).map_err(|err| format!("Failed to create directory {}: {err}", path_to_string(path)))
 }
 
 pub(crate) fn overlay_install_dir(install_dir: &Path, staging_dir: &Path) -> Result<(), String> {
     if !staging_dir.is_dir() {
         return Err(format!(
-            "内核暂存目录不存在: {}",
+            "Core staging directory does not exist: {}",
             path_to_string(staging_dir)
         ));
     }
 
     if !install_dir.exists() {
         return fs::rename(staging_dir, install_dir)
-            .map_err(|err| format!("安装新内核目录失败: {err}"));
+            .map_err(|err| format!("Failed to install the new core directory: {err}"));
     }
     if !install_dir.is_dir() {
         return Err(format!(
-            "内核安装路径不是目录: {}",
+            "Core install path is not a directory: {}",
             path_to_string(install_dir)
         ));
     }
 
     overlay_directory(staging_dir, install_dir)?;
-    fs::remove_dir_all(staging_dir).map_err(|err| format!("清理内核暂存目录失败: {err}"))
+    fs::remove_dir_all(staging_dir).map_err(|err| format!("Failed to clean up the core staging directory: {err}"))
 }
 
 fn overlay_directory(source_dir: &Path, target_dir: &Path) -> Result<(), String> {
     for entry in fs::read_dir(source_dir)
-        .map_err(|err| format!("读取内核暂存目录失败 {}: {err}", path_to_string(source_dir)))?
+        .map_err(|err| format!("Failed to read the core staging directory {}: {err}", path_to_string(source_dir)))?
     {
-        let entry = entry.map_err(|err| format!("读取内核暂存条目失败: {err}"))?;
+        let entry = entry.map_err(|err| format!("Failed to read core staging entry: {err}"))?;
         let source_path = entry.path();
         let target_path = target_dir.join(entry.file_name());
         let file_type = entry
             .file_type()
-            .map_err(|err| format!("读取内核暂存条目类型失败: {err}"))?;
+            .map_err(|err| format!("Failed to read core staging entry type: {err}"))?;
 
         if file_type.is_dir() {
             if target_path.exists() && !target_path.is_dir() {
                 return Err(format!(
-                    "无法用内核目录覆盖同名文件: {}",
+                    "Cannot overwrite a file with a core directory of the same name: {}",
                     path_to_string(&target_path)
                 ));
             }
             fs::create_dir_all(&target_path).map_err(|err| {
                 format!(
-                    "创建内核安装子目录失败 {}: {err}",
+                    "Failed to create core install subdirectory {}: {err}",
                     path_to_string(&target_path)
                 )
             })?;
@@ -1703,16 +1703,16 @@ fn overlay_directory(source_dir: &Path, target_dir: &Path) -> Result<(), String>
         } else if file_type.is_file() {
             if target_path.exists() && !target_path.is_file() {
                 return Err(format!(
-                    "无法用内核文件覆盖同名目录: {}",
+                    "Cannot overwrite a directory with a core file of the same name: {}",
                     path_to_string(&target_path)
                 ));
             }
             fs::copy(&source_path, &target_path).map_err(|err| {
-                format!("覆盖内核文件失败 {}: {err}", path_to_string(&target_path))
+                format!("Failed to overwrite core file {}: {err}", path_to_string(&target_path))
             })?;
         } else {
             return Err(format!(
-                "内核暂存目录包含不支持的条目: {}",
+                "Core staging directory contains an unsupported entry: {}",
                 path_to_string(&source_path)
             ));
         }
@@ -1723,33 +1723,33 @@ fn overlay_directory(source_dir: &Path, target_dir: &Path) -> Result<(), String>
 
 pub(crate) fn extract_tar_gz(archive_path: &Path, install_dir: &Path) -> Result<(), String> {
     let archive_file =
-        File::open(archive_path).map_err(|err| format!("打开 tar.gz 失败: {err}"))?;
+        File::open(archive_path).map_err(|err| format!("Failed to open tar.gz: {err}"))?;
     let decoder = GzDecoder::new(archive_file);
     let mut archive = Archive::new(decoder);
     let entries = archive
         .entries()
-        .map_err(|err| format!("读取 tar.gz 条目失败: {err}"))?;
+        .map_err(|err| format!("Failed to read tar.gz entries: {err}"))?;
 
     for entry in entries {
-        let mut entry = entry.map_err(|err| format!("读取 tar.gz 条目失败: {err}"))?;
+        let mut entry = entry.map_err(|err| format!("Failed to read tar.gz entry: {err}"))?;
         let entry_path = entry
             .path()
-            .map_err(|err| format!("读取 tar.gz 条目路径失败: {err}"))?;
+            .map_err(|err| format!("Failed to read tar.gz entry path: {err}"))?;
         let out_path = checked_archive_path(install_dir, entry_path.as_ref())?;
         let entry_type = entry.header().entry_type();
 
         if entry_type.is_dir() {
-            fs::create_dir_all(&out_path).map_err(|err| format!("创建目录失败: {err}"))?;
+            fs::create_dir_all(&out_path).map_err(|err| format!("Failed to create directory: {err}"))?;
         } else if entry_type.is_file() {
             if let Some(parent) = out_path.parent() {
-                fs::create_dir_all(parent).map_err(|err| format!("创建目录失败: {err}"))?;
+                fs::create_dir_all(parent).map_err(|err| format!("Failed to create directory: {err}"))?;
             }
             entry
                 .unpack(&out_path)
-                .map_err(|err| format!("解压 tar.gz 文件失败: {err}"))?;
+                .map_err(|err| format!("Failed to extract tar.gz file: {err}"))?;
         } else {
             return Err(format!(
-                "tar.gz 包含不支持的条目类型: {}",
+                "tar.gz contains an unsupported entry type: {}",
                 path_to_string(&out_path)
             ));
         }
@@ -1759,40 +1759,40 @@ pub(crate) fn extract_tar_gz(archive_path: &Path, install_dir: &Path) -> Result<
 }
 
 pub(crate) fn extract_zip(archive_path: &Path, install_dir: &Path) -> Result<(), String> {
-    let archive_file = File::open(archive_path).map_err(|err| format!("打开 zip 失败: {err}"))?;
+    let archive_file = File::open(archive_path).map_err(|err| format!("Failed to open zip: {err}"))?;
     let mut archive =
-        ZipArchive::new(archive_file).map_err(|err| format!("读取 zip 失败: {err}"))?;
+        ZipArchive::new(archive_file).map_err(|err| format!("Failed to read zip: {err}"))?;
 
     for index in 0..archive.len() {
         let mut file = archive
             .by_index(index)
-            .map_err(|err| format!("读取 zip 条目失败: {err}"))?;
+            .map_err(|err| format!("Failed to read zip entry: {err}"))?;
         let enclosed_name = file
             .enclosed_name()
-            .ok_or_else(|| format!("zip 条目路径不安全: {}", file.name()))?;
+            .ok_or_else(|| format!("Unsafe zip entry path: {}", file.name()))?;
         let out_path = checked_archive_path(install_dir, &enclosed_name)?;
 
         if is_zip_symlink(&file) {
-            return Err(format!("zip 包含不支持的符号链接条目: {}", file.name()));
+            return Err(format!("zip contains an unsupported symlink entry: {}", file.name()));
         }
 
         if file.is_dir() {
-            fs::create_dir_all(&out_path).map_err(|err| format!("创建目录失败: {err}"))?;
+            fs::create_dir_all(&out_path).map_err(|err| format!("Failed to create directory: {err}"))?;
             continue;
         }
 
         if let Some(parent) = out_path.parent() {
-            fs::create_dir_all(parent).map_err(|err| format!("创建目录失败: {err}"))?;
+            fs::create_dir_all(parent).map_err(|err| format!("Failed to create directory: {err}"))?;
         }
 
-        let mut out_file = File::create(&out_path).map_err(|err| format!("创建文件失败: {err}"))?;
-        io::copy(&mut file, &mut out_file).map_err(|err| format!("写入文件失败: {err}"))?;
+        let mut out_file = File::create(&out_path).map_err(|err| format!("Failed to create file: {err}"))?;
+        io::copy(&mut file, &mut out_file).map_err(|err| format!("Failed to write file: {err}"))?;
 
         #[cfg(unix)]
         if let Some(mode) = file.unix_mode() {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&out_path, fs::Permissions::from_mode(mode))
-                .map_err(|err| format!("设置文件权限失败: {err}"))?;
+                .map_err(|err| format!("Failed to set file permissions: {err}"))?;
         }
     }
 
@@ -1807,7 +1807,7 @@ pub(crate) fn checked_archive_path(base_dir: &Path, entry_path: &Path) -> Result
         )
     }) {
         return Err(format!(
-            "压缩包条目路径不安全: {}",
+            "Unsafe archive entry path: {}",
             path_to_string(entry_path)
         ));
     }
@@ -1872,7 +1872,7 @@ pub(crate) fn configure_initial_main_window(
 ) -> Result<(), String> {
     let window = app_handle
         .get_webview_window("main")
-        .ok_or_else(|| "主窗口不存在".to_string())?;
+        .ok_or_else(|| "Main window does not exist".to_string())?;
 
     #[cfg(target_os = "macos")]
     set_macos_dock_visible(app_handle, !start_hidden);
@@ -1880,20 +1880,20 @@ pub(crate) fn configure_initial_main_window(
     if start_hidden {
         return window
             .hide()
-            .map_err(|error| format!("静默启动时隐藏主窗口失败: {error}"));
+            .map_err(|error| format!("Failed to hide the main window during silent start: {error}"));
     }
 
     window
         .show()
-        .map_err(|error| format!("显示主窗口失败: {error}"))?;
+        .map_err(|error| format!("Failed to show the main window: {error}"))?;
     if window.is_minimized().unwrap_or(false) {
         window
             .unminimize()
-            .map_err(|error| format!("恢复主窗口失败: {error}"))?;
+            .map_err(|error| format!("Failed to restore the main window: {error}"))?;
     }
     window
         .set_focus()
-        .map_err(|error| format!("聚焦主窗口失败: {error}"))
+        .map_err(|error| format!("Failed to focus the main window: {error}"))
 }
 
 pub(crate) fn path_to_string(path: &Path) -> String {

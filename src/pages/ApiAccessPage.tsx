@@ -68,6 +68,10 @@ import {
 } from '../services/providerHealthCheck';
 import { modelMatchesRule } from '../services/oauthModels';
 import { getCurrentLocale, translate, useI18n } from '../i18n';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 export type ProviderSection =
   | 'gemini-api-key'
@@ -163,18 +167,22 @@ function SortableProviderRow({
     <article
       ref={setNodeRef}
       style={style}
-      className={`real-provider-row${isDragging ? ' dragging' : ''}${isDragOver && !isDragging ? ' drag-over' : ''}`}
+      className={cn(
+        'flex items-start gap-3 border-b px-4 py-3.5 last:border-b-0',
+        isDragging && 'bg-accent shadow-lg',
+        isDragOver && !isDragging && 'bg-accent/60',
+      )}
     >
       <button
         type="button"
-        className="icon-button quiet provider-drag-handle"
+        className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
         disabled={disabled}
         aria-label={dragLabel}
         title={dragLabel}
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={17} aria-hidden="true" />
+        <GripVertical size={16} aria-hidden="true" />
       </button>
       {children}
     </article>
@@ -1161,64 +1169,67 @@ export function ApiAccessPage() {
     ).length;
 
   return (
-    <section className="page management-page api-access-page">
-      <header className="management-header">
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <span>Providers</span>
-          <h1>{t('apiAccess.title')}</h1>
+          <span className="block text-xs font-bold tracking-wide text-muted-foreground uppercase">{t('apiAccess.eyebrow')}</span>
+          <h1 className="mt-1 text-2xl font-bold">{t('apiAccess.title')}</h1>
         </div>
-        <div className="management-heading-actions">
-          <span className="muted-summary">{t('apiAccess.count', { count: totalCount })}</span>
-          <button type="button" className="secondary-button compact-button" onClick={() => void loadProviders()} disabled={loading || busy}>
-            <RefreshCw size={16} aria-hidden="true" />
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm text-muted-foreground">{t('apiAccess.count', { count: totalCount })}</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => void loadProviders()} disabled={loading || busy}>
+            <RefreshCw size={15} aria-hidden="true" />
             {t('common.refresh')}
-          </button>
-          <button type="button" className="primary-button compact-button" onClick={openCreate} disabled={loading || busy}>
-            <Plus size={16} aria-hidden="true" />
+          </Button>
+          <Button type="button" size="sm" onClick={openCreate} disabled={loading || busy}>
+            <Plus size={15} aria-hidden="true" />
             {t('apiAccess.add')}
-          </button>
+          </Button>
         </div>
       </header>
 
-      {error ? <div className="management-alert error">{error}</div> : null}
-      {notice ? <div className="management-alert success">{notice}</div> : null}
+      {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">{error}</div> : null}
+      {notice ? <div className="rounded-lg border border-[var(--theme-b8d1bb)] bg-[var(--theme-f1f8f1)] px-3.5 py-2.5 text-sm text-[var(--theme-2f6b3f)]">{notice}</div> : null}
 
-      <div className="provider-workbench real-provider-workbench">
-        <aside className="panel provider-category-panel">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
+        <Card className="gap-0.5 p-1.5">
           {providerDefinitions.map((definition) => (
             <button
               type="button"
               key={definition.id}
-              className={definition.id === activeCategory ? 'active' : ''}
+              className={cn(
+                'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50',
+                definition.id === activeCategory && 'bg-accent',
+              )}
               onClick={() => setActiveCategory(definition.id)}
               disabled={busy}
             >
-              <img src={definition.icon} alt="" className="provider-logo" />
-              <span title={definition.label}>{definition.label}</span>
-              <strong>{countForDefinition(definition)}</strong>
+              <img src={definition.icon} alt="" className="size-5.5 shrink-0" />
+              <span className="flex-1 truncate font-medium" title={definition.label}>{definition.label}</span>
+              <strong className="text-xs text-muted-foreground tabular-nums">{countForDefinition(definition)}</strong>
             </button>
           ))}
-        </aside>
+        </Card>
 
-        <section className="panel provider-resource-panel">
-          <div className="management-panel-heading">
+        <Card className="min-h-[420px] gap-0 p-0">
+          <div className="flex flex-wrap items-start justify-between gap-3 p-4 pb-3">
             <div>
-              <h2 title={activeDefinition.label}>{activeDefinition.label}</h2>
-              <span>{t('apiAccess.matches', { count: rows.length })}</span>
+              <h2 className="text-base font-semibold" title={activeDefinition.label}>{activeDefinition.label}</h2>
+              <span className="text-xs text-muted-foreground">{t('apiAccess.matches', { count: rows.length })}</span>
             </div>
-            <div className="management-toolbar compact-toolbar">
-              <Search size={16} aria-hidden="true" />
-              <input value={filter} onChange={(event) => setFilter(event.currentTarget.value)} placeholder={t('apiAccess.search')} />
+            <div className="relative w-72">
+              <Search size={14} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground" />
+              <Input className="pl-8" value={filter} onChange={(event) => setFilter(event.currentTarget.value)} placeholder={t('apiAccess.search')} />
             </div>
           </div>
 
           {loading ? (
-            <div className="management-loading"><LoaderCircle size={20} className="spin" />{t('apiAccess.loading')}</div>
+            <div className="flex items-center gap-2 border-t p-8 text-sm text-muted-foreground"><LoaderCircle size={18} aria-hidden="true" className="animate-spin" />{t('apiAccess.loading')}</div>
           ) : rows.length === 0 ? (
-            <div className="management-empty">
-              <Filter size={24} aria-hidden="true" />
-              <strong>{filter ? t('apiAccess.empty.filtered') : t('apiAccess.empty.none')}</strong>
-              <span>{filter ? t('apiAccess.empty.tryKeyword') : t('apiAccess.empty.addFirst')}</span>
+            <div className="grid justify-items-center gap-2 border-t p-12 text-center">
+              <Filter size={22} aria-hidden="true" className="text-muted-foreground" />
+              <strong className="text-sm font-semibold">{filter ? t('apiAccess.empty.filtered') : t('apiAccess.empty.none')}</strong>
+              <span className="text-sm text-muted-foreground">{filter ? t('apiAccess.empty.tryKeyword') : t('apiAccess.empty.addFirst')}</span>
             </div>
           ) : (
             <DndContext
@@ -1233,7 +1244,7 @@ export function ApiAccessPage() {
                 items={rows.map(providerDragId)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="real-provider-list">
+                <div className="border-t">
                   {rows.map((row) => (
                     <SortableProviderRow
                       key={providerDragId(row)}
@@ -1242,51 +1253,46 @@ export function ApiAccessPage() {
                       dragLabel={t('apiAccess.dragHandle', { remark: row.remark || row.name })}
                       isDragOver={dragOverId === providerDragId(row)}
                     >
-                  <div className="provider-row-main">
-                    <div className="provider-row-title">
-                      <strong title={row.remark || row.name}>{row.remark || row.name}</strong>
-                    </div>
-                    <code title={definitionFor(row.section).openAi ? t('apiAccess.keys.count', { count: row.apiKeys.length }) : undefined}>
+                  <div className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-semibold" title={row.remark || row.name}>{row.remark || row.name}</strong>
+                    <code className="mt-1 block truncate font-mono text-xs text-muted-foreground" title={definitionFor(row.section).openAi ? t('apiAccess.keys.count', { count: row.apiKeys.length }) : undefined}>
                       {definitionFor(row.section).openAi && row.apiKeys.length > 1
                         ? t('apiAccess.keys.summary', { key: maskSecret(row.apiKey), count: row.apiKeys.length })
                         : maskSecret(row.apiKey)}
                     </code>
-                    <span className="provider-row-url" title={row.baseUrl || undefined}>{row.baseUrl || t('apiAccess.defaultUrl')}</span>
-                    {row.models.length > 0 ? <span className="provider-row-models">{t('apiAccess.models.summary', { count: row.models.length })}</span> : null}
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={row.baseUrl || undefined}>{row.baseUrl || t('apiAccess.defaultUrl')}</span>
+                    {row.models.length > 0 ? <span className="mt-0.5 block text-xs text-muted-foreground">{t('apiAccess.models.summary', { count: row.models.length })}</span> : null}
+                    {row.priority === null ? null : (
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{t('apiAccess.priorityValue', { priority: row.priority })}</span>
+                    )}
                   </div>
-                  {row.priority === null ? null : (
-                    <div className="provider-row-meta">
-                      <span>{t('apiAccess.priorityValue', { priority: row.priority })}</span>
-                    </div>
-                  )}
-                  <div className="provider-row-actions">
-                    <button
-                      type="button"
-                      className="secondary-button provider-health-button"
-                      onClick={() => setHealthDialogRow(row)}
-                      disabled={busy}
-                    >
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setHealthDialogRow(row)} disabled={busy}>
                       {t('apiAccess.health.action')}
-                    </button>
-                    <label className="provider-enabled-control" title={row.disabled ? t('apiAccess.enable') : t('apiAccess.disable')}>
+                    </Button>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground" title={row.disabled ? t('apiAccess.enable') : t('apiAccess.disable')}>
                       <span>{row.disabled ? t('apiAccess.status.disabled') : t('apiAccess.status.enabled')}</span>
-                      <span className="switch-control">
-                        <input
-                          type="checkbox"
-                          checked={!row.disabled}
-                          onChange={() => void toggleProvider(row)}
-                          disabled={busy}
-                          aria-label={t('apiAccess.toggleAria', { remark: row.remark || row.name, action: row.disabled ? t('common.enable') : t('common.disable') })}
-                        />
-                        <span className="switch-track" />
-                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!row.disabled}
+                        aria-label={t('apiAccess.toggleAria', { remark: row.remark || row.name, action: row.disabled ? t('common.enable') : t('common.disable') })}
+                        disabled={busy}
+                        onClick={() => void toggleProvider(row)}
+                        className={cn(
+                          'relative h-[21px] w-[38px] shrink-0 rounded-full border transition-colors disabled:opacity-50',
+                          !row.disabled ? 'border-primary bg-primary' : 'border-input bg-muted',
+                        )}
+                      >
+                        <span className={cn('absolute top-[2px] size-[15px] rounded-full bg-card shadow transition-[left]', !row.disabled ? 'left-[19px]' : 'left-[2px]')} />
+                      </button>
                     </label>
-                    <button type="button" className="icon-button quiet" onClick={() => openEdit(row)} disabled={busy} title={t('common.edit')}>
-                      <Edit3 size={16} />
-                    </button>
-                    <button type="button" className="icon-button danger" onClick={() => void deleteRow(row)} disabled={busy} title={t('common.delete')}>
-                      <Trash2 size={16} />
-                    </button>
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => openEdit(row)} disabled={busy} title={t('common.edit')}>
+                      <Edit3 size={15} aria-hidden="true" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => void deleteRow(row)} disabled={busy} title={t('common.delete')}>
+                      <Trash2 size={15} aria-hidden="true" />
+                    </Button>
                   </div>
                     </SortableProviderRow>
                   ))}
@@ -1294,7 +1300,7 @@ export function ApiAccessPage() {
               </SortableContext>
             </DndContext>
           )}
-        </section>
+        </Card>
       </div>
 
       {dialogOpen ? (
@@ -1801,7 +1807,7 @@ function ApiProviderDialog({
             rows={3}
           />
         </label>
-        <label><span>Base URL</span><input value={draft.baseUrl} onChange={(event) => updateTextField('baseUrl', event.currentTarget.value)} placeholder={activeSection === 'codex-api-key' || activeSection === 'openai-compatibility' ? t('apiAccess.baseRequiredPlaceholder') : t('apiAccess.baseOptionalPlaceholder')} /></label>
+        <label><span>{t('apiAccess.baseUrl')}</span><input value={draft.baseUrl} onChange={(event) => updateTextField('baseUrl', event.currentTarget.value)} placeholder={activeSection === 'codex-api-key' || activeSection === 'openai-compatibility' ? t('apiAccess.baseRequiredPlaceholder') : t('apiAccess.baseOptionalPlaceholder')} /></label>
         {activeCategory === 'deepseek' ? (
           <div className="provider-preset-summary">
             <img src={deepseekIcon} alt="" className="provider-logo" />
@@ -1927,9 +1933,9 @@ function ApiProviderDialog({
                   <span>{t('apiAccess.cloak.mode')}</span>
                   <select value={draft.cloakMode ?? ''} onChange={(event) => updateTextField('cloakMode', event.currentTarget.value)}>
                     <option value="">{t('apiAccess.cloak.default')}</option>
-                    <option value="auto">Auto</option>
-                    <option value="always">Always</option>
-                    <option value="never">Never</option>
+                    <option value="auto">{t('apiAccess.cloak.auto')}</option>
+                    <option value="always">{t('apiAccess.cloak.always')}</option>
+                    <option value="never">{t('apiAccess.cloak.never')}</option>
                   </select>
                 </label>
                 <label className="multiline-field">
