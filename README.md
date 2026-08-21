@@ -1,18 +1,19 @@
 <p align="center">
   <strong>English</strong> |
   <a href="README.zh-CN.md">简体中文</a> |
-  <a href="README.ja.md">日本語</a>
+  <a href="README.ja.md">日本語</a> |
+  <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
 <p align="center">
-  <img src="src/assets/logo.jpg" width="112" alt="EvelProxyTool Logo">
+  <img src="src/assets/logo.png" width="112" alt="EvelProxyTool Logo">
 </p>
 
 <h1 align="center">EvelProxyTool</h1>
 
 <p align="center">
-  A portable desktop console for CLIProxyAPI.<br>
-  Our goal is to make tokens free—as in freedom.
+  One Proxy. All Models. Any Platform.<br>
+  A portable desktop console for CLIProxyAPI — our goal is to make tokens free, as in freedom.
 </p>
 
 ## Overview
@@ -20,7 +21,9 @@
 EvelProxyTool is a graphical desktop management tool built on
 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI). It brings core lifecycle management,
 OAuth authorization, API provider aggregation, protocol conversion, credential management,
-quota inspection, usage records, model aliases, and agent client configuration into one interface.
+quota inspection, usage records, model aliases, and agent client configuration into one interface,
+so one local proxy can stand in front of Claude, Codex, Gemini, and every agent/CLI tool that speaks
+their APIs.
 
 The application is built with Tauri, React, and Rust. It can carry a matching CLIProxyAPI core
 archive, making first-time setup and offline installation easier.
@@ -28,8 +31,6 @@ archive, making first-time setup and offline installation easier.
 ## Feature Tour
 
 ### Home dashboard and local API endpoints
-
-![Home dashboard and local API endpoints](docs/screenshots/en/1.png)
 
 The Home page provides a quick overview of the local proxy runtime and ready-to-use API endpoints:
 
@@ -43,9 +44,8 @@ Core installation, version comparison, and offline installation are available fr
 
 ### OAuth account authorization
 
-![OAuth account authorization](docs/screenshots/en/2.png)
-
-The OAuth page centralizes browser-based authorization for supported providers:
+The Accounts page centralizes browser-based authorization for supported providers and lists every
+authorized credential in one flat table, with per-account quota, expiry, and priority at a glance:
 
 - Codex OAuth
 - Claude OAuth
@@ -54,11 +54,9 @@ The OAuth page centralizes browser-based authorization for supported providers:
 - xAI OAuth
 
 EvelProxyTool opens the authorization page in the browser and supports completing the callback
-flow when an automatic redirect is unavailable.
+flow when an automatic redirect is unavailable, plus optional auto-refreshing quota polling.
 
 ### API provider aggregation
-
-![API provider aggregation](docs/screenshots/en/3.png)
 
 The provider workspace manages upstream API credentials and endpoints by protocol or provider:
 
@@ -74,8 +72,6 @@ supported OpenAI, Claude, Gemini, and compatible formats.
 
 ### Usage history and token analytics
 
-![Usage history and token analytics](docs/screenshots/en/4.png)
-
 The Usage page helps you understand local request activity and token consumption:
 
 - Review request totals, token counts, success rate, throughput, cache hit rate, and estimated cost.
@@ -86,8 +82,6 @@ The Usage page helps you understand local request activity and token consumption
 - Upgrade legacy usage databases once at startup after saving a backup under `usage-records/backups`.
 
 ### Agent client configuration
-
-![Agent client configuration](docs/screenshots/en/5.png)
 
 The Agents page detects installed desktop and CLI clients and helps connect them to the local
 proxy. Supported clients include:
@@ -114,11 +108,12 @@ previous configuration.
 - Upload, download, inspect, and manage authentication files.
 - Review provider quotas and account availability.
 - Keep the application available from the macOS menu bar or Windows system tray.
+- Vietnamese, English, Simplified Chinese, and Japanese interface languages.
 
 ## Quick Start
 
 1. Download the package for your operating system from
-   [GitHub Releases](https://github.com/router-for-me/EvelProxyTool/releases/latest).
+   [GitHub Releases](https://github.com/evel2903/EvelProxyTool/releases/latest).
 2. Extract the Windows or Linux archive, or open the macOS DMG.
 3. Launch EvelProxyTool.
 4. Open **Version Management** and install the bundled or latest CLIProxyAPI core.
@@ -147,3 +142,4 @@ GitHub Actions builds the following release packages:
 ## Related Project
 
 - [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) — the proxy core managed by this application.
+- This project started as a fork of [router-for-me/EasyCLIProxyAPI](https://github.com/router-for-me/EasyCLIProxyAPI); the `upstream` remote still points there for anyone tracking changes upstream.

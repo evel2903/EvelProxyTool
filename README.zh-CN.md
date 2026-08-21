@@ -1,49 +1,48 @@
 <p align="center">
   <a href="README.md">English</a> |
   <strong>简体中文</strong> |
-  <a href="README.ja.md">日本語</a>
+  <a href="README.ja.md">日本語</a> |
+  <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
 <p align="center">
-  <img src="src/assets/logo.jpg" width="112" alt="EvelProxyTool Logo">
+  <img src="src/assets/logo.png" width="112" alt="EvelProxyTool Logo">
 </p>
 
 <h1 align="center">EvelProxyTool</h1>
 
 <p align="center">
-  CLIProxyAPI 的便携桌面控制台。<br>
-  我们的目标是实现 token free（free 在这里的意思是自由）。
+  One Proxy. All Models. Any Platform.<br>
+  CLIProxyAPI 的便携桌面控制台 —— 我们的目标是实现 token free（free 在这里的意思是自由）。
 </p>
 
 ## 项目简介
 
-EvelProxyTool 是基于 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
-构建的图形化桌面管理工具。它将内核生命周期管理、OAuth 授权、API Provider 聚合、协议转换、
-凭证管理、配额查询、使用记录、模型别名和智能体客户端配置集中到一个界面中。
+EvelProxyTool 是基于 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) 打造的图形化桌面管理工具，
+将内核生命周期管理、OAuth 授权、API 供应商聚合、协议转换、凭据管理、配额查询、用量记录、模型别名与
+Agent 客户端配置整合到同一个界面中，让一个本地代理就能同时对接 Claude、Codex、Gemini 以及所有支持
+这些接口的 Agent/CLI 工具。
 
-软件基于 Tauri、React 和 Rust 构建，并可携带匹配版本的 CLIProxyAPI 内核压缩包，
-让首次安装和离线安装更加方便。
+应用基于 Tauri、React 与 Rust 构建，可以随包携带匹配的 CLIProxyAPI 内核压缩包，让首次安装和离线安装
+更加简单。
 
 ## 功能导览
 
-### 首页与本地 API 地址
+### 主页仪表盘与本地 API 端点
 
-![首页与本地 API 地址](docs/screenshots/zh-CN/1.png)
+主页可以快速查看本地代理运行状态和可直接使用的 API 端点：
 
-首页集中展示本地代理服务的运行情况，并提供常用的本地 API 地址：
+- 启动、停止、重启并刷新 CLIProxyAPI 内核。
+- 查看安装状态、运行状态、进程 ID 与监听端口。
+- 复制可直接使用的 OpenAI、Claude、Gemini 兼容端点。
+- 一眼查看本地连通性与应用/内核版本。
 
-- 启动、关闭、重启和刷新 CLIProxyAPI 内核状态。
-- 查看安装状态、运行状态、进程 PID、内核版本和软件版本。
-- 复制可直接使用的 OpenAI、Claude 和 Gemini 兼容 API 地址。
-- 查看本地连接状态。
-
-内核安装、版本对比和离线安装功能位于 **版本管理** 页面。
+内核安装、版本比对与离线安装可在**版本管理**页面完成。
 
 ### OAuth 账号授权
 
-![OAuth 账号授权](docs/screenshots/zh-CN/2.png)
-
-OAuth 页面集中管理支持的浏览器授权登录：
+“账户”页面集中管理各家供应商的浏览器授权流程，并以一张扁平表格列出全部已授权凭据，
+配额、到期时间与优先级一目了然：
 
 - Codex OAuth
 - Claude OAuth
@@ -51,42 +50,36 @@ OAuth 页面集中管理支持的浏览器授权登录：
 - Kimi OAuth
 - xAI OAuth
 
-EvelProxyTool 会自动打开浏览器授权页面；当浏览器无法自动跳转回来时，也支持手动完成回调流程。
+EvelProxyTool 会在浏览器中打开授权页面，在自动回调不可用时也支持手动完成回调流程，并可选择
+自动定时刷新配额。
 
-### API 接入与 Provider 聚合
+### API 供应商聚合
 
-![API 接入与 Provider 聚合](docs/screenshots/zh-CN/3.png)
-
-API 接入页面按照协议或 Provider 管理上游 API 凭证和服务地址：
+供应商工作区按协议或供应商管理上游 API 凭据与端点：
 
 - Codex
-- OpenAI 兼容 Provider
+- OpenAI 兼容供应商
 - DeepSeek
 - Claude
 - Gemini
 
-你可以添加多个接入配置、搜索已有配置、刷新 Provider 状态并执行健康检测，
-然后通过统一的本地 CLIProxyAPI 地址调用它们。请求和响应可以在 OpenAI、Claude、Gemini
-及其他兼容协议之间转换。
+你可以添加多个连接、搜索已有条目、刷新供应商状态，并通过统一的本地 CLIProxyAPI 端点使用它们。
+请求与响应可以在受支持的 OpenAI、Claude、Gemini 及兼容格式之间转换。
 
-### 使用记录与 Token 统计
+### 用量记录与 Token 分析
 
-![使用记录与 Token 统计](docs/screenshots/zh-CN/4.png)
+“用量”页面帮助你了解本地请求活动与 Token 消耗情况：
 
-使用记录页面帮助你了解本地请求活动和 Token 消耗情况：
+- 查看请求总数、Token 数量、成功率、吞吐量、缓存命中率与预估花费。
+- 按时间、模型、供应商、来源、密钥与结果筛选用量。
+- 查看请求/Token 趋势，以及输入、输出、推理与缓存用量。
+- 浏览请求详情、分析视图与价格统计。
+- 通过 CPA 的实时用量订阅采集数据，配合可靠的本地收件箱与自动 HTTP 回退机制。
+- 启动时一次性升级旧版用量数据库，并在 `usage-records/backups` 下保存备份。
 
-- 查看请求总数、Token 总量、成功率、TPS、缓存命中率和预估成本。
-- 按时间、模型、Provider、来源、密钥和结果筛选数据。
-- 查看请求与 Token 趋势，以及输入、输出、思考和缓存用量构成。
-- 浏览请求明细、分析视图和价格统计。
-- 通过 CPA 实时订阅和本地持久化 inbox 采集记录，订阅不可用时自动降级到 HTTP。
-- 启动时一次性迁移旧版使用记录数据库，并在 `usage-records/backups` 下保留迁移前备份。
+### Agent 客户端配置
 
-### 智能体客户端配置
-
-![智能体客户端配置](docs/screenshots/zh-CN/5.png)
-
-智能体页面会检测本机已安装的桌面端和命令行客户端，并帮助它们连接本地代理。支持的客户端包括：
+“Agent 配置”页面会检测已安装的桌面端和 CLI 客户端，并帮助它们接入本地代理。支持的客户端包括：
 
 - Claude Code
 - Claude Desktop
@@ -94,46 +87,51 @@ API 接入页面按照协议或 Provider 管理上游 API 凭证和服务地址�
 - OpenCode
 - OpenClaw
 - Hermes Agent
-- Pi（通过 CLIProxyAPI provider 插件）
+- Pi（配合 CLIProxyAPI 供应商扩展）
 - ZCode
 - Kimi Code
 - Grok Build
 
-对于受支持的客户端，软件可以同步可用模型目录、选择默认模型、在应用托管配置前备份原始配置，
-以及恢复之前的配置。
+对于受支持的客户端，应用可以同步可用模型目录、选择默认模型、在应用受管配置前备份原始配置，
+并支持还原为之前的配置。
 
-## 其他功能
+## 其他能力
 
-- 管理内核配置、API Key、远程管理凭证和路由策略。
-- 创建客户端可见的模型别名，并映射到 Provider 模型和推理等级。
-- 上传、下载、检查和管理认证文件。
-- 查看 Provider 配额和账号可用状态。
-- 通过 macOS 菜单栏或 Windows 系统托盘保持软件在后台运行。
+- 管理内核设置、API 密钥、远程管理凭据与路由策略。
+- 创建面向客户端的模型别名，并映射到供应商模型与推理级别。
+- 上传、下载、查看并管理认证文件。
+- 查看供应商配额与账号可用性。
+- 保持应用常驻于 macOS 菜单栏或 Windows 系统托盘。
+- 支持越南语、英语、简体中文与日语界面。
 
 ## 快速开始
 
-1. 前往 [GitHub Releases](https://github.com/router-for-me/EvelProxyTool/releases/latest)
-   下载对应操作系统的发行包。
-2. 解压 Windows 或 Linux 压缩包，macOS 用户打开 DMG。
+1. 前往 [GitHub Releases](https://github.com/evel2903/EvelProxyTool/releases/latest) 下载适用于你操作系统的安装包。
+2. 解压 Windows 或 Linux 压缩包，或打开 macOS DMG。
 3. 启动 EvelProxyTool。
-4. 打开 **版本管理** 页面，安装内置版本或最新版本的 CLIProxyAPI 内核。
-5. 返回 **首页** 启动内核，然后复制所需的本地 API 地址，或配置 OAuth/API Provider。
+4. 打开**版本管理**，安装内置或最新版本的 CLIProxyAPI 内核。
+5. 返回**主页**，启动内核，然后复制所需的本地端点或配置 OAuth/API 供应商。
 
-## 升级
+## 升级说明
 
-每个 Windows 版本都会同时发布完整 ZIP 和兼容旧客户端的 `update` ZIP。这样尚未及时迁移的旧客户端仍可使用应用内更新；新版客户端则使用完整包，同时更新内置 core。
+每个 Windows 发行版都会同时发布完整 ZIP 和旧版 `update` ZIP。这样尚未迁移的旧客户端仍可使用应用内更新，
+而新客户端则使用完整安装包，以便随附内核也能一并更新。
 
-当前 Windows、Linux 和 macOS 发行包都支持应用内自动升级。Linux 会替换便携版程序文件并保留运行数据；macOS 会整体替换已签名的应用包。各平台都会等待新版完成启动确认，启动失败时自动回滚。安装目录必须允许当前用户写入。
+当前的 Windows、Linux、macOS 发行包均支持应用内自动更新。Linux 会在保留运行时数据的同时替换便携应用文件，
+macOS 会替换已签名的应用程序包。每个平台都会等待新版本确认成功启动，若启动失败会自动回滚。安装目录必须
+对当前用户可写。
 
-现有 Linux 和 macOS 安装需要先手动升级一次，安装带有跨平台自动更新标识的版本；成功启动该版本后，后续即可使用应用内自动升级。
+现有的 Linux 和 macOS 安装需要先手动升级到包含跨平台自动更新标记的版本，之后启动一次该版本即可使用应用内更新。
 
-如果当前版本是 v0.2.5 或更早版本，请执行一次手动迁移：退出 EvelProxyTool，下载最新版对应架构的完整 Windows ZIP，将 ZIP 顶层目录内的内容复制到现有安装目录并覆盖同名文件。不要先删除现有安装目录；`config.toml`、`oauth` 和 `cpa-core/config.yaml` 等用户数据会被保留。启动新版后，后续版本即可继续使用应用内自动升级。
+如果你正在使用 v0.2.5 或更早版本，请执行一次手动迁移：退出 EvelProxyTool，下载适用于你架构的最新完整 Windows ZIP，
+然后将其顶层目录内容覆盖到现有安装目录。请勿先删除现有目录；`config.toml`、`oauth`、`cpa-core/config.yaml`
+等用户数据会保留原位。启动新版本后，后续版本即可使用应用内自动更新。
 
 ## 支持的平台
 
 GitHub Actions 会构建以下发行包：
 
-| 操作系统 | 架构 | 格式 |
+| 操作系统 | 架构 | 包格式 |
 | --- | --- | --- |
 | Windows | amd64、aarch64 | ZIP |
 | macOS | amd64、aarch64 | DMG |
@@ -141,4 +139,6 @@ GitHub Actions 会构建以下发行包：
 
 ## 相关项目
 
-- [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) — 本软件负责管理的代理内核。
+- [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) —— 本应用管理的代理内核。
+- 本项目最初 fork 自 [router-for-me/EasyCLIProxyAPI](https://github.com/router-for-me/EasyCLIProxyAPI)；`upstream`
+  远程仓库仍指向该地址，方便需要追踪上游变更的人使用。
