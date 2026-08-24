@@ -73,7 +73,8 @@ const headersByProvider: Record<QuotaProvider, Record<string, string>> = {
   antigravity: {
     Authorization: 'Bearer $TOKEN$',
     'Content-Type': 'application/json',
-    'User-Agent': 'antigravity/cli/1.0.13 (aidev_client; os_type=darwin; arch=arm64)',
+    'User-Agent': 'antigravity/1.20.5 windows/amd64',
+    'Accept-Encoding': 'gzip',
   },
 };
 
