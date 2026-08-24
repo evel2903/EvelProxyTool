@@ -26,6 +26,7 @@ export type QuotaState = {
   status: QuotaStatus;
   rows: QuotaRow[];
   error?: string;
+  verifyUrl?: string;
   plan?: string;
   resetCredits?: number;
   resetCreditsEarliestExpiry?: string;
@@ -74,7 +75,6 @@ const headersByProvider: Record<QuotaProvider, Record<string, string>> = {
     Authorization: 'Bearer $TOKEN$',
     'Content-Type': 'application/json',
     'User-Agent': 'antigravity/1.20.5 windows/amd64',
-    'Accept-Encoding': 'gzip',
   },
 };
 
@@ -99,6 +99,29 @@ const parseBody = (value: unknown): unknown => {
   } catch {
     return value;
   }
+};
+
+class QuotaUpstreamError extends Error {
+  verifyUrl?: string;
+  constructor(message: string, verifyUrl?: string) {
+    super(message);
+    this.verifyUrl = verifyUrl;
+  }
+}
+
+// Google's CloudCode API asks account holders to re-verify by returning a
+// PERMISSION_DENIED/VALIDATION_REQUIRED error with a direct sign-in link
+// buried in error.details[].metadata.validation_url. Surface it so the user
+// can jump straight to that page instead of parsing raw error text.
+const extractGoogleValidationUrl = (body: unknown): string | undefined => {
+  if (!isRecord(body) || !isRecord(body.error)) return undefined;
+  const details = Array.isArray(body.error.details) ? body.error.details : [];
+  for (const detail of details) {
+    if (!isRecord(detail)) continue;
+    const url = readString(isRecord(detail.metadata) ? detail.metadata : {}, 'validation_url');
+    if (url) return url;
+  }
+  return undefined;
 };
 
 const numberValue = (value: unknown): number | null => {
@@ -636,7 +659,8 @@ const requestQuotaPayload = async (
   });
   const status = Number(response.status_code ?? response.statusCode ?? 0);
   if (status < 200 || status >= 300) {
-    throw new Error(apiCallErrorMessage(response));
+    const parsedBody = parseBody(response.body ?? response.bodyText);
+    throw new QuotaUpstreamError(apiCallErrorMessage(response), extractGoogleValidationUrl(parsedBody));
   }
   return parseBody(response.body ?? response.bodyText);
 };
@@ -757,6 +781,7 @@ async function callUpstreamQuota(
     ? [endpointByProvider.antigravity, 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:retrieveUserQuotaSummary', 'https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary']
     : [endpointByProvider[provider]];
   let lastError = '';
+  let lastVerifyUrl: string | undefined;
   let hadSuccessfulResponse = false;
   for (const url of urls) {
     try {
@@ -777,14 +802,16 @@ async function callUpstreamQuota(
       return payload;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
+      if (error instanceof QuotaUpstreamError) lastVerifyUrl = error.verifyUrl;
     }
   }
-  throw new Error(
+  throw new QuotaUpstreamError(
     lastError || quotaText(
       hadSuccessfulResponse
         ? 'quota.service.error.upstreamEmpty'
         : 'quota.service.error.noResponse',
     ),
+    lastVerifyUrl,
   );
 }
 
@@ -856,6 +883,7 @@ export async function loadQuota(file: AuthFile): Promise<QuotaState> {
       status: 'error',
       rows: [],
       error: error instanceof Error ? error.message : String(error),
+      verifyUrl: error instanceof QuotaUpstreamError ? error.verifyUrl : undefined,
     };
   }
 }

@@ -431,6 +431,7 @@ export const viOverrides = {
   'authFiles.status.ready': 'Sẵn sàng',
   'authFiles.quota.loading': 'Đang tra cứu hạn mức',
   'authFiles.quota.failed': 'Lấy hạn mức thất bại',
+  'authFiles.quota.verify': 'Cần xác minh tài khoản →',
   'authFiles.quota.aria': 'Thông tin hạn mức',
   'authFiles.quota.empty': 'Không có dữ liệu hạn mức',
   'authFiles.quota.resets': '{count} lần đặt lại thủ công',

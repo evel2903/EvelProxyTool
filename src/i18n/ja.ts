@@ -431,6 +431,7 @@ export const jaOverrides = {
   'authFiles.status.ready': '準備完了',
   'authFiles.quota.loading': 'クォータを照会中',
   'authFiles.quota.failed': 'クォータの取得に失敗しました',
+  'authFiles.quota.verify': 'アカウントの確認が必要 →',
   'authFiles.quota.aria': 'クォータ情報',
   'authFiles.quota.empty': 'クォータデータがありません',
   'authFiles.quota.resets': '手動リセット {count} 回',

@@ -642,6 +642,23 @@ function QuotaBar({ quota }: { quota: QuotaState }) {
     );
   }
   if (quota.status === 'error') {
+    if (quota.verifyUrl) {
+      const verifyUrl = quota.verifyUrl;
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="text-xs text-destructive underline decoration-dotted underline-offset-2"
+              onClick={() => void invoke('open_oauth_url', { url: verifyUrl, browser: 'default' })}
+            >
+              {t('authFiles.quota.verify')}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{quota.error || t('authFiles.quota.failed')}</TooltipContent>
+        </Tooltip>
+      );
+    }
     return (
       <Tooltip>
         <TooltipTrigger asChild>

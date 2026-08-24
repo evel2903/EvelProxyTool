@@ -431,6 +431,7 @@ export const en: Record<MessageKey, string> = {
   'authFiles.status.ready': 'Ready',
   'authFiles.quota.loading': 'Querying quota',
   'authFiles.quota.failed': 'Failed to fetch quota',
+  'authFiles.quota.verify': 'Verify account →',
   'authFiles.quota.aria': 'Quota information',
   'authFiles.quota.empty': 'No quota data',
   'authFiles.quota.resets': '{count} manual resets',

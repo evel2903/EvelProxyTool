@@ -429,6 +429,7 @@ export const zhCN = {
   'authFiles.status.ready': '就绪',
   'authFiles.quota.loading': '额度查询中',
   'authFiles.quota.failed': '额度获取失败',
+  'authFiles.quota.verify': '需要验证账号 →',
   'authFiles.quota.aria': '额度信息',
   'authFiles.quota.empty': '暂无额度数据',
   'authFiles.quota.resets': '主动重置 {count} 次',
