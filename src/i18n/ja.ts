@@ -100,7 +100,7 @@ export const jaOverrides = {
   'oauth.invalidCallback': 'コールバック内容が無効です',
   'oauth.invalidXaiCallback': '入力から xAI コールバックを作成できません。code と state を確認してください',
   'oauth.callbackSubmittedNotice': 'コールバックを送信しました。認証完了を待っています',
-  'oauth.loginAnother': '別のアカウントでログイン',
+  'oauth.loginAnother': '+ アカウント',
   'oauth.loggingIn': 'ログイン中…',
   'oauth.startLogin': 'ログインを開始',
   'oauth.hint': 'ログインを開始すると上で選択したブラウザーが開きます。「自動で開かない」を選ぶとリンクのみ生成します',

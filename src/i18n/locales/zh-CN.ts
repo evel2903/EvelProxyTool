@@ -98,7 +98,7 @@ export const zhCN = {
   'oauth.invalidCallback': '回调内容无效',
   'oauth.invalidXaiCallback': '无法从输入内容构造 xAI 回调，请检查 code 与 state',
   'oauth.callbackSubmittedNotice': '回调已提交，正在等待认证完成',
-  'oauth.loginAnother': '登录另一个账号',
+  'oauth.loginAnother': '+ 账号',
   'oauth.loggingIn': '登录中…',
   'oauth.startLogin': '开始登录',
   'oauth.hint': '点击开始登录后，将按上方选择打开浏览器；选择“不自动打开”时仅生成登录链接',

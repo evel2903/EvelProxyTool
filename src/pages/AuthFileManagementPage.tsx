@@ -49,7 +49,6 @@ import {
 } from '../services/oauthModels';
 import { getCurrentLocale, translate, useI18n } from '../i18n';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -125,30 +124,50 @@ export function AuthFileQuotaSummary({ quota }: { quota: QuotaState }) {
   if (quota.status !== 'success') return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5" aria-label={t('authFiles.quota.aria')}>
-      {quota.plan ? <Badge variant="secondary">{quota.plan}</Badge> : null}
-      {quota.rows.length > 0 ? quota.rows.map((row, index) => {
-        const detail = [row.detail, row.reset].filter(Boolean).join(' · ');
-        return (
-          <span
-            key={`${row.label}-${index}`}
-            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
-            title={detail || undefined}
-          >
-            <span className="text-muted-foreground">{row.label}</span>
-            <strong className="font-semibold text-foreground">{row.remainingPercent === null ? '—' : `${Math.round(row.remainingPercent)}%`}</strong>
-            {row.reset ? <span className="text-muted-foreground">{row.reset}</span> : null}
+    <div className="flex w-60 flex-col gap-2" aria-label={t('authFiles.quota.aria')}>
+      {quota.plan ? (
+        <div className="flex items-center border-b border-background/15 pb-2">
+          <span className="inline-flex items-center rounded-full bg-background/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-background">
+            {quota.plan}
           </span>
-        );
-      }) : <span className="text-xs text-muted-foreground">{t('authFiles.quota.empty')}</span>}
-      {quota.resetCredits !== undefined ? (
-        <span className="text-xs text-muted-foreground">{t('authFiles.quota.resets', { count: quota.resetCredits })}</span>
+        </div>
       ) : null}
-      {quota.resetCreditsEarliestExpiry ? (
-        <span className="text-xs text-muted-foreground">{t('authFiles.quota.expiry', { time: formatQuotaTimestamp(quota.resetCreditsEarliestExpiry, locale) })}</span>
+      {quota.rows.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          {quota.rows.map((row, index) => (
+            <div key={`${row.label}-${index}`} className="flex items-baseline justify-between gap-3">
+              <span className="text-[11px] leading-snug text-background/65">
+                {[row.label, row.detail].filter(Boolean).join(' · ')}
+              </span>
+              <span className="flex shrink-0 items-baseline gap-1.5">
+                <strong className={cn('text-sm font-semibold tabular-nums', quotaSeverityClass(row.remainingPercent))}>
+                  {row.remainingPercent === null ? '—' : `${Math.round(row.remainingPercent)}%`}
+                </strong>
+                {row.reset ? <span className="text-[10px] tabular-nums text-background/45">{row.reset}</span> : null}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span className="text-xs text-background/65">{t('authFiles.quota.empty')}</span>
+      )}
+      {quota.resetCredits !== undefined || quota.resetCreditsEarliestExpiry ? (
+        <div className="flex flex-col gap-0.5 border-t border-background/15 pt-2 text-[10px] text-background/45">
+          {quota.resetCredits !== undefined ? <span>{t('authFiles.quota.resets', { count: quota.resetCredits })}</span> : null}
+          {quota.resetCreditsEarliestExpiry ? (
+            <span>{t('authFiles.quota.expiry', { time: formatQuotaTimestamp(quota.resetCreditsEarliestExpiry, locale) })}</span>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
+}
+
+function quotaSeverityClass(percent: number | null) {
+  if (percent === null) return 'text-background';
+  if (percent < 15) return 'text-red-400 dark:text-red-600';
+  if (percent < 50) return 'text-amber-400 dark:text-amber-600';
+  return 'text-background';
 }
 
 export function useAuthFileManager() {

@@ -100,7 +100,7 @@ export const viOverrides = {
   'oauth.invalidCallback': 'Callback không hợp lệ',
   'oauth.invalidXaiCallback': 'Không thể tạo callback xAI. Hãy kiểm tra lại mã và state.',
   'oauth.callbackSubmittedNotice': 'Đã gửi callback. Đang chờ hoàn tất xác thực.',
-  'oauth.loginAnother': 'Đăng nhập tài khoản khác',
+  'oauth.loginAnother': '+ Tài khoản',
   'oauth.loggingIn': 'Đang đăng nhập…',
   'oauth.startLogin': 'Bắt đầu đăng nhập',
   'oauth.hint': 'Bắt đầu đăng nhập sẽ dùng trình duyệt đã chọn ở trên. Chọn “Không tự động mở” để chỉ tạo liên kết.',

@@ -31,7 +31,7 @@ const sourceDir = join(root, 'cpa-core');
 const sourceArchive = join(sourceDir, assetName);
 const checksumsPath = join(sourceDir, 'checksums.txt');
 const tag = `v${version}`;
-const releaseBase = `https://github.com/router-for-me/CLIProxyAPI/releases/download/${tag}`;
+const releaseBase = `https://github.com/evel2903/CLIProxyAPI/releases/download/${tag}`;
 
 const downloadReleaseFile = async (name, destination) => {
   const response = await fetch(`${releaseBase}/${name}`);

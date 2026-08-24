@@ -53,7 +53,14 @@ export async function generatePortableUpdateManifest({
       : [[assets, fullFilename]];
     for (const [collection, filename] of candidates) {
       const path = join(resolvedDirectory, filename);
-      const [contents, metadata] = await Promise.all([readFile(path), stat(path)]);
+      let contents;
+      let metadata;
+      try {
+        [contents, metadata] = await Promise.all([readFile(path), stat(path)]);
+      } catch (error) {
+        if (error?.code === 'ENOENT') continue;
+        throw error;
+      }
       if (!metadata.isFile() || metadata.size === 0) {
         throw new Error(`Portable release asset is empty or not a file: ${filename}`);
       }

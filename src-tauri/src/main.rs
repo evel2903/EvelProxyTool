@@ -75,10 +75,10 @@ use tokio_util::sync::CancellationToken;
 use tray::*;
 use zip::ZipArchive;
 
-const RELEASE_PAGE_URL: &str = "https://github.com/router-for-me/CLIProxyAPI/releases/latest";
-const RELEASE_ATOM_URL: &str = "https://github.com/router-for-me/CLIProxyAPI/releases.atom";
+const RELEASE_PAGE_URL: &str = "https://github.com/evel2903/CLIProxyAPI/releases/latest";
+const RELEASE_ATOM_URL: &str = "https://github.com/evel2903/CLIProxyAPI/releases.atom";
 const RELEASE_DOWNLOAD_PREFIX: &str =
-    "https://github.com/router-for-me/CLIProxyAPI/releases/download/";
+    "https://github.com/evel2903/CLIProxyAPI/releases/download/";
 #[cfg(windows)]
 const APP_UPDATE_MANIFEST_URL: &str = "https://github.com/router-for-me/EvelProxyTool/releases/latest/download/portable-update-windows.json";
 #[cfg(target_os = "linux")]

@@ -100,7 +100,7 @@ export const en: Record<MessageKey, string> = {
   'oauth.invalidCallback': 'The callback is invalid',
   'oauth.invalidXaiCallback': 'Could not build the xAI callback. Check the code and state.',
   'oauth.callbackSubmittedNotice': 'Callback submitted. Waiting for authentication to finish.',
-  'oauth.loginAnother': 'Sign In Another Account',
+  'oauth.loginAnother': '+ Account',
   'oauth.loggingIn': 'Signing in…',
   'oauth.startLogin': 'Start Sign-In',
   'oauth.hint': 'Starting sign-in uses the browser selected above. Choose “Do Not Open Automatically” to generate the link only.',

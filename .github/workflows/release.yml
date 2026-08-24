@@ -64,35 +64,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-24.04
-            os: linux
-            display_os: Linux
-            arch: amd64
-            suffix: tar.gz
-          - runner: ubuntu-24.04-arm
-            os: linux
-            display_os: Linux
-            arch: aarch64
-            suffix: tar.gz
-          - runner: macos-15-intel
-            os: darwin
-            display_os: Darwin
-            arch: amd64
-            suffix: dmg
-          - runner: macos-15
-            os: darwin
-            display_os: Darwin
-            arch: aarch64
-            suffix: dmg
           - runner: windows-2025
             os: windows
             display_os: Windows
             arch: amd64
-            suffix: zip
-          - runner: windows-11-arm
-            os: windows
-            display_os: Windows
-            arch: aarch64
             suffix: zip
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
@@ -303,7 +278,7 @@ jobs:
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
-          for platform in windows linux darwin; do
+          for platform in windows; do
             node scripts/manifest.mjs \
               --directory artifacts \
               --output "artifacts/portable-update-${platform}.json" \

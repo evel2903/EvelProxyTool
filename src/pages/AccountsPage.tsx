@@ -120,14 +120,6 @@ const oauthProviders = [
 
 const providerOrder: QuotaProvider[] = ['claude', 'antigravity', 'codex', 'xai', 'kimi'];
 
-const PROVIDER_FILTER_NAME: Record<string, string> = {
-  claude: 'Claude',
-  antigravity: 'Antigravity',
-  codex: 'Codex',
-  xai: 'xAI',
-  kimi: 'Kimi',
-};
-
 const OAUTH_CALLBACK_SUPPORTED = new Set<OAuthProviderId>([
   'codex',
   'claude',
@@ -931,10 +923,10 @@ export function AccountsPage() {
           if (!meta) return null;
           const state = oauthLogin.states[id];
           const count = totalCounts.get(id) ?? 0;
-          const loginLabel = state?.status === 'success'
-            ? t('oauth.loginAnother')
-            : state?.polling
-              ? t('oauth.loggingIn')
+          const loginLabel = state?.polling
+            ? t('oauth.loggingIn')
+            : count > 0 || state?.status === 'success'
+              ? t('oauth.loginAnother')
               : t('oauth.startLogin');
           return (
             <Card key={id} className="gap-2.5 p-3.5">
@@ -945,26 +937,15 @@ export function AccountsPage() {
                   <span className="text-xs text-muted-foreground">{t(count === 1 ? 'quota.credentials.one' : 'quota.credentials.other', { count })}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="flex-1"
-                  disabled={Boolean(state?.polling) || oauthLogin.browsersLoading}
-                  onClick={() => void oauthLogin.startLogin(id)}
-                >
-                  <LogIn size={14} aria-hidden="true" />{loginLabel}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  disabled={count === 0}
-                  onClick={() => manager.setProviderFilter(PROVIDER_FILTER_NAME[id] ?? 'all')}
-                >
-                  <Search size={14} aria-hidden="true" />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="w-full"
+                disabled={Boolean(state?.polling) || oauthLogin.browsersLoading}
+                onClick={() => void oauthLogin.startLogin(id)}
+              >
+                <LogIn size={14} aria-hidden="true" />{loginLabel}
+              </Button>
             </Card>
           );
         })}
