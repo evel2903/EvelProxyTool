@@ -125,39 +125,44 @@ export function AuthFileQuotaSummary({ quota }: { quota: QuotaState }) {
   if (quota.status !== 'success') return null;
 
   return (
-    <div className="flex w-64 flex-col gap-2.5 p-1" aria-label={t('authFiles.quota.aria')}>
+    <div className="flex w-68 flex-col gap-3 p-1" aria-label={t('authFiles.quota.aria')}>
       {quota.plan ? (
-        <div className="flex items-center justify-between border-b border-border/40 pb-2">
-          <span className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+        <div className="flex items-center justify-between border-b border-border/60 pb-2">
+          <span className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
             {quota.plan}
           </span>
           {quota.resetCredits !== undefined && quota.resetCredits > 0 ? (
-            <span className="text-[10px] text-emerald-500 font-bold">
+            <span className="text-[11px] text-emerald-500 font-bold font-mono">
               {t('authFiles.quota.resets', { count: quota.resetCredits })}
             </span>
           ) : null}
         </div>
       ) : null}
       {quota.rows.length > 0 ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {quota.rows.map((row, index) => {
             const percent = row.remainingPercent !== null ? Math.round(row.remainingPercent) : null;
             const variant = percent !== null ? (percent < 15 ? 'danger' : percent < 50 ? 'warning' : 'success') : 'default';
+            const percentColor = percent !== null ? (percent < 15 ? 'text-rose-500' : percent < 50 ? 'text-amber-500' : 'text-emerald-500') : 'text-foreground';
+            const labelText = [row.label, row.detail].filter(Boolean).join(' · ');
+
             return (
               <div key={`${row.label}-${index}`} className="space-y-1">
-                <div className="flex items-baseline justify-between gap-2 text-xs">
-                  <span className="text-[11px] font-medium text-foreground/80 truncate">
-                    {[row.label, row.detail].filter(Boolean).join(' · ')}
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-[11.5px] font-semibold text-foreground truncate max-w-[150px]" title={labelText}>
+                    {labelText}
                   </span>
-                  <span className="flex shrink-0 items-baseline gap-1">
-                    <strong className={cn('text-xs font-bold font-mono', percent !== null ? (percent < 15 ? 'text-rose-500' : percent < 50 ? 'text-amber-500' : 'text-emerald-500') : 'text-foreground')}>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <strong className={cn('text-xs font-bold font-mono', percentColor)}>
                       {percent === null ? '—' : `${percent}%`}
                     </strong>
-                    {row.reset ? <span className="text-[10px] text-muted-foreground font-mono">({row.reset})</span> : null}
-                  </span>
+                    {row.reset ? (
+                      <span className="text-[10px] text-muted-foreground font-mono">({row.reset})</span>
+                    ) : null}
+                  </div>
                 </div>
                 {percent !== null && (
-                  <Progress value={percent} variant={variant} className="h-1" />
+                  <Progress value={percent} variant={variant} className="h-1.5 bg-muted/60" />
                 )}
               </div>
             );
@@ -167,7 +172,7 @@ export function AuthFileQuotaSummary({ quota }: { quota: QuotaState }) {
         <span className="text-xs text-muted-foreground">{t('authFiles.quota.empty')}</span>
       )}
       {quota.resetCredits !== undefined || quota.resetCreditsEarliestExpiry ? (
-        <div className="flex flex-col gap-0.5 border-t border-border/40 pt-2 text-[10px] text-muted-foreground font-mono">
+        <div className="flex flex-col gap-1 border-t border-border/60 pt-2 text-[10.5px] text-muted-foreground font-mono">
           {quota.resetCreditsEarliestExpiry ? (
             <span>{t('authFiles.quota.expiry', { time: formatQuotaTimestamp(quota.resetCreditsEarliestExpiry, locale) })}</span>
           ) : null}
