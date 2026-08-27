@@ -1191,6 +1191,42 @@ export function ApiAccessPage() {
       {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">{error}</div> : null}
       {notice ? <div className="rounded-lg border border-[var(--theme-b8d1bb)] bg-[var(--theme-f1f8f1)] px-3.5 py-2.5 text-sm text-[var(--theme-2f6b3f)]">{notice}</div> : null}
 
+      {/* VISUAL FAILOVER CHAIN DIAGRAM */}
+      <div className="rounded-2xl border border-border/60 bg-gradient-to-r from-card via-card/80 to-primary/5 p-4 shadow-xs">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-primary" />
+            Chuỗi Định Tuyến Dự Phòng Tự Động (Failover Routing Matrix)
+          </span>
+          <span className="text-[11px] text-muted-foreground">Tự động chuyển tiếp khi gặp sự cố Rate Limit / Quota</span>
+        </div>
+        <div className="flex items-center justify-between gap-2 overflow-x-auto py-1">
+          <div className="flex-1 min-w-[130px] p-2.5 rounded-xl bg-background/80 border border-emerald-500/30 text-center">
+            <span className="text-[10px] font-bold uppercase text-emerald-500 block">Bước 1: Primary</span>
+            <strong className="text-xs text-foreground block truncate">Codex / Claude OAuth</strong>
+            <span className="text-[10px] text-muted-foreground">Ưu tiên #1</span>
+          </div>
+          <span className="text-muted-foreground/50 text-xs font-bold shrink-0">➔</span>
+          <div className="flex-1 min-w-[130px] p-2.5 rounded-xl bg-background/80 border border-primary/30 text-center">
+            <span className="text-[10px] font-bold uppercase text-primary block">Bước 2: Secondary</span>
+            <strong className="text-xs text-foreground block truncate">Tài Khoản Phụ</strong>
+            <span className="text-[10px] text-muted-foreground">Luân phiên Key</span>
+          </div>
+          <span className="text-muted-foreground/50 text-xs font-bold shrink-0">➔</span>
+          <div className="flex-1 min-w-[130px] p-2.5 rounded-xl bg-background/80 border border-amber-500/30 text-center">
+            <span className="text-[10px] font-bold uppercase text-amber-500 block">Bước 3: Upstream Key</span>
+            <strong className="text-xs text-foreground block truncate">DeepSeek / OpenAI</strong>
+            <span className="text-[10px] text-muted-foreground">Direct API Key</span>
+          </div>
+          <span className="text-muted-foreground/50 text-xs font-bold shrink-0">➔</span>
+          <div className="flex-1 min-w-[130px] p-2.5 rounded-xl bg-background/80 border border-border/60 text-center">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground block">Bước 4: Emergency</span>
+            <strong className="text-xs text-foreground block truncate">OpenRouter Backup</strong>
+            <span className="text-[10px] text-muted-foreground">Auto-routing Pool</span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
         <Card className="gap-0.5 p-1.5">
           {providerDefinitions.map((definition) => (

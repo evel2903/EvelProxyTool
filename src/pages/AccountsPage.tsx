@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
@@ -6,6 +7,7 @@ import {
   ExternalLink,
   FolderOpen,
   Import,
+  Info,
   Layers,
   LoaderCircle,
   LogIn,
@@ -58,6 +60,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
@@ -76,6 +79,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Progress } from '@/components/ui/progress';
 
 type OAuthProviderId = 'codex' | 'claude' | 'antigravity' | 'kimi' | 'xai';
 type OAuthFlowStatus = 'idle' | 'waiting' | 'success' | 'error';
@@ -132,6 +136,15 @@ const OAUTH_BROWSER_STORAGE_KEY = 'evel-proxy-tool.oauth-browser.v3';
 const NO_AUTO_OPEN_BROWSER_ID = 'none';
 const QUOTA_AUTO_REFRESH_STORAGE_KEY = 'evel-proxy-tool.quota-auto-refresh';
 const QUOTA_AUTO_REFRESH_OPTIONS = [0, 15, 30, 60, 300] as const;
+const MASK_EMAILS_STORAGE_KEY = 'evel-proxy-tool.mask-emails';
+
+function maskAccountName(name: string): string {
+  const at = name.indexOf('@');
+  if (at === -1) return name;
+  const local = name.slice(0, at);
+  const domain = name.slice(at + 1);
+  return `****${local.slice(-4)}@${domain.slice(0, 1)}****`;
+}
 const oauthLoginSuccessCache = createOAuthLoginSuccessCache<OAuthProviderId>();
 
 function providerLabel(provider: OAuthProviderId) {
@@ -632,12 +645,11 @@ function PendingLoginCard({
 
 function QuotaBar({ quota }: { quota: QuotaState }) {
   const { t } = useI18n();
-  if (quota.status === 'idle') return <span className="text-xs text-muted-foreground">—</span>;
+  if (quota.status === 'idle') return <span className="text-xs text-muted-foreground font-mono">—</span>;
   if (quota.status === 'loading') {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <LoaderCircle size={13} className="animate-spin" aria-hidden="true" />
-        <span>{t('authFiles.quota.loading')}</span>
+      <div className="grid size-8 place-items-center text-muted-foreground" aria-label={t('authFiles.quota.loading')}>
+        <LoaderCircle size={16} className="animate-spin text-primary" aria-hidden="true" />
       </div>
     );
   }
@@ -649,7 +661,7 @@ function QuotaBar({ quota }: { quota: QuotaState }) {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="text-xs text-destructive underline decoration-dotted underline-offset-2"
+              className="text-xs text-destructive font-medium underline decoration-dotted underline-offset-2 hover:opacity-80 cursor-pointer"
               onClick={() => void invoke('open_oauth_url', { url: verifyUrl, browser: 'default' })}
             >
               {t('authFiles.quota.verify')}
@@ -662,7 +674,7 @@ function QuotaBar({ quota }: { quota: QuotaState }) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="text-xs text-destructive underline decoration-dotted underline-offset-2">{t('authFiles.quota.failed')}</span>
+          <span className="text-xs text-destructive font-medium underline decoration-dotted underline-offset-2">{t('authFiles.quota.failed')}</span>
         </TooltipTrigger>
         <TooltipContent>{quota.error || t('authFiles.quota.failed')}</TooltipContent>
       </Tooltip>
@@ -674,17 +686,49 @@ function QuotaBar({ quota }: { quota: QuotaState }) {
   if (!primary) return <span className="text-xs text-muted-foreground">{t('authFiles.quota.empty')}</span>;
   const percent = Math.max(0, Math.min(100, Math.round(primary.remainingPercent ?? 0)));
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="flex w-40 items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
-          </div>
-          <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{percent}%</span>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent><AuthFileQuotaSummary quota={quota} /></TooltipContent>
-    </Tooltip>
+    <div className="flex items-center gap-2">
+      <QuotaRing percent={percent} />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="text-muted-foreground transition-colors hover:text-foreground p-0.5 rounded cursor-pointer"
+            aria-label={t('authFiles.quota.viewDetails')}
+          >
+            <Info size={15} aria-hidden="true" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent><AuthFileQuotaSummary quota={quota} /></TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+function QuotaRing({ percent, size = 32, strokeWidth = 3.5 }: { percent: number; size?: number; strokeWidth?: number }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - percent / 100);
+  const colorClass = percent < 15 ? 'stroke-rose-500' : percent < 50 ? 'stroke-amber-500' : 'stroke-primary';
+  const textColor = percent < 15 ? 'text-rose-500 font-bold' : percent < 50 ? 'text-amber-500 font-bold' : 'text-foreground font-semibold';
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} className="fill-none stroke-muted/60" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className={cn('fill-none transition-[stroke-dashoffset] duration-300', colorClass)}
+        />
+      </svg>
+      <span className={cn('absolute inset-0 grid place-items-center text-[9px] tabular-nums font-mono', textColor)}>
+        {percent}%
+      </span>
+    </div>
   );
 }
 
@@ -693,14 +737,17 @@ function AccountRow({
   quota,
   manager,
   onResetCodex,
+  maskEmails,
 }: {
   file: AuthFile;
   quota: QuotaState;
   manager: ReturnType<typeof useAuthFileManager>;
   onResetCodex?: () => void;
+  maskEmails: boolean;
 }) {
   const { t } = useI18n();
   const name = fileName(file);
+  const displayName = maskEmails ? maskAccountName(name) : name;
   const disabled = readBoolean(file, 'disabled');
   const unavailable = readBoolean(file, 'unavailable');
   const priority = parseAuthFilePriority(file.priority) ?? 0;
@@ -709,32 +756,35 @@ function AccountRow({
 
   return (
     <TableRow className={disabled ? 'opacity-60' : undefined}>
-      <TableCell className="whitespace-nowrap">
+      <TableCell className="min-w-[180px] whitespace-nowrap">
         <div className="flex items-center gap-2.5">
-          <img src={icon} alt="" className="h-6 w-6 shrink-0" />
-          <strong className="truncate font-medium" title={name}>{name}</strong>
+          <img src={icon} alt="" className="size-6 shrink-0" />
+          <strong className="truncate font-medium text-sm text-foreground" title={name}>{displayName}</strong>
         </div>
       </TableCell>
-      <TableCell className="whitespace-nowrap">
+      <TableCell className="w-28 min-w-[100px] whitespace-nowrap">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant={disabled || unavailable ? 'destructive' : 'success'}>{statusText(file)}</Badge>
           {isRuntimeOnly(file) ? <Badge variant="outline">{t('authFiles.runtime')}</Badge> : null}
         </div>
       </TableCell>
-      <TableCell className="whitespace-nowrap">
+      <TableCell className="w-24 min-w-[80px] whitespace-nowrap">
+        {quota.plan ? <Badge variant="outline" className="font-semibold">{quota.plan}</Badge> : <span className="text-xs text-muted-foreground font-mono">—</span>}
+      </TableCell>
+      <TableCell className="w-28 min-w-[90px] whitespace-nowrap">
         <QuotaBar quota={quota} />
       </TableCell>
-      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+      <TableCell className="w-36 min-w-[120px] whitespace-nowrap text-xs text-muted-foreground">
         {quota.status === 'success' ? (quota.rows.find((row) => row.reset)?.reset ?? '—') : '—'}
       </TableCell>
-      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+      <TableCell className="w-36 min-w-[120px] whitespace-nowrap text-xs text-muted-foreground">
         <div className="grid gap-0.5">
           <span>{readNumber(file, 'size') === null ? t('authFiles.unknownSize') : `${Math.ceil((readNumber(file, 'size') ?? 0) / 1024)} KB`}</span>
           <span>{formatDate(file.modtime ?? file.updated_at ?? file.last_refresh)}</span>
         </div>
       </TableCell>
-      <TableCell className="whitespace-nowrap">
-        <div className="grid gap-2">
+      <TableCell className="w-64 min-w-[210px] whitespace-nowrap">
+        <div className="grid gap-1.5">
           <div className="flex flex-wrap items-center gap-1.5">
             {canFetchQuota ? (
               <Button type="button" variant="outline" size="icon-sm" disabled={manager.busy || disabled || quota.status === 'loading'} title={disabled ? t('quota.fileDisabled') : t('quota.refresh')} onClick={() => void manager.refreshQuota(file)}>
@@ -770,23 +820,26 @@ function AccountsTable({
   files,
   manager,
   resetCodexQuota,
+  maskEmails,
 }: {
   files: AuthFile[];
   manager: ReturnType<typeof useAuthFileManager>;
   resetCodexQuota: (file: AuthFile, quota: QuotaState) => void;
+  maskEmails: boolean;
 }) {
   const { t } = useI18n();
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="overflow-x-auto rounded-b-xl border border-t-0 bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>{t('accounts.column.account')}</TableHead>
-            <TableHead>{t('accounts.column.status')}</TableHead>
-            <TableHead>{t('accounts.column.quota')}</TableHead>
-            <TableHead>{t('accounts.column.expiry')}</TableHead>
-            <TableHead>{t('accounts.column.updated')}</TableHead>
-            <TableHead>{t('accounts.column.actions')}</TableHead>
+            <TableHead className="min-w-[180px]">{t('accounts.column.account')}</TableHead>
+            <TableHead className="w-28 min-w-[100px] whitespace-nowrap">{t('accounts.column.status')}</TableHead>
+            <TableHead className="w-24 min-w-[80px] whitespace-nowrap">{t('accounts.column.plan')}</TableHead>
+            <TableHead className="w-28 min-w-[90px] whitespace-nowrap">{t('accounts.column.quota')}</TableHead>
+            <TableHead className="w-36 min-w-[120px] whitespace-nowrap">{t('accounts.column.expiry')}</TableHead>
+            <TableHead className="w-36 min-w-[120px] whitespace-nowrap">{t('accounts.column.updated')}</TableHead>
+            <TableHead className="w-64 min-w-[210px] whitespace-nowrap">{t('accounts.column.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -796,6 +849,7 @@ function AccountsTable({
               file={file}
               quota={manager.quotas[quotaKey(file)] ?? idleQuota()}
               manager={manager}
+              maskEmails={maskEmails}
               onResetCodex={quotaProviderForFile(file) === 'codex' && (manager.quotas[quotaKey(file)]?.resetCredits ?? 0) > 0
                 ? () => void resetCodexQuota(file, manager.quotas[quotaKey(file)] ?? idleQuota())
                 : undefined}
@@ -821,6 +875,14 @@ export function AccountsPage() {
     }
   });
 
+  const [maskEmails, setMaskEmails] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(MASK_EMAILS_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   useEffect(() => {
     try {
       window.localStorage.setItem(QUOTA_AUTO_REFRESH_STORAGE_KEY, String(autoRefreshSeconds));
@@ -828,6 +890,14 @@ export function AccountsPage() {
       // The in-memory state still works when persistent storage is unavailable.
     }
   }, [autoRefreshSeconds]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MASK_EMAILS_STORAGE_KEY, String(maskEmails));
+    } catch {
+      // The in-memory state still works when persistent storage is unavailable.
+    }
+  }, [maskEmails]);
 
   useEffect(() => {
     manager.files.forEach((file) => {
@@ -987,69 +1057,77 @@ export function AccountsPage() {
         return <PendingLoginCard key={id} provider={meta} oauthLogin={oauthLogin} />;
       })}
 
-      <Card className="gap-3 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-56 flex-1">
-            <Search size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <Input className="pl-8" value={manager.filter} onChange={(event) => manager.setFilter(event.currentTarget.value)} placeholder={t('authFiles.searchPlaceholder')} />
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t('oauth.browser.label')}</span>
+            <Select
+              value={oauthLogin.selectedBrowser}
+              onValueChange={oauthLogin.setSelectedBrowser}
+              disabled={oauthLogin.browsersLoading}
+            >
+              <SelectTrigger className="min-w-44"><SelectValue placeholder={t('oauth.browser.detecting')} /></SelectTrigger>
+              <SelectContent>
+                {oauthLogin.browsers.map((browser) => (
+                  <SelectItem value={browser.id} key={browser.id}>
+                    {browser.id === 'default' ? t('oauth.browser.systemDefault') : browser.label}
+                  </SelectItem>
+                ))}
+                <SelectItem value={NO_AUTO_OPEN_BROWSER_ID}>{t('oauth.browser.noAutoOpen')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={manager.providerFilter} onValueChange={manager.setProviderFilter}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('authFiles.filter.allProviders')}</SelectItem>
-              {manager.providers.map((provider) => <SelectItem key={provider} value={provider}>{provider}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={manager.statusFilter} onValueChange={(value) => manager.setStatusFilter(value as typeof manager.statusFilter)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('authFiles.filter.allStatuses')}</SelectItem>
-              <SelectItem value="enabled">{t('authFiles.filter.enabled')}</SelectItem>
-              <SelectItem value="disabled">{t('authFiles.filter.disabled')}</SelectItem>
-              <SelectItem value="runtime">{t('authFiles.filter.runtime')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-          <span className="text-sm font-medium">{t('oauth.browser.label')}</span>
-          <Select
-            value={oauthLogin.selectedBrowser}
-            onValueChange={oauthLogin.setSelectedBrowser}
-            disabled={oauthLogin.browsersLoading}
-          >
-            <SelectTrigger className="min-w-52"><SelectValue placeholder={t('oauth.browser.detecting')} /></SelectTrigger>
-            <SelectContent>
-              {oauthLogin.browsers.map((browser) => (
-                <SelectItem value={browser.id} key={browser.id}>
-                  {browser.id === 'default' ? t('oauth.browser.systemDefault') : browser.label}
-                </SelectItem>
-              ))}
-              <SelectItem value={NO_AUTO_OPEN_BROWSER_ID}>{t('oauth.browser.noAutoOpen')}</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="h-5 w-px bg-border" aria-hidden="true" />
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t('accounts.autoRefresh.label')}</span>
+            <Select value={String(autoRefreshSeconds)} onValueChange={(value) => setAutoRefreshSeconds(Number(value))}>
+              <SelectTrigger className="min-w-32"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">{t('accounts.autoRefresh.off')}</SelectItem>
+                <SelectItem value="15">{t('accounts.autoRefresh.15s')}</SelectItem>
+                <SelectItem value="30">{t('accounts.autoRefresh.30s')}</SelectItem>
+                <SelectItem value="60">{t('accounts.autoRefresh.60s')}</SelectItem>
+                <SelectItem value="300">{t('accounts.autoRefresh.300s')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <span className="text-xs text-muted-foreground">{t('oauth.browser.remembered')}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-          <span className="text-sm font-medium">{t('accounts.autoRefresh.label')}</span>
-          <Select value={String(autoRefreshSeconds)} onValueChange={(value) => setAutoRefreshSeconds(Number(value))}>
-            <SelectTrigger className="min-w-40"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">{t('accounts.autoRefresh.off')}</SelectItem>
-              <SelectItem value="15">{t('accounts.autoRefresh.15s')}</SelectItem>
-              <SelectItem value="30">{t('accounts.autoRefresh.30s')}</SelectItem>
-              <SelectItem value="60">{t('accounts.autoRefresh.60s')}</SelectItem>
-              <SelectItem value="300">{t('accounts.autoRefresh.300s')}</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </Card>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-t-lg border border-b-0 bg-card p-3">
+        <div className="relative min-w-56 flex-1">
+          <Search size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input className="pl-8" value={manager.filter} onChange={(event) => manager.setFilter(event.currentTarget.value)} placeholder={t('authFiles.searchPlaceholder')} />
+        </div>
+        <Select value={manager.providerFilter} onValueChange={manager.setProviderFilter}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('authFiles.filter.allProviders')}</SelectItem>
+            {manager.providers.map((provider) => <SelectItem key={provider} value={provider}>{provider}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={manager.statusFilter} onValueChange={(value) => manager.setStatusFilter(value as typeof manager.statusFilter)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('authFiles.filter.allStatuses')}</SelectItem>
+            <SelectItem value="enabled">{t('authFiles.filter.enabled')}</SelectItem>
+            <SelectItem value="disabled">{t('authFiles.filter.disabled')}</SelectItem>
+            <SelectItem value="runtime">{t('authFiles.filter.runtime')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <label className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+          <Switch checked={maskEmails} onCheckedChange={setMaskEmails} />
+          {t('accounts.maskEmails')}
+        </label>
+      </div>
+
       {manager.loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle size={20} className="animate-spin" aria-hidden="true" />{t('authFiles.loading')}</div>
+        <div className="flex items-center gap-2 rounded-b-lg border border-t-0 p-4 text-sm text-muted-foreground"><LoaderCircle size={20} className="animate-spin" aria-hidden="true" />{t('authFiles.loading')}</div>
       ) : sortedVisibleFiles.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{t('accounts.panel.empty')}</div>
+        <div className="rounded-b-lg border border-t-0 border-dashed p-8 text-center text-sm text-muted-foreground">{t('accounts.panel.empty')}</div>
       ) : (
-        <AccountsTable files={sortedVisibleFiles} manager={manager} resetCodexQuota={resetCodexQuota} />
+        <AccountsTable files={sortedVisibleFiles} manager={manager} resetCodexQuota={resetCodexQuota} maskEmails={maskEmails} />
       )}
 
       {manager.priorityEditor ? (

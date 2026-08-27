@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
 
 type UsageTab = 'overview' | 'analysis' | 'events' | 'pricing';
 type UsageRange = '4h' | '24h' | 'today' | '7d' | '30d' | 'all' | 'custom';
@@ -546,17 +547,18 @@ function UsageTrend({ points }: { points: TimelinePoint[] }) {
   );
 }
 
-function TokenMetric({ label, value, total }: { label: string; value: number; total: number }) {
+function TokenMetric({ label, value, total, variant = 'default' }: { label: string; value: number; total: number; variant?: 'default' | 'success' | 'warning' | 'danger' | 'gradient' }) {
   const percent = total ? Math.min(value * 100 / total, 100) : 0;
   return (
-    <div>
-      <div className="flex justify-between text-[12.5px]">
-        <strong className="font-medium">{label}</strong>
-        <small className="text-muted-foreground tabular-nums">{compactNumber(value)}</small>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-foreground">{label}</span>
+        <div className="flex items-center gap-1.5">
+          <strong className="font-mono text-foreground font-semibold">{compactNumber(value)}</strong>
+          <small className="text-[10.5px] text-muted-foreground font-mono">({percent.toFixed(1)}%)</small>
+        </div>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
-      </div>
+      <Progress value={percent} variant={variant} className="h-1.5" />
     </div>
   );
 }

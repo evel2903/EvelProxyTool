@@ -40,44 +40,68 @@
 }
 
 /*
- * These map 1:1 onto the existing hand-authored tokens in styles.css
- * (the "readability-first" palette), so light/dark switching keeps working
- * through the same `[data-theme]` attribute — no new theming mechanism.
+ * OCEAN BLUE / SEA THEME PALETTE
+ * Vibrant Marine & Deep Ocean Colors for light and dark modes
  */
 :root {
-  --background: var(--theme-faf9f5);
-  --foreground: var(--theme-2d2a26);
-  --card: var(--theme-fffdf8);
-  --card-foreground: var(--theme-2d2a26);
-  --popover: var(--theme-fffdf8);
-  --popover-foreground: var(--theme-2d2a26);
-  --primary: var(--ui-accent);
-  --primary-foreground: #fafafa;
-  --secondary: var(--theme-f4f1ea);
-  --secondary-foreground: var(--theme-2d2a26);
-  --muted: var(--theme-eeeae2);
-  --muted-foreground: var(--theme-7a746c);
-  --accent: var(--ui-accent-soft);
-  --accent-foreground: var(--ui-accent-strong);
-  --destructive: var(--theme-9f2d20);
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0284c7;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f9ff;
+  --secondary-foreground: #0369a1;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e0f2fe;
+  --accent-foreground: #0369a1;
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: var(--theme-e3e1db);
-  --input: var(--theme-d5d2cb);
-  --ring: var(--ui-focus-ring);
-  --radius: 0.5rem;
-  --sidebar: var(--theme-f0eee8);
-  --sidebar-foreground: var(--theme-2d2a26);
-  --sidebar-primary: var(--ui-accent);
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: var(--theme-e8e5dc);
-  --sidebar-accent-foreground: var(--theme-2d2a26);
-  --sidebar-border: var(--theme-e3e1db);
-  --sidebar-ring: var(--ui-focus-ring);
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #38bdf8;
+  --radius: 0.75rem;
+  --sidebar: #f0f9ff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0284c7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e0f2fe;
+  --sidebar-accent-foreground: #0369a1;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #38bdf8;
 }
 
 :root[data-theme='dark'] {
-  --primary-foreground: #18181b;
-  --sidebar-primary-foreground: #18181b;
+  --background: #060b14;
+  --foreground: #f0f6fc;
+  --card: #0c1527;
+  --card-foreground: #f0f6fc;
+  --popover: #0c1527;
+  --popover-foreground: #f0f6fc;
+  --primary: #0284c7;
+  --primary-foreground: #ffffff;
+  --secondary: #111d33;
+  --secondary-foreground: #38bdf8;
+  --muted: #111c2e;
+  --muted-foreground: #94a3b8;
+  --accent: #132742;
+  --accent-foreground: #7dd3fc;
+  --destructive: #f43f5e;
+  --destructive-foreground: #ffffff;
+  --border: #1e293b;
+  --input: #334155;
+  --ring: #0284c7;
+  --sidebar: #08101e;
+  --sidebar-foreground: #f0f6fc;
+  --sidebar-primary: #0284c7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #132742;
+  --sidebar-accent-foreground: #7dd3fc;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #0284c7;
 }
 
 @layer base {

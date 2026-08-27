@@ -235,10 +235,10 @@
  * primary interactions below.
  */
 :root {
-  --ui-accent: #18181b;
-  --ui-accent-strong: #09090b;
-  --ui-accent-soft: #f4f4f5;
-  --ui-focus-ring: #a1a1aa;
+  --ui-accent: #0284c7;
+  --ui-accent-strong: #0369a1;
+  --ui-accent-soft: #f0f9ff;
+  --ui-focus-ring: #38bdf8;
   --ui-accent-shadow: rgba(24, 24, 27, 0.12);
   --ui-panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   --theme-2f6b3a: #16a34a;
@@ -308,10 +308,10 @@
 }
 
 :root[data-theme='dark'] {
-  --ui-accent: #fafafa;
-  --ui-accent-strong: #fafafa;
-  --ui-accent-soft: #22222a;
-  --ui-focus-ring: #52525c;
+  --ui-accent: #0284c7;
+  --ui-accent-strong: #38bdf8;
+  --ui-accent-soft: #111d33;
+  --ui-focus-ring: #0284c7;
   --ui-accent-shadow: rgba(0, 0, 0, 0.35);
   --ui-panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   --theme-2f6b3a: #4ade80;
@@ -3758,14 +3758,14 @@ textarea:focus-visible {
   min-height: 360px;
 }
 
-.real-provider-workbench + .config-dialog-backdrop .management-dialog {
+.management-dialog {
   grid-template-rows: auto repeat(5, minmax(52px, auto)) auto;
   height: auto;
   max-height: min(720px, calc(100vh - 48px));
   overflow: auto;
 }
 
-.real-provider-workbench + .config-dialog-backdrop .api-provider-dialog {
+.api-provider-dialog {
   grid-template-rows: auto;
   grid-auto-rows: auto;
   width: min(560px, 100%);

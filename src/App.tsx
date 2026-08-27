@@ -3,7 +3,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
   Bot,
+  Check,
   ChevronLeft,
+  ChevronRight,
+  Copy,
   ExternalLink,
   History,
   House,
@@ -13,6 +16,7 @@ import {
   Moon,
   Network,
   PackageOpen,
+  RefreshCw,
   ServerCog,
   Settings,
   Sun,
@@ -26,8 +30,8 @@ import { AccountsPage } from './pages/AccountsPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { UsageRecordsPage } from './pages/UsageRecordsPage';
 import { languageOptions, useI18n } from './i18n';
+import type { MessageKey } from './i18n/resources';
 import { AppUpdateDialog, AppUpdateProvider, useAppUpdate } from './appUpdate';
-import { appUpdateIndicatorState } from './appUpdateModel';
 import { canOpenAppPage, isAlwaysAvailablePage } from './navigation';
 import { detectInitialTheme, saveTheme, type AppTheme } from './theme';
 import { cn } from '@/lib/utils';
@@ -45,50 +49,67 @@ import {
 const CONTACT_URL = 'https://qm.qq.com/q/3queDaIG';
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'evel-proxy-tool.sidebar-collapsed';
 
-const pages = [
+type PageGroup = 'core' | 'routing' | 'settings';
+
+type PageItem = {
+  id: 'home' | 'oauth' | 'agents' | 'versions' | 'config' | 'api' | 'usage-records';
+  labelKey: MessageKey;
+  group: PageGroup;
+  icon: typeof House;
+  component: () => React.JSX.Element;
+};
+
+const pages: PageItem[] = [
   {
     id: 'home',
     labelKey: 'app.nav.home',
+    group: 'core',
     icon: House,
     component: HomePage,
   },
   {
-    id: 'versions',
-    labelKey: 'app.nav.versions',
-    icon: PackageOpen,
-    component: VersionManagementPage,
-  },
-  {
-    id: 'config',
-    labelKey: 'app.nav.config',
-    icon: Settings,
-    component: ConfigPanelPage,
-  },
-  {
     id: 'oauth',
     labelKey: 'app.nav.oauth',
+    group: 'core',
     icon: LogIn,
     component: AccountsPage,
   },
   {
+    id: 'agents',
+    labelKey: 'app.nav.agents',
+    group: 'core',
+    icon: Bot,
+    component: AgentsPage,
+  },
+  {
     id: 'api',
     labelKey: 'app.nav.api',
+    group: 'routing',
     icon: Network,
     component: ApiAccessPage,
   },
   {
     id: 'usage-records',
     labelKey: 'app.nav.usageRecords',
+    group: 'routing',
     icon: History,
     component: UsageRecordsPage,
   },
   {
-    id: 'agents',
-    labelKey: 'app.nav.agents',
-    icon: Bot,
-    component: AgentsPage,
+    id: 'config',
+    labelKey: 'app.nav.config',
+    group: 'settings',
+    icon: Settings,
+    component: ConfigPanelPage,
   },
-] as const;
+  {
+    id: 'versions',
+    labelKey: 'app.nav.versions',
+    group: 'settings',
+    icon: PackageOpen,
+    component: VersionManagementPage,
+  },
+];
 
 type PageId = (typeof pages)[number]['id'];
 type WindowsCloseAction = 'exit' | 'minimize-to-tray';
@@ -101,6 +122,9 @@ type WindowsClosePrompt = {
 };
 
 type GuiSettings = {
+  port: number;
+  allowLan: boolean;
+  runOnStartup: boolean;
   closeBehavior: WindowsCloseBehavior;
 };
 
@@ -124,9 +148,9 @@ function App() {
 
 function AppContent() {
   const { locale, setLocale, t } = useI18n();
-  const { info: appUpdateInfo, hasUpdate, processing: appUpdateProcessing } = useAppUpdate();
   const [active, setActive] = useState<PageId>('home');
   const [theme, setTheme] = useState<AppTheme>(detectInitialTheme);
+  const [currentPort, setCurrentPort] = useState<number>(8317);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === '1';
@@ -135,7 +159,8 @@ function AppContent() {
     }
   });
   const [windowsClosePrompt, setWindowsClosePrompt] = useState<WindowsClosePrompt | null>(null);
-  const { status } = useCoreRuntime();
+  const [copiedTopEndpoint, setCopiedTopEndpoint] = useState(false);
+  const { status, refreshStatus } = useCoreRuntime();
   const coreRunning = Boolean(status?.running);
   const activePage = pages.find((page) => page.id === active) ?? pages[0];
   const ActivePage = activePage.component;
@@ -150,7 +175,7 @@ function AppContent() {
     try {
       window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, sidebarCollapsed ? '1' : '0');
     } catch {
-      // The in-memory state still works when persistent storage is unavailable.
+      // Storage unavailable fallback
     }
   }, [sidebarCollapsed]);
 
@@ -159,6 +184,16 @@ function AppContent() {
       setActive('home');
     }
   }, [active, coreRunning]);
+
+  useEffect(() => {
+    invoke<GuiSettings>('get_gui_settings')
+      .then((settings) => {
+        if (settings?.port) {
+          setCurrentPort(settings.port);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -172,7 +207,7 @@ function AppContent() {
           return;
         }
       } catch (error) {
-        console.error('读取关闭行为设置失败', error);
+        console.error('Failed to read close settings:', error);
       }
 
       setWindowsClosePrompt((current) =>
@@ -195,7 +230,7 @@ function AppContent() {
         }
       })
       .catch((error) => {
-        console.error('监听 Windows 关闭确认事件失败', error);
+        console.error('Failed to listen for windows close request:', error);
       });
 
     return () => {
@@ -215,8 +250,17 @@ function AppContent() {
     try {
       await invoke('open_external_url', { url: CONTACT_URL });
     } catch (error) {
-      console.error('打开联系我们链接失败', error);
+      console.error('Failed to open contact url:', error);
     }
+  };
+
+  const copyTopEndpoint = async () => {
+    const url = `http://127.0.0.1:${currentPort}/v1`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedTopEndpoint(true);
+      setTimeout(() => setCopiedTopEndpoint(false), 1800);
+    } catch {}
   };
 
   const resolveWindowsCloseRequest = async (
@@ -253,22 +297,38 @@ function AppContent() {
     }
   };
 
+  const groupPages = (group: PageGroup) => pages.filter((p) => p.group === group);
+
   return (
     <>
       <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+        {/* SIDEBAR */}
         <aside
           className={cn(
-            'flex shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-150',
-            sidebarCollapsed ? 'w-[68px]' : 'w-[250px]',
+            'flex shrink-0 flex-col border-r bg-card/60 backdrop-blur-md text-sidebar-foreground transition-[width] duration-200 ease-in-out select-none',
+            sidebarCollapsed ? 'w-[70px]' : 'w-[255px]',
           )}
         >
-          <div className="flex items-center justify-between gap-2 px-3 pt-3.5 pb-2.5">
+          {/* Brand Header */}
+          <div className="flex items-center justify-between gap-2 px-3.5 py-4 border-b border-border/40">
             <div className="flex min-w-0 items-center gap-2.5" title={t('app.brand.tooltip')}>
-              <img src={appLogo} alt="" className="size-8 shrink-0 rounded-lg border" />
+              <div className="relative">
+                <img src={appLogo} alt="" className="size-8.5 shrink-0 rounded-xl border shadow-sm" />
+                <span
+                  className={cn(
+                    'absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-background',
+                    coreRunning ? 'bg-emerald-500' : 'bg-slate-400',
+                  )}
+                />
+              </div>
               {sidebarCollapsed ? null : (
                 <div className="min-w-0">
-                  <strong className="block truncate text-[13.5px] font-semibold tracking-tight">EvelProxyTool</strong>
-                  <span className="block truncate text-[11.5px] text-muted-foreground">{t('app.desktopConsole')}</span>
+                  <strong className="block truncate text-[14px] font-bold tracking-tight text-foreground">
+                    EvelProxyTool
+                  </strong>
+                  <span className="block truncate text-[11px] text-muted-foreground">
+                    {t('app.desktopConsole')}
+                  </span>
                 </div>
               )}
             </div>
@@ -278,92 +338,185 @@ function AppContent() {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t('app.sidebar.collapse')}
-                title={t('app.sidebar.collapse')}
+                className="size-7 rounded-lg text-muted-foreground hover:text-foreground"
                 onClick={() => setSidebarCollapsed(true)}
               >
-                <ChevronLeft size={15} aria-hidden="true" />
+                <ChevronLeft size={16} aria-hidden="true" />
               </Button>
             )}
           </div>
 
-          <nav className="flex flex-col gap-0.5 px-2 py-1.5" aria-label={t('app.navigation')}>
-            {sidebarCollapsed ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="mb-1 h-9 w-full justify-center"
-                aria-label={t('app.sidebar.expand')}
-                title={t('app.sidebar.expand')}
-                onClick={() => setSidebarCollapsed(false)}
-              >
-                <ChevronLeft size={16} aria-hidden="true" className="rotate-180" />
-              </Button>
-            ) : null}
-            {pages.map((page) => {
-              const Icon = page.icon;
-              const locked = !canOpenAppPage(page.id, coreRunning);
-              const updateIndicator = page.id === 'versions'
-                ? appUpdateIndicatorState(hasUpdate, appUpdateProcessing)
-                : null;
-              const updateTitle = updateIndicator === 'processing'
-                ? t('appUpdate.progressTitle')
-                : t('appUpdate.badgeAvailable', { version: appUpdateInfo?.latestVersion ?? '' });
-              return (
-                <button
-                  key={page.id}
-                  type="button"
-                  className={cn(
-                    'relative flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[13.5px] font-medium text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50',
-                    page.id === active && 'bg-accent font-semibold text-foreground',
-                    sidebarCollapsed && 'justify-center px-0',
-                  )}
-                  disabled={locked}
-                  title={locked ? t('app.coreRequired.title') : t(page.labelKey)}
-                  onClick={() => select(page.id)}
-                >
-                  <Icon size={17} aria-hidden="true" className="shrink-0" />
-                  {sidebarCollapsed ? null : <span className="truncate">{t(page.labelKey)}</span>}
-                  {updateIndicator ? (
-                    <i
+          {/* Navigation Links */}
+          <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4">
+            {/* Core Services Section */}
+            <div className="space-y-1">
+              {!sidebarCollapsed && (
+                <div className="px-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  Core Services
+                </div>
+              )}
+              {groupPages('core').map((page) => {
+                const Icon = page.icon;
+                const isSelected = active === page.id;
+                const available = canOpenAppPage(page.id, coreRunning);
+                const label = t(page.labelKey);
+
+                return (
+                  <button
+                    key={page.id}
+                    type="button"
+                    disabled={!available}
+                    onClick={() => select(page.id)}
+                    title={sidebarCollapsed ? label : undefined}
+                    className={cn(
+                      'group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer',
+                      isSelected
+                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                        : available
+                          ? 'text-muted-foreground hover:bg-accent/80 hover:text-foreground'
+                          : 'cursor-not-allowed text-muted-foreground/40 opacity-50',
+                      sidebarCollapsed ? 'justify-center px-0' : '',
+                    )}
+                  >
+                    <Icon
+                      size={17}
+                      aria-hidden="true"
                       className={cn(
-                        'size-1.5 shrink-0 rounded-full',
-                        sidebarCollapsed ? 'absolute top-1 right-1' : 'ml-auto',
-                        updateIndicator === 'processing' ? 'animate-pulse bg-muted-foreground' : 'bg-primary',
+                        'shrink-0 transition-transform duration-150 group-hover:scale-105',
+                        isSelected ? 'text-primary-foreground' : '',
                       )}
-                      title={updateTitle}
-                      aria-label={updateTitle}
                     />
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
+                    {!sidebarCollapsed && <span className="truncate">{label}</span>}
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="flex-1" />
+            {/* Routing & Insights Section */}
+            <div className="space-y-1">
+              {!sidebarCollapsed && (
+                <div className="px-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  Routing & Insights
+                </div>
+              )}
+              {groupPages('routing').map((page) => {
+                const Icon = page.icon;
+                const isSelected = active === page.id;
+                const available = canOpenAppPage(page.id, coreRunning);
+                const label = t(page.labelKey);
 
-          <div className="grid gap-2 border-t p-2">
+                return (
+                  <button
+                    key={page.id}
+                    type="button"
+                    disabled={!available}
+                    onClick={() => select(page.id)}
+                    title={sidebarCollapsed ? label : undefined}
+                    className={cn(
+                      'group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer',
+                      isSelected
+                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                        : available
+                          ? 'text-muted-foreground hover:bg-accent/80 hover:text-foreground'
+                          : 'cursor-not-allowed text-muted-foreground/40 opacity-50',
+                      sidebarCollapsed ? 'justify-center px-0' : '',
+                    )}
+                  >
+                    <Icon
+                      size={17}
+                      aria-hidden="true"
+                      className={cn(
+                        'shrink-0 transition-transform duration-150 group-hover:scale-105',
+                        isSelected ? 'text-primary-foreground' : '',
+                      )}
+                    />
+                    {!sidebarCollapsed && <span className="truncate">{label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* System Settings Section */}
+            <div className="space-y-1">
+              {!sidebarCollapsed && (
+                <div className="px-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  System
+                </div>
+              )}
+              {groupPages('settings').map((page) => {
+                const Icon = page.icon;
+                const isSelected = active === page.id;
+                const available = canOpenAppPage(page.id, coreRunning);
+                const label = t(page.labelKey);
+
+                return (
+                  <button
+                    key={page.id}
+                    type="button"
+                    disabled={!available}
+                    onClick={() => select(page.id)}
+                    title={sidebarCollapsed ? label : undefined}
+                    className={cn(
+                      'group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer',
+                      isSelected
+                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                        : available
+                          ? 'text-muted-foreground hover:bg-accent/80 hover:text-foreground'
+                          : 'cursor-not-allowed text-muted-foreground/40 opacity-50',
+                      sidebarCollapsed ? 'justify-center px-0' : '',
+                    )}
+                  >
+                    <Icon
+                      size={17}
+                      aria-hidden="true"
+                      className={cn(
+                        'shrink-0 transition-transform duration-150 group-hover:scale-105',
+                        isSelected ? 'text-primary-foreground' : '',
+                      )}
+                    />
+                    {!sidebarCollapsed && <span className="truncate">{label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sidebar Footer Controls */}
+          <div className="border-t border-border/40 p-2.5 space-y-2">
             {sidebarCollapsed ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="mx-auto"
-                title={theme === 'light' ? t('app.theme.switchToDark') : t('app.theme.switchToLight')}
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              >
-                {theme === 'light' ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
-              </Button>
+              <div className="flex flex-col items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('app.sidebar.expand')}
+                  className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+                  onClick={() => setSidebarCollapsed(false)}
+                >
+                  <ChevronRight size={16} aria-hidden="true" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  title={theme === 'dark' ? t('app.theme.switchToLight') : t('app.theme.switchToDark')}
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+                >
+                  {theme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
+                </Button>
+              </div>
             ) : (
               <>
-                <div className="flex gap-0.5 rounded-lg bg-muted p-0.5" role="group" aria-label={`${t('app.theme.light')} / ${t('app.theme.dark')}`}>
+                <div className="grid grid-cols-2 gap-1.5 rounded-lg border bg-muted/40 p-1 text-xs">
                   <button
                     type="button"
                     className={cn(
-                      'flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors',
-                      theme === 'light' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      'flex items-center justify-center gap-1.5 rounded-md py-1 font-medium transition-colors cursor-pointer',
+                      theme === 'light'
+                        ? 'bg-card text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground',
                     )}
-                    aria-pressed={theme === 'light'}
-                    title={t('app.theme.switchToLight')}
                     onClick={() => setTheme('light')}
                   >
                     <Sun size={13} aria-hidden="true" /> {t('app.theme.light')}
@@ -371,11 +524,11 @@ function AppContent() {
                   <button
                     type="button"
                     className={cn(
-                      'flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors',
-                      theme === 'dark' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      'flex items-center justify-center gap-1.5 rounded-md py-1 font-medium transition-colors cursor-pointer',
+                      theme === 'dark'
+                        ? 'bg-card text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground',
                     )}
-                    aria-pressed={theme === 'dark'}
-                    title={t('app.theme.switchToDark')}
                     onClick={() => setTheme('dark')}
                   >
                     <Moon size={13} aria-hidden="true" /> {t('app.theme.dark')}
@@ -383,15 +536,15 @@ function AppContent() {
                 </div>
 
                 <Select value={locale} onValueChange={(value) => setLocale(value as typeof locale)}>
-                  <SelectTrigger className="w-full" aria-label={t('app.language')}>
+                  <SelectTrigger className="w-full h-8 text-xs" aria-label={t('app.language')}>
                     <div className="flex items-center gap-2">
-                      <Languages size={14} aria-hidden="true" className="text-muted-foreground" />
+                      <Languages size={13} aria-hidden="true" className="text-muted-foreground" />
                       <SelectValue>{selectedLanguage.nativeLabel}</SelectValue>
                     </div>
                   </SelectTrigger>
                   <SelectContent>
                     {languageOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
+                      <SelectItem key={option.value} value={option.value} className="text-xs">
                         <span lang={option.value}>{option.nativeLabel}</span>
                       </SelectItem>
                     ))}
@@ -400,31 +553,93 @@ function AppContent() {
 
                 <button
                   type="button"
-                  className="flex h-8.5 items-center gap-2 rounded-md border bg-card px-2.5 text-[12.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="flex h-8 w-full items-center gap-2 rounded-lg border bg-card/60 px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
                   title={t('app.contact.title')}
                   onClick={() => void openContact()}
                 >
-                  <MessageCircle size={15} aria-hidden="true" />
+                  <MessageCircle size={14} aria-hidden="true" />
                   <span className="flex-1 text-left">{t('app.contact.label')}</span>
-                  <ExternalLink size={13} aria-hidden="true" />
+                  <ExternalLink size={12} aria-hidden="true" />
                 </button>
               </>
             )}
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1 overflow-y-auto">
-          <main className="p-6">
-            {isAlwaysAvailablePage(activePage.id) || coreRunning ? (
-              <ActivePage />
-            ) : (
-              <CoreLockedPage />
-            )}
-          </main>
+        {/* MAIN AREA */}
+        <div className="min-w-0 flex-1 flex flex-col overflow-hidden">
+          {/* TOP GLOBAL TELEMETRY HEADER */}
+          <header className="h-14 shrink-0 border-b border-border/40 bg-card/40 backdrop-blur-md px-6 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-base font-bold text-foreground tracking-tight flex items-center gap-2">
+                {t(activePage.labelKey)}
+              </h1>
+            </div>
+
+            {/* Live Telemetry Status Pills */}
+            <div className="flex items-center gap-2.5">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border bg-background/80 text-xs text-muted-foreground shadow-xs">
+                <span
+                  className={cn(
+                    'size-2 rounded-full',
+                    coreRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400',
+                  )}
+                />
+                <span>
+                  Core: <strong className="font-mono text-foreground">{coreRunning ? `127.0.0.1:${currentPort}` : 'Stopped'}</strong>
+                </span>
+                {status?.processId ? (
+                  <span className="text-[11px] text-muted-foreground/80 font-mono">
+                    (PID: {status.processId})
+                  </span>
+                ) : null}
+              </div>
+
+              {coreRunning && (
+                <button
+                  type="button"
+                  onClick={() => void copyTopEndpoint()}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-primary/10 border-primary/20 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors cursor-pointer"
+                  title="Sao chép Endpoint OpenAI: http://127.0.0.1:{port}/v1"
+                >
+                  {copiedTopEndpoint ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copiedTopEndpoint ? 'Đã chép /v1' : 'Copy /v1'}</span>
+                </button>
+              )}
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
+                title="Làm mới trạng thái Core"
+                onClick={() => void refreshStatus()}
+              >
+                <RefreshCw size={14} />
+              </Button>
+            </div>
+          </header>
+
+          {/* MAIN PAGE VIEW CONTAINER */}
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <main className="p-6 max-w-7xl mx-auto">
+              {isAlwaysAvailablePage(activePage.id) || coreRunning ? (
+                <ActivePage />
+              ) : (
+                <CoreLockedPage />
+              )}
+            </main>
+          </div>
         </div>
       </div>
 
-      <Dialog open={Boolean(windowsClosePrompt)} onOpenChange={(open) => !open && windowsClosePrompt?.resolvingAction === null && setWindowsClosePrompt(null)}>
+      {/* WINDOWS CLOSE CONFIRMATION DIALOG */}
+      <Dialog
+        open={Boolean(windowsClosePrompt)}
+        onOpenChange={(open) =>
+          !open && windowsClosePrompt?.resolvingAction === null && setWindowsClosePrompt(null)
+        }
+      >
         {windowsClosePrompt ? (
           <DialogContent showCloseButton={windowsClosePrompt.resolvingAction === null} className="sm:max-w-sm">
             <DialogTitle className="text-lg font-semibold">{t('app.close.title')}</DialogTitle>
@@ -483,7 +698,7 @@ function CoreLockedPage() {
   return (
     <section className="grid min-h-[60vh] place-items-center">
       <div className="grid max-w-sm justify-items-center gap-2 text-center">
-        <ServerCog size={26} aria-hidden="true" className="text-muted-foreground" />
+        <ServerCog size={28} aria-hidden="true" className="text-muted-foreground" />
         <strong className="text-base font-semibold">{t('app.coreRequired.title')}</strong>
         <span className="text-sm text-muted-foreground">{t('app.coreRequired.description')}</span>
       </div>
