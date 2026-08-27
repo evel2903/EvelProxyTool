@@ -666,7 +666,7 @@ export function ConfigPanelPage() {
 
   return (
     <section className="grid gap-4">
-      <div className="inline-flex w-fit gap-0.5 rounded-lg bg-muted p-0.5" role="tablist" aria-label={t('config.tabs.label')}>
+      <div className="inline-flex w-fit gap-1 rounded-xl border bg-card/60 backdrop-blur-sm p-1 shadow-2xs" role="tablist" aria-label={t('config.tabs.label')}>
         {([
           ['general', t('config.tabs.general')],
           ['network', t('config.tabs.network')],
@@ -679,8 +679,10 @@ export function ConfigPanelPage() {
             id={`config-subpage-tab-${id}`}
             role="tab"
             className={cn(
-              'rounded-md px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
-              activeSubpage === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              'rounded-lg px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer',
+              activeSubpage === id
+                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
             )}
             aria-selected={activeSubpage === id}
             aria-controls={`config-subpage-panel-${id}`}

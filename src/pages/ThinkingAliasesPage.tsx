@@ -682,14 +682,14 @@ export function ThinkingAliasesPage() {
 
             <button
               type="button"
-              className="primary-button thinking-alias-create"
+              className="primary-button thinking-alias-create flex items-center justify-center gap-2 font-semibold"
               onClick={() => void createAlias()}
               disabled={loading || Boolean(busyAlias)}
             >
               {busyAction === 'create'
-                ? <LoaderCircle size={16} className="spin" />
+                ? <LoaderCircle size={16} className="animate-spin" />
                 : <GitFork size={16} />}
-              {busyAction === 'create' ? t('aliases.creating') : t('aliases.create')}
+              <span>{busyAction === 'create' ? t('aliases.creating') : t('aliases.create')}</span>
             </button>
         </section>
 

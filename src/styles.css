@@ -4078,10 +4078,10 @@ textarea:focus-visible {
   height: 38px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--theme-d8d1eb);
-  border-radius: 8px;
-  background: var(--theme-f5f1ff);
-  color: var(--theme-654f91);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--secondary);
+  color: var(--primary);
 }
 
 .thinking-alias-panel-heading > div {
@@ -4334,18 +4334,27 @@ textarea:focus-visible {
 .thinking-effort-options button {
   height: 34px;
   padding: 0 4px;
-  border: 1px solid var(--theme-d5d2cb);
-  border-radius: 6px;
-  background: var(--theme-fff);
-  color: var(--theme-7a746c);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted-foreground);
   font-size: var(--font-size-body);
-  font-weight: 700;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.thinking-effort-options button:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--foreground);
 }
 
 .thinking-effort-options button.active {
-  border-color: var(--theme-8069ad);
-  background: var(--theme-f1ecfb);
-  color: var(--theme-554075);
+  border-color: var(--primary);
+  background: var(--secondary);
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(2, 132, 199, 0.12);
 }
 
 .thinking-effort-options button.custom {
@@ -4488,11 +4497,11 @@ textarea:focus-visible {
   align-items: center;
   gap: 9px;
   min-height: 56px;
-  padding: 9px 11px;
-  border: 1px solid var(--theme-d8d1eb);
-  border-radius: 7px;
-  background: var(--theme-f8f5ff);
-  color: var(--theme-654f91);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--secondary);
+  color: var(--primary);
 }
 
 .thinking-alias-preview > div {
@@ -4515,13 +4524,23 @@ textarea:focus-visible {
 }
 
 .thinking-alias-preview code {
-  color: var(--theme-8069ad);
+  color: var(--primary);
   font-size: var(--font-size-body);
+  font-weight: 600;
 }
 
 .thinking-alias-create {
   width: 100%;
   margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .thinking-alias-list-panel {
