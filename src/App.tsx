@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Copy,
   ExternalLink,
+  GitBranch,
   History,
   House,
   Languages,
@@ -17,6 +18,7 @@ import {
   Network,
   PackageOpen,
   RefreshCw,
+  Send,
   ServerCog,
   Settings,
   Sun,
@@ -45,8 +47,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-const CONTACT_URL = 'https://qm.qq.com/q/3queDaIG';
+const CONTACT_LINKS = [
+  { key: 'telegramChannel', name: 'Evel Service', url: 'https://t.me/gptserviceprochannel', icon: Send },
+  { key: 'telegramPersonal', name: 'San Lee', url: 'https://t.me/sanlee035', icon: Send },
+  { key: 'github', name: 'GitHub', url: 'https://github.com/evel2903/EvelProxyTool', icon: GitBranch },
+] as const;
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'evel-proxy-tool.sidebar-collapsed';
 
 type PageGroup = 'core' | 'routing' | 'settings';
@@ -246,9 +258,9 @@ function AppContent() {
     setActive(pageId);
   };
 
-  const openContact = async () => {
+  const openContact = async (url: string) => {
     try {
-      await invoke('open_external_url', { url: CONTACT_URL });
+      await invoke('open_external_url', { url });
     } catch (error) {
       console.error('Failed to open contact url:', error);
     }
@@ -551,16 +563,27 @@ function AppContent() {
                   </SelectContent>
                 </Select>
 
-                <button
-                  type="button"
-                  className="flex h-8 w-full items-center gap-2 rounded-lg border bg-card/60 px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
-                  title={t('app.contact.title')}
-                  onClick={() => void openContact()}
-                >
-                  <MessageCircle size={14} aria-hidden="true" />
-                  <span className="flex-1 text-left">{t('app.contact.label')}</span>
-                  <ExternalLink size={12} aria-hidden="true" />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-8 w-full items-center gap-2 rounded-lg border bg-card/60 px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
+                      title={t('app.contact.title')}
+                    >
+                      <MessageCircle size={14} aria-hidden="true" />
+                      <span className="flex-1 text-left">{t('app.contact.label')}</span>
+                      <ExternalLink size={12} aria-hidden="true" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="top">
+                    {CONTACT_LINKS.map((link) => (
+                      <DropdownMenuItem key={link.key} onClick={() => void openContact(link.url)}>
+                        <link.icon size={14} aria-hidden="true" />
+                        <span className="flex-1">{t(`app.contact.${link.key}` as MessageKey)}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
