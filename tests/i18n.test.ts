@@ -37,6 +37,7 @@ describe('i18n', () => {
       { value: 'zh-CN', nativeLabel: '简体中文' },
       { value: 'zh-TW', nativeLabel: '繁體中文' },
       { value: 'ja', nativeLabel: '日本語' },
+      { value: 'vi', nativeLabel: 'Tiếng Việt' },
       { value: 'en', nativeLabel: 'English' },
     ]);
   });

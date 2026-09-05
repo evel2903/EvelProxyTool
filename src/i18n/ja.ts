@@ -873,6 +873,7 @@ export const jaOverrides = {
   'apiAccess.modelDialog.checkCredentials': 'Base URL と API キーを確認してください',
   'apiAccess.modelDialog.apply': '選択を適用（{count}）',
   'kernel.apiUrl.title': 'API URL',
+  'kernel.apiUrl.description': 'AIコーディングエージェントやIDE拡張機能と互換性のある標準化されたローカルエンドポイント',
   'kernel.install.completed': '{version} のインストールが完了しました',
   'kernel.error.progressListener': 'ダウンロード進捗の監視に失敗しました：{error}',
   'kernel.action.start': '起動',

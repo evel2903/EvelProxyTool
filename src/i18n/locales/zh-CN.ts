@@ -871,6 +871,7 @@ export const zhCN = {
   'apiAccess.modelDialog.checkCredentials': '请检查 Base URL 和 API 密钥',
   'apiAccess.modelDialog.apply': '应用选择（{count}）',
   'kernel.apiUrl.title': 'API URL',
+  'kernel.apiUrl.description': '与 AI 编程代理和 IDE 扩展兼容的标准化本地端点',
   'kernel.install.completed': '{version} 安装完成',
   'kernel.error.progressListener': '监听下载进度失败: {error}',
   'kernel.action.start': '启动',

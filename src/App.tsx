@@ -326,13 +326,24 @@ function AppContent() {
         <aside
           className={cn(
             'flex shrink-0 flex-col border-r bg-card/60 backdrop-blur-md text-sidebar-foreground transition-[width] duration-200 ease-in-out select-none',
-            sidebarCollapsed ? 'w-[70px]' : 'w-[255px]',
+            sidebarCollapsed ? 'w-[70px]' : 'w-[260px]',
           )}
         >
           {/* Brand Header */}
-          <div className="flex items-center justify-between gap-2 px-3.5 py-4 border-b border-border/40">
-            <div className="flex min-w-0 items-center gap-2.5" title={t('app.brand.tooltip')}>
-              <div className="relative">
+          <div
+            className={cn(
+              'flex items-center border-b border-border/40 py-4 transition-all',
+              sidebarCollapsed ? 'justify-center px-0' : 'justify-between gap-2 px-3.5',
+            )}
+          >
+            {sidebarCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(false)}
+                title={t('app.sidebar.expand')}
+                aria-label={t('app.sidebar.expand')}
+                className="relative cursor-pointer transition-transform hover:scale-105"
+              >
                 <img src={appLogo} alt="" className="size-8.5 shrink-0 rounded-xl border shadow-sm" />
                 <span
                   className={cn(
@@ -340,29 +351,39 @@ function AppContent() {
                     coreRunning ? 'bg-emerald-500' : 'bg-slate-400',
                   )}
                 />
-              </div>
-              {sidebarCollapsed ? null : (
-                <div className="min-w-0">
-                  <strong className="block truncate text-[14px] font-bold tracking-tight text-foreground">
-                    EvelProxyTool
-                  </strong>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {t('app.desktopConsole')}
-                  </span>
+              </button>
+            ) : (
+              <>
+                <div className="flex min-w-0 items-center gap-2.5" title={t('app.brand.tooltip')}>
+                  <div className="relative">
+                    <img src={appLogo} alt="" className="size-8.5 shrink-0 rounded-xl border shadow-sm" />
+                    <span
+                      className={cn(
+                        'absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-background',
+                        coreRunning ? 'bg-emerald-500' : 'bg-slate-400',
+                      )}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <strong className="block truncate text-[14px] font-bold tracking-tight text-foreground">
+                      EvelProxyTool
+                    </strong>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {t('app.desktopConsole')}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
-            {sidebarCollapsed ? null : (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('app.sidebar.collapse')}
-                className="size-7 rounded-lg text-muted-foreground hover:text-foreground"
-                onClick={() => setSidebarCollapsed(true)}
-              >
-                <ChevronLeft size={16} aria-hidden="true" />
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('app.sidebar.collapse')}
+                  className="size-7 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                  onClick={() => setSidebarCollapsed(true)}
+                >
+                  <ChevronLeft size={16} aria-hidden="true" />
+                </Button>
+              </>
             )}
           </div>
 
@@ -528,7 +549,7 @@ function AppContent() {
                   variant="ghost"
                   size="icon-sm"
                   aria-label={t('app.sidebar.expand')}
-                  className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+                  className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
                   onClick={() => setSidebarCollapsed(false)}
                 >
                   <ChevronRight size={16} aria-hidden="true" />
@@ -539,10 +560,59 @@ function AppContent() {
                   size="icon-sm"
                   title={theme === 'dark' ? t('app.theme.switchToLight') : t('app.theme.switchToDark')}
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+                  className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   {theme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
                 </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      title={t('app.language')}
+                      aria-label={t('app.language')}
+                      className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      <Languages size={15} aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" side="right">
+                    {languageOptions.map((opt) => (
+                      <DropdownMenuItem
+                        key={opt.value}
+                        onClick={() => setLocale(opt.value as typeof locale)}
+                        className={cn(opt.value === locale && 'font-bold text-primary')}
+                      >
+                        {opt.nativeLabel}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      title={t('app.contact.title')}
+                      aria-label={t('app.contact.title')}
+                      className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      <MessageCircle size={15} aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" side="right">
+                    {CONTACT_LINKS.map((link) => (
+                      <DropdownMenuItem key={link.key} onClick={() => void openContact(link.url)}>
+                        <link.icon size={14} aria-hidden="true" />
+                        <span className="flex-1">{t(`app.contact.${link.key}` as MessageKey)}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ) : (
               <>

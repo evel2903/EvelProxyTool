@@ -776,7 +776,7 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
               {/* Action Controls & Telemetry */}
               <div className="lg:col-span-7 flex flex-col justify-between gap-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3 bg-muted/30 rounded-xl border border-border/40 flex flex-col justify-between">
+                  <div className="p-3 bg-muted/30 rounded-xl border border-border/40 flex flex-col justify-between min-w-0">
                     <span className="text-xs text-muted-foreground font-medium flex items-center justify-between">
                       Architecture <Cpu size={14} className="text-primary" />
                     </span>
@@ -785,20 +785,20 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                     </span>
                   </div>
 
-                  <div className="p-3 bg-muted/30 rounded-xl border border-border/40 flex flex-col justify-between">
+                  <div className="p-3 bg-muted/30 rounded-xl border border-border/40 flex flex-col justify-between min-w-0">
                     <span className="text-xs text-muted-foreground font-medium flex items-center justify-between">
                       LAN Access <Globe size={14} className="text-cyan-500" />
                     </span>
-                    <span className="text-sm font-bold text-foreground mt-1">
+                    <span className="text-sm font-bold text-foreground mt-1 truncate">
                       {allowLanAccess ? (lanIpv4 || 'Enabled') : 'Disabled'}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-muted/30 rounded-xl border border-border/40 flex flex-col justify-between">
+                  <div className="p-3 bg-muted/30 rounded-xl border border-border/40 flex flex-col justify-between min-w-0">
                     <span className="text-xs text-muted-foreground font-medium flex items-center justify-between">
                       API Status <Zap size={14} className="text-amber-500" />
                     </span>
-                    <span className="text-sm font-bold text-foreground mt-1">
+                    <span className="text-sm font-bold text-foreground mt-1 truncate">
                       {coreRunning ? t('kernel.access.connectable') : t('kernel.access.waiting')}
                     </span>
                   </div>
@@ -851,21 +851,21 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
 
           {/* STANDARDIZED API ENDPOINTS SECTION */}
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
+              <div className="min-w-0">
                 <h3 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
-                  <Network size={18} className="text-primary" />
+                  <Network size={18} className="text-primary shrink-0" />
                   {t('kernel.apiUrl.title')}
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  Các cổng kết nối cục bộ chuẩn hóa tương thích với các AI Coding Agents và IDE extensions
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t('kernel.apiUrl.description')}
                 </p>
               </div>
 
               {/* Primary API Key Display */}
               {typeof homeApiKey === 'string' && (
-                <div className="flex items-center gap-2 bg-card border rounded-xl px-3 py-1.5 shadow-xs">
-                  <span className="text-xs font-medium text-muted-foreground">{t('kernel.access.firstKey')}:</span>
+                <div className="flex items-center gap-2 bg-card border rounded-xl px-3 py-1.5 shadow-xs shrink-0 self-start sm:self-auto">
+                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t('kernel.access.firstKey')}:</span>
                   <code className="font-mono text-xs text-primary font-bold">
                     {showHomeApiKey ? homeApiKey : '••••••••••••••••'}
                   </code>
@@ -900,33 +900,45 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
             </div>
 
             {/* 3-Column API Profiles Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {apiProfiles.map((profile) => (
                 <div
                   key={profile.id}
-                  className="rounded-2xl border bg-card/60 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between gap-4 group"
+                  className="rounded-2xl border bg-card/60 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between gap-3 group min-w-0 overflow-hidden"
                 >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="size-8.5 rounded-xl border bg-background flex items-center justify-center p-1 shadow-xs">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="size-8.5 shrink-0 rounded-xl border bg-background flex items-center justify-center p-1 shadow-xs">
                           <img src={apiProfileIcons[profile.id]} alt="" className="size-5" />
                         </div>
-                        <div>
-                          <strong className="text-sm font-bold block text-foreground">{profile.name} Format</strong>
-                          <span className="text-[11px] text-muted-foreground block truncate">
-                            {profile.description}
-                          </span>
+                        <div className="min-w-0">
+                          <strong className="text-sm font-bold block truncate text-foreground">
+                            {profile.name} Format
+                          </strong>
                         </div>
                       </div>
-                      <Badge variant={coreRunning ? 'success' : 'secondary'} className="text-[10px]">
+                      <Badge
+                        variant={coreRunning ? 'success' : 'secondary'}
+                        className="shrink-0 text-[10px] font-mono font-semibold px-2 py-0.5 whitespace-nowrap"
+                      >
                         {profile.id === 'openai' ? '/v1' : profile.id === 'claude' ? '/v1/messages' : 'v1beta'}
                       </Badge>
                     </div>
 
+                    <p
+                      className="text-[11.5px] text-muted-foreground line-clamp-1"
+                      title={profile.description}
+                    >
+                      {profile.description}
+                    </p>
+
                     {/* Base URL Copy Box */}
-                    <div className="p-2.5 rounded-xl bg-background/80 border text-xs font-mono flex items-center justify-between gap-2">
-                      <code className="truncate text-foreground font-semibold" title={profile.baseUrl}>
+                    <div className="p-2 rounded-xl bg-background/80 border text-xs font-mono flex items-center justify-between gap-2 min-w-0 mt-2">
+                      <code
+                        className="truncate text-foreground font-semibold text-[11.5px] select-all min-w-0 flex-1"
+                        title={profile.baseUrl}
+                      >
                         {profile.baseUrl}
                       </code>
                       <Button
@@ -953,12 +965,15 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
 
                     {/* LAN URL if enabled */}
                     {allowLanAccess && profile.lanUrl && (
-                      <div className="p-2.5 rounded-xl bg-muted/40 border text-xs font-mono flex items-center justify-between gap-2 mt-2">
-                        <div className="min-w-0">
+                      <div className="p-2 rounded-xl bg-muted/40 border text-xs font-mono flex items-center justify-between gap-2 min-w-0 mt-1.5">
+                        <div className="min-w-0 flex-1">
                           <span className="text-[10px] text-muted-foreground font-sans block uppercase font-semibold">
                             {t('kernel.access.lanUrl')}
                           </span>
-                          <code className="truncate text-foreground font-semibold block" title={profile.lanUrl}>
+                          <code
+                            className="truncate text-foreground font-semibold text-[11.5px] select-all block"
+                            title={profile.lanUrl}
+                          >
                             {profile.lanUrl}
                           </code>
                         </div>
@@ -986,15 +1001,15 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                     )}
                   </div>
 
-                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
+                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground min-w-0">
+                    <span className="truncate mr-2">
                       {profile.id === 'openai'
                         ? 'Cursor, Aider, LangChain'
                         : profile.id === 'claude'
                           ? 'Claude Code, Desktop'
                           : 'Google AI Studio SDK'}
                     </span>
-                    <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <span className="text-emerald-500 font-semibold flex items-center gap-1 shrink-0">
                       <Check size={12} /> Ready
                     </span>
                   </div>
