@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
   Globe,
+  Monitor,
   Network,
   Power,
   RefreshCw,
@@ -609,10 +610,13 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
     : statusError
       ? t('common.detectionFailed')
       : t('common.detecting');
-  const resolvedAppVersion = appUpdate?.currentVersion || installedAppVersion;
+  const resolvedAppVersion = installedAppVersion || appUpdate?.currentVersion;
   const currentAppVersion = resolvedAppVersion
     ? displayAppVersion(resolvedAppVersion)
     : t('common.detecting');
+  const latestAppVersion = appUpdate?.latestVersion
+    ? displayAppVersion(appUpdate.latestVersion)
+    : appUpdateError ? t('common.detectionFailed') : t('appUpdate.phase.checking');
   const latestLabel = checkingLatest
     ? t('kernel.update.checking')
     : latestVersion || (latestError ? t('kernel.update.failed') : t('kernel.update.notChecked'));
@@ -744,7 +748,7 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {t('kernel.overview.coreVersion')}: <strong className="font-mono text-foreground">{currentVersion || t('kernel.status.notInstalled')}</strong>
-                      {' · '}{displayAppVersion(currentAppVersion)}
+                      {' · '}{t('kernel.overview.appVersion')}: <strong className="font-mono text-foreground">{currentAppVersion}</strong>
                     </p>
                   </div>
                 </div>
@@ -1004,59 +1008,44 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
       {/* ===================== VERSIONS MANAGEMENT VIEW ===================== */}
       {view === 'versions' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Card className="gap-1 p-4 rounded-2xl bg-card/60 backdrop-blur-sm">
-              <span className="text-xs text-muted-foreground">{t('kernel.versions.current')}</span>
-              <strong className="font-mono text-lg font-bold text-foreground">
-                {currentVersion || t('kernel.status.notInstalled')}
-              </strong>
-            </Card>
-            <Card className="gap-1 p-4 rounded-2xl bg-card/60 backdrop-blur-sm">
-              <span className="text-xs text-muted-foreground">{t('kernel.versions.latest')}</span>
-              <strong className="font-mono text-lg font-bold text-primary">{latestLabel}</strong>
-            </Card>
-            <Card className="gap-1 p-4 rounded-2xl bg-card/60 backdrop-blur-sm">
-              <span className="text-xs text-muted-foreground">{t('kernel.versions.bundled')}</span>
-              <strong
-                className="truncate font-mono text-lg font-bold text-foreground"
-                title={bundledCoreError || bundledCore?.assetName}
-              >
-                {bundledCore?.version ?? (bundledCoreError ? t('common.detectionFailed') : t('kernel.versions.notIncluded'))}
-              </strong>
-            </Card>
-            <Card className="gap-1 p-4 rounded-2xl bg-card/60 backdrop-blur-sm">
-              <span className="text-xs text-muted-foreground">{t('kernel.versions.platform')}</span>
-              <strong
-                className="truncate font-mono text-lg font-bold text-foreground"
-                title={platformError || undefined}
-              >
-                {platformOsLabel} / {platformArchLabel}
-              </strong>
-            </Card>
-          </div>
-
-          <Card className="gap-0 p-0 overflow-hidden rounded-2xl">
-            <div className="flex items-start justify-between gap-3 p-5 pb-3">
+          <Card role="region" aria-labelledby="app-version-title" className="gap-0 p-0 rounded-2xl ring-primary/25">
+            <div className="flex items-start gap-3 p-5 pb-4">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Monitor size={20} aria-hidden="true" />
+              </div>
               <div>
-                <h2 className="text-base font-bold text-foreground">{t('appUpdate.title')}</h2>
-                <p className={cn('mt-1 text-xs', appUpdateError ? 'text-destructive' : appUpdate?.updateAvailable ? 'text-emerald-500 font-semibold' : 'text-muted-foreground')}>
-                  {appUpdateError
-                    || (appUpdate?.updateAvailable
-                      ? t('appUpdate.available', { version: displayAppVersion(appUpdate.latestVersion) })
-                      : appUpdate
-                        ? t('appUpdate.upToDate')
-                        : t('appUpdate.phase.checking'))}
-                </p>
-                {manualUpdateHint && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {t(manualUpdateHint.messageKey)}
-                    {manualUpdateHint.detail && ` ${manualUpdateHint.detail}`}
-                  </p>
-                )}
+                <h2 id="app-version-title" className="text-base font-bold text-foreground">{t('appUpdate.title')}</h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('appUpdate.description')}</p>
               </div>
             </div>
+            <dl className="grid gap-3 px-5 pb-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+                <dt className="text-xs text-muted-foreground">{t('appUpdate.current')}</dt>
+                <dd className="mt-1 break-words font-mono text-2xl font-bold text-foreground">{currentAppVersion}</dd>
+              </div>
+              <div className="rounded-xl border border-border/50 bg-muted/30 p-4">
+                <dt className="text-xs text-muted-foreground">{t('appUpdate.latest')}</dt>
+                <dd className="mt-1 break-words font-mono text-2xl font-bold text-primary">{latestAppVersion}</dd>
+              </div>
+            </dl>
+            <div className="px-5 pb-4" aria-live="polite">
+              <p className={cn('break-words text-xs', appUpdateError ? 'text-destructive' : appUpdate?.updateAvailable ? 'text-emerald-500 font-semibold' : 'text-muted-foreground')}>
+                {checkingAppUpdate ? t('appUpdate.phase.checking') : appUpdateError
+                  || (appUpdate?.updateAvailable
+                    ? t('appUpdate.available', { version: displayAppVersion(appUpdate.latestVersion) })
+                    : appUpdate
+                      ? t('appUpdate.upToDate')
+                      : t('appUpdate.phase.checking'))}
+              </p>
+              {manualUpdateHint && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t(manualUpdateHint.messageKey)}
+                  {manualUpdateHint.detail && ` ${manualUpdateHint.detail}`}
+                </p>
+              )}
+            </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 p-5 pt-2 border-t border-border/40">
+            <div className="flex flex-wrap items-center gap-2.5 border-t border-border/40 p-5">
               <Button
                 type="button"
                 variant="outline"
@@ -1099,7 +1088,40 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
             </div>
           </Card>
 
-          <Card className="gap-3 p-5 rounded-2xl">
+          <Card role="region" aria-labelledby="core-version-title" className="gap-4 p-5 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <Cpu size={20} aria-hidden="true" />
+              </div>
+              <div>
+                <h2 id="core-version-title" className="text-base font-bold text-foreground">{t('kernel.versions.title')}</h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('kernel.versions.description')}</p>
+              </div>
+            </div>
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="min-w-0 rounded-xl border border-border/50 bg-muted/30 p-4">
+                <dt className="text-xs text-muted-foreground">{t('kernel.versions.current')}</dt>
+                <dd className="mt-1 break-words font-mono text-lg font-bold text-foreground">
+                  {currentVersion || t('kernel.status.notInstalled')}
+                </dd>
+              </div>
+              <div className="min-w-0 rounded-xl border border-border/50 bg-muted/30 p-4">
+                <dt className="text-xs text-muted-foreground">{t('kernel.versions.latest')}</dt>
+                <dd className="mt-1 break-words font-mono text-lg font-bold text-foreground">{latestLabel}</dd>
+              </div>
+              <div className="min-w-0 rounded-xl border border-border/50 bg-muted/30 p-4">
+                <dt className="text-xs text-muted-foreground">{t('kernel.versions.bundled')}</dt>
+                <dd className="mt-1 break-words font-mono text-lg font-bold text-foreground" title={bundledCoreError || bundledCore?.assetName}>
+                  {bundledCore?.version ?? (bundledCoreError ? t('common.detectionFailed') : t('kernel.versions.notIncluded'))}
+                </dd>
+              </div>
+              <div className="min-w-0 rounded-xl border border-border/50 bg-muted/30 p-4">
+                <dt className="text-xs text-muted-foreground">{t('kernel.versions.platform')}</dt>
+                <dd className="mt-1 break-words font-mono text-lg font-bold text-foreground" title={platformError || undefined}>
+                  {platformOsLabel} / {platformArchLabel}
+                </dd>
+              </div>
+            </dl>
             <div className="flex flex-wrap items-center gap-2.5 mb-2">
               <Badge
                 variant={
