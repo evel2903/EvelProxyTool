@@ -34,6 +34,7 @@ import { UsageRecordsPage } from './pages/UsageRecordsPage';
 import { languageOptions, useI18n } from './i18n';
 import type { MessageKey } from './i18n/resources';
 import { AppUpdateDialog, AppUpdateProvider, useAppUpdate } from './appUpdate';
+import { appUpdateIndicatorState } from './appUpdateModel';
 import { canOpenAppPage, isAlwaysAvailablePage } from './navigation';
 import { detectInitialTheme, saveTheme, type AppTheme } from './theme';
 import { cn } from '@/lib/utils';
@@ -160,6 +161,13 @@ function App() {
 
 function AppContent() {
   const { locale, setLocale, t } = useI18n();
+  const { hasUpdate, processing, info: appUpdateInfo } = useAppUpdate();
+  const updateIndicator = appUpdateIndicatorState(hasUpdate, processing);
+  const updateIndicatorLabel = updateIndicator === 'processing'
+    ? t('appUpdate.badgeProcessing')
+    : appUpdateInfo?.latestVersion
+      ? t('appUpdate.notificationTitle', { version: appUpdateInfo.latestVersion })
+      : t('appUpdate.newVersion');
   const [active, setActive] = useState<PageId>('home');
   const [theme, setTheme] = useState<AppTheme>(detectInitialTheme);
   const [currentPort, setCurrentPort] = useState<number>(8317);
@@ -460,6 +468,11 @@ function AppContent() {
                 const isSelected = active === page.id;
                 const available = canOpenAppPage(page.id, coreRunning);
                 const label = t(page.labelKey);
+                const pageUpdateIndicator = page.id === 'versions' ? updateIndicator : null;
+                const accessibleLabel = pageUpdateIndicator ? `${label}: ${updateIndicatorLabel}` : label;
+                const updateBadge = pageUpdateIndicator === 'processing'
+                  ? <RefreshCw size={10} className="animate-spin" aria-hidden="true" />
+                  : <span className="size-2 rounded-full bg-amber-500" aria-hidden="true" />;
 
                 return (
                   <button
@@ -467,7 +480,8 @@ function AppContent() {
                     type="button"
                     disabled={!available}
                     onClick={() => select(page.id)}
-                    title={sidebarCollapsed ? label : undefined}
+                    title={sidebarCollapsed || pageUpdateIndicator ? accessibleLabel : undefined}
+                    aria-label={accessibleLabel}
                     className={cn(
                       'group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer',
                       isSelected
@@ -478,15 +492,27 @@ function AppContent() {
                       sidebarCollapsed ? 'justify-center px-0' : '',
                     )}
                   >
-                    <Icon
-                      size={17}
-                      aria-hidden="true"
-                      className={cn(
-                        'shrink-0 transition-transform duration-150 group-hover:scale-105',
-                        isSelected ? 'text-primary-foreground' : '',
+                    <span className="relative flex shrink-0">
+                      <Icon
+                        size={17}
+                        aria-hidden="true"
+                        className={cn(
+                          'transition-transform duration-150 group-hover:scale-105',
+                          isSelected ? 'text-primary-foreground' : '',
+                        )}
+                      />
+                      {sidebarCollapsed && pageUpdateIndicator && (
+                        <span className="absolute -right-1.5 -top-1.5 flex" aria-hidden="true">
+                          {updateBadge}
+                        </span>
                       )}
-                    />
+                    </span>
                     {!sidebarCollapsed && <span className="truncate">{label}</span>}
+                    {!sidebarCollapsed && pageUpdateIndicator && (
+                      <span className="ml-auto flex shrink-0" aria-hidden="true">
+                        {updateBadge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
