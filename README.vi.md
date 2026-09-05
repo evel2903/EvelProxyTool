@@ -136,33 +136,40 @@ sao lưu cấu hình gốc trước khi áp dụng cấu hình quản lý, và k
 
 ## Cập nhật
 
-Mỗi bản phát hành Windows đều xuất bản cả gói ZIP đầy đủ lẫn gói `update` ZIP kiểu cũ. Điều này giữ cho
-tính năng cập nhật trong ứng dụng vẫn khả dụng với những client cũ chưa migrate, trong khi client mới
-dùng gói đầy đủ để lõi đi kèm cũng được cập nhật.
+Bản v0.2.29 sửa địa chỉ cập nhật sang repo `evel2903/EvelProxyTool` và hỗ trợ bản phát hành chỉ có
+Windows amd64. Ứng dụng ưu tiên gói ZIP đầy đủ của đúng kiến trúc máy để cập nhật cả lõi đi kèm;
+gói `update` ZIP kiểu cũ vẫn được hỗ trợ nếu bản phát hành chỉ có gói này. Một bản phát hành không cần
+có đủ mọi kiến trúc, nhưng cần có gói phù hợp với máy đang cập nhật.
 
-Các gói phát hành hiện tại cho Windows, Linux và macOS đều hỗ trợ tự động cập nhật trong ứng dụng.
-Linux thay thế các file ứng dụng portable trong khi vẫn giữ nguyên dữ liệu runtime, còn macOS thay thế
-application bundle đã ký. Mỗi nền tảng đều chờ xác nhận phiên bản mới khởi động thành công và tự động
-rollback nếu khởi động thất bại. Thư mục cài đặt cần có quyền ghi cho user hiện tại.
+Bản phát hành hiện tại cung cấp gói **Windows amd64 (x64)**. Bộ cập nhật chờ ứng dụng mới xác nhận
+khởi động ở bước thiết lập Tauri và tự động rollback nếu không nhận được xác nhận; đây chưa phải kiểm
+tra toàn bộ giao diện hoặc sức khỏe lõi. Thư mục cài đặt cần có quyền ghi cho user hiện tại.
 
-Các bản cài Linux/macOS hiện có cần một lần nâng cấp thủ công lên bản phát hành có kèm marker tự động
-cập nhật đa nền tảng. Sau khi khởi chạy bản đó một lần, cập nhật trong ứng dụng sẽ khả dụng.
+Mã nguồn có hỗ trợ Linux/macOS và aarch64, nhưng workflow hiện tại chưa phát hành gói cho các nền tảng
+này. Tự cập nhật trên một nền tảng cần cả bản cài có marker `portable-app.json` hợp lệ và gói tương ứng
+trong manifest phát hành.
 
-Nếu bạn đang dùng v0.2.5 trở về trước, hãy thực hiện một lần migrate thủ công: thoát EvelProxyTool, tải
-gói ZIP Windows đầy đủ mới nhất cho đúng kiến trúc máy, rồi copy đè nội dung thư mục gốc của gói đó lên
-thư mục cài đặt hiện tại. Đừng xóa thư mục hiện tại trước; dữ liệu người dùng như `config.toml`, `oauth`,
-`cpa-core/config.yaml` sẽ được giữ nguyên vị trí. Sau khi khởi chạy phiên bản mới, các bản phát hành sau
-đó có thể dùng cập nhật tự động trong ứng dụng.
+Nếu bạn đang dùng **v0.2.28 trở về trước**, cần nâng cấp thủ công một lần lên **v0.2.29 hoặc mới hơn**,
+vì bản cũ vẫn tìm cập nhật ở địa chỉ repo sai. Với Windows:
+
+1. Dừng lõi, thoát EvelProxyTool cả ở khay hệ thống và sao lưu thư mục cài đặt hiện tại.
+2. Tải gói ZIP đầy đủ đúng kiến trúc máy từ [GitHub Releases](https://github.com/evel2903/EvelProxyTool/releases/latest)
+   rồi giải nén vào một thư mục riêng.
+3. Chép `EvelProxyTool.exe`, `portable-app.json`, `core-version.txt` và tệp nén lõi đi kèm trong `cpa-core`
+   từ gói mới vào đúng vị trí tương ứng trong thư mục cài đặt cũ. Chỉ thay các tệp phát hành này;
+   không xóa thư mục cài đặt, không thay toàn bộ thư mục `cpa-core`.
+4. Giữ nguyên cấu hình giao diện `config.toml`, thư mục tài khoản `oauth`, cấu hình lõi `cpa-core/config.yaml`
+   và các dữ liệu runtime khác. Không chép đè các tệp cấu hình đang dùng bằng tệp mẫu.
+5. Khởi chạy `EvelProxyTool.exe` tại thư mục cài đặt cũ và kiểm tra tài khoản, cấu hình. Những bản phát hành
+   tiếp theo có thể dùng cập nhật trong ứng dụng.
 
 ## Nền tảng được hỗ trợ
 
-GitHub Actions build các gói phát hành sau:
+GitHub Actions hiện build gói phát hành sau:
 
 | Hệ điều hành | Kiến trúc | Gói |
 | --- | --- | --- |
-| Windows | amd64, aarch64 | ZIP |
-| macOS | amd64, aarch64 | DMG |
-| Linux | amd64, aarch64 | TAR.GZ |
+| Windows | amd64 (x64) | ZIP đầy đủ và ZIP cập nhật |
 
 ## Dự án liên quan
 

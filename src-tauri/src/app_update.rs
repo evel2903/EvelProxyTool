@@ -21,19 +21,57 @@ pub(crate) async fn check_app_update(
         "failed to create version check client",
     )?;
     let manifest = fetch_portable_update_manifest(&client).await?;
-    let latest_version = normalize_version(&manifest.version);
-    let current_version = normalize_version(env!("CARGO_PKG_VERSION"));
-    let update_available = is_app_update_available(&current_version, &latest_version)?;
     let target = portable_update_target();
-    let asset_catalog = manifest.full_assets.as_ref().unwrap_or(&manifest.assets);
-    let asset = target.and_then(|(key, _)| asset_catalog.get(key)).cloned();
     let portable_support = target
         .map(|(_, arch)| validate_local_portable_app_manifest(arch))
         .transpose()?;
-    let auto_update_supported = portable_support == Some(true) && asset.is_some();
+    let (info, pending) = resolve_portable_app_update(
+        &manifest,
+        env!("CARGO_PKG_VERSION"),
+        target,
+        portable_support == Some(true),
+    )?;
+    state.set_pending(
+        pending,
+        AppUpdateTask {
+            phase: if info.update_available {
+                "available".to_string()
+            } else {
+                "idle".to_string()
+            },
+            target_version: info.update_available.then(|| info.latest_version.clone()),
+            total_bytes: info.download_size_bytes,
+            ..AppUpdateTask::default()
+        },
+    );
+    Ok(info)
+}
+
+pub(crate) fn select_portable_update_asset<'a>(
+    manifest: &'a PortableUpdateManifest,
+    target_key: &str,
+) -> Option<&'a PortableUpdateAsset> {
+    manifest
+        .full_assets
+        .as_ref()
+        .and_then(|assets| assets.get(target_key))
+        .or_else(|| manifest.assets.get(target_key))
+}
+
+pub(crate) fn resolve_portable_app_update(
+    manifest: &PortableUpdateManifest,
+    current_version: &str,
+    target: Option<(&str, &str)>,
+    portable_support: bool,
+) -> Result<(AppUpdateInfo, Option<PendingAppUpdate>), String> {
+    let latest_version = normalize_version(&manifest.version);
+    let current_version = normalize_version(current_version);
+    let update_available = is_app_update_available(&current_version, &latest_version)?;
+    let asset = target.and_then(|(key, _)| select_portable_update_asset(manifest, key));
+    let auto_update_supported = portable_support && asset.is_some();
     let unsupported_reason = if auto_update_supported {
         None
-    } else if portable_support != Some(true) {
+    } else if !portable_support {
         Some("current build is not a portable version that supports auto-update; download the first supported version manually".to_string())
     } else {
         Some("update manifest does not include the current platform or architecture".to_string())
@@ -43,41 +81,38 @@ pub(crate) async fn check_app_update(
         let (_, arch) = target.expect("portable target checked above");
         Some(PendingAppUpdate {
             version: latest_version.clone(),
-            asset: asset.clone().expect("portable asset checked above"),
+            asset: asset.expect("portable asset checked above").clone(),
             arch: arch.to_string(),
         })
     } else {
         None
     };
-    state.set_pending(
-        pending,
-        AppUpdateTask {
-            phase: if update_available {
-                "available".to_string()
-            } else {
-                "idle".to_string()
-            },
-            target_version: update_available.then(|| latest_version.clone()),
-            total_bytes: asset.as_ref().map(|value| value.size_bytes),
-            ..AppUpdateTask::default()
+    Ok((
+        AppUpdateInfo {
+            current_version,
+            latest_version,
+            update_available,
+            release_url: manifest.release_url.clone(),
+            auto_update_supported,
+            download_size_bytes: asset.map(|value| value.size_bytes),
+            unsupported_reason,
         },
-    );
+        pending,
+    ))
+}
 
-    Ok(AppUpdateInfo {
-        current_version,
-        latest_version,
-        update_available,
-        release_url: manifest.release_url,
-        auto_update_supported,
-        download_size_bytes: asset.map(|value| value.size_bytes),
-        unsupported_reason,
-    })
+pub(crate) fn app_update_manifest_url() -> String {
+    format!("{APP_RELEASES_URL}/latest/download/{APP_UPDATE_MANIFEST_NAME}")
+}
+
+pub(crate) fn app_release_download_prefix() -> String {
+    format!("{APP_RELEASES_URL}/download/")
 }
 
 pub(crate) async fn fetch_portable_update_manifest(
     client: &reqwest::Client,
 ) -> Result<PortableUpdateManifest, String> {
-    match fetch_portable_update_manifest_url(client, APP_UPDATE_MANIFEST_URL).await {
+    match fetch_portable_update_manifest_url(client, &app_update_manifest_url()).await {
         Ok(manifest) => Ok(manifest),
         Err(github_error) => {
             let Some(repository) = configured_gitcode_gui_repository() else {
@@ -240,7 +275,9 @@ pub(crate) fn validate_portable_update_manifest(
             manifest.schema_version
         ));
     }
-    semver::Version::parse(manifest.version.trim().trim_start_matches('v'))
+    let version = manifest.version.trim();
+    let version = version.strip_prefix('v').unwrap_or(version);
+    semver::Version::parse(version)
         .map_err(|error| format!("invalid software update version: {error}"))?;
     chrono::DateTime::parse_from_rfc3339(manifest.published_at.trim())
         .map_err(|error| format!("invalid software update publish time: {error}"))?;
@@ -253,9 +290,7 @@ pub(crate) fn validate_portable_update_manifest(
         || release_url.password().is_some()
         || release_url.query().is_some()
         || release_url.fragment().is_some()
-        || !release_url
-            .path()
-            .starts_with("/router-for-me/EvelProxyTool/releases/tag/v")
+        || manifest.release_url != format!("{APP_RELEASES_URL}/tag/v{version}")
     {
         return Err("untrusted software update release URL".to_string());
     }
@@ -299,23 +334,26 @@ fn validate_portable_update_asset_catalog(
     suffix: &str,
     allow_windows_legacy: bool,
 ) -> Result<(), String> {
-    if assets.len() != 2 {
-        return Err(format!("software update manifest must contain two {display_platform} architectures"));
+    if assets.is_empty() || assets.len() > 2 {
+        return Err(format!(
+            "software update manifest must contain one or two {display_platform} architectures"
+        ));
     }
     let version = manifest.version.trim().trim_start_matches('v');
     let tag = format!("v{version}");
-    for arch in ["amd64", "aarch64"] {
-        let key = format!("{platform}-{arch}");
-        let asset = assets
-            .get(&key)
-            .ok_or_else(|| format!("software update manifest is missing {key}"))?;
+    let download_prefix = app_release_download_prefix();
+    for (key, asset) in assets {
+        let arch = key
+            .strip_prefix(&format!("{platform}-"))
+            .filter(|arch| matches!(*arch, "amd64" | "aarch64"))
+            .ok_or_else(|| format!("unsupported software update architecture: {key}"))?;
         validate_portable_update_asset(asset)?;
         let full_package_name =
             format!("EvelProxyTool-v{version}-{display_platform}-{arch}.{suffix}");
-        let full_package_url = format!("{APP_RELEASE_DOWNLOAD_PREFIX}{tag}/{full_package_name}");
+        let full_package_url = format!("{download_prefix}{tag}/{full_package_name}");
         let legacy_package_name = format!("EvelProxyTool-update-v{version}-Windows-{arch}.zip");
         let legacy_package_url =
-            format!("{APP_RELEASE_DOWNLOAD_PREFIX}{tag}/{legacy_package_name}");
+            format!("{download_prefix}{tag}/{legacy_package_name}");
         let is_expected = asset.url == full_package_url
             || (allow_windows_legacy && asset.url == legacy_package_url);
         if !is_expected {
@@ -339,7 +377,7 @@ pub(crate) fn validate_portable_update_asset(asset: &PortableUpdateAsset) -> Res
         || url.password().is_some()
         || url.query().is_some()
         || url.fragment().is_some()
-        || !asset.url.starts_with(APP_RELEASE_DOWNLOAD_PREFIX)
+        || !asset.url.starts_with(&app_release_download_prefix())
     {
         return Err("untrusted software update download URL".to_string());
     }

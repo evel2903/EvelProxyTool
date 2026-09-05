@@ -28,7 +28,7 @@ fn portable_update_test_asset(version: &str, arch: &str) -> PortableUpdateAsset 
     let (_, display, suffix) = portable_update_asset_platform().unwrap();
     let name = format!("EvelProxyTool-v{version}-{display}-{arch}.{suffix}");
     PortableUpdateAsset {
-        url: format!("{APP_RELEASE_DOWNLOAD_PREFIX}v{version}/{name}"),
+        url: format!("{}v{version}/{name}", app_release_download_prefix()),
         fallback_urls: Vec::new(),
         sha256: "ab".repeat(32),
         size_bytes: 1024,
@@ -39,7 +39,7 @@ fn portable_update_test_asset(version: &str, arch: &str) -> PortableUpdateAsset 
 fn portable_update_test_legacy_asset(version: &str, arch: &str) -> PortableUpdateAsset {
     let name = format!("EvelProxyTool-update-v{version}-Windows-{arch}.zip");
     PortableUpdateAsset {
-        url: format!("{APP_RELEASE_DOWNLOAD_PREFIX}v{version}/{name}"),
+        url: format!("{}v{version}/{name}", app_release_download_prefix()),
         fallback_urls: Vec::new(),
         sha256: "ab".repeat(32),
         size_bytes: 1024,
@@ -53,7 +53,7 @@ fn portable_update_test_manifest(version: &str) -> PortableUpdateManifest {
         version: version.to_string(),
         published_at: "2026-07-24T00:00:00.000Z".to_string(),
         release_url: format!(
-            "https://github.com/router-for-me/EvelProxyTool/releases/tag/v{version}"
+            "https://github.com/evel2903/EvelProxyTool/releases/tag/v{version}"
         ),
         assets: [
             (
@@ -72,7 +72,7 @@ fn portable_update_test_manifest(version: &str) -> PortableUpdateManifest {
 }
 
 #[test]
-fn portable_update_manifest_requires_both_matching_github_assets() {
+fn portable_update_manifest_accepts_one_or_two_matching_github_assets() {
     let manifest = portable_update_test_manifest("1.2.3");
     assert!(validate_portable_update_manifest(&manifest).is_ok());
 
@@ -122,7 +122,7 @@ fn portable_update_manifest_requires_both_matching_github_assets() {
     let (platform, _, _) = portable_update_asset_platform().unwrap();
     let mut missing_arch = portable_update_test_manifest("1.2.3");
     missing_arch.assets.remove(&format!("{platform}-aarch64"));
-    assert!(validate_portable_update_manifest(&missing_arch).is_err());
+    assert!(validate_portable_update_manifest(&missing_arch).is_ok());
 
     let mut invalid_timestamp = portable_update_test_manifest("1.2.3");
     invalid_timestamp.published_at = "not-a-timestamp".to_string();
@@ -143,9 +143,211 @@ fn portable_update_manifest_requires_both_matching_github_assets() {
         .get_mut(&format!("{platform}-amd64"))
         .unwrap()
         .url = format!(
-        "{APP_RELEASE_DOWNLOAD_PREFIX}v9.9.9/EvelProxyTool-v1.2.3-{display}-amd64.{suffix}"
+        "{}v9.9.9/EvelProxyTool-v1.2.3-{display}-amd64.{suffix}",
+        app_release_download_prefix()
     );
     assert!(validate_portable_update_manifest(&mismatched_tag).is_err());
+}
+
+#[test]
+fn portable_update_urls_use_the_published_gui_repository() {
+    assert_eq!(APP_RELEASES_URL, "https://github.com/evel2903/EvelProxyTool/releases");
+    assert_eq!(
+        app_release_download_prefix(),
+        "https://github.com/evel2903/EvelProxyTool/releases/download/"
+    );
+    let (platform, _, _) = portable_update_asset_platform().unwrap();
+    assert_eq!(
+        app_update_manifest_url(),
+        format!("https://github.com/evel2903/EvelProxyTool/releases/latest/download/portable-update-{platform}.json")
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn portable_update_manifest_accepts_the_published_v0_2_28_windows_release() {
+    // This release fixture is independent of updater constants and test URL builders.
+    let manifest: PortableUpdateManifest = serde_json::from_str(include_str!(
+        "fixtures/portable-update-windows-v0.2.28.json"
+    ))
+    .unwrap();
+    validate_portable_update_manifest(&manifest).unwrap();
+    let (info, pending) = resolve_portable_app_update(
+        &manifest,
+        "0.2.27",
+        Some(("windows-amd64", "amd64")),
+        true,
+    )
+    .unwrap();
+    assert!(info.update_available);
+    assert!(info.auto_update_supported);
+    assert_eq!(info.download_size_bytes, Some(28891071));
+    assert_eq!(
+        pending.unwrap().asset.url,
+        "https://github.com/evel2903/EvelProxyTool/releases/download/v0.2.28/EvelProxyTool-v0.2.28-Windows-amd64.zip"
+    );
+}
+
+#[test]
+fn portable_update_manifest_rejects_empty_unknown_and_mismatched_architectures() {
+    let (platform, _, _) = portable_update_asset_platform().unwrap();
+    let mut empty = portable_update_test_manifest("1.2.3");
+    empty.assets.clear();
+    assert!(validate_portable_update_manifest(&empty).is_err());
+
+    let mut empty_full = portable_update_test_manifest("1.2.3");
+    empty_full.full_assets = Some(Default::default());
+    assert!(validate_portable_update_manifest(&empty_full).is_err());
+
+    for key in [format!("{platform}-x86_64"), "other-amd64".to_string()] {
+        let mut unknown = portable_update_test_manifest("1.2.3");
+        unknown.assets = [(key, portable_update_test_asset("1.2.3", "amd64"))]
+            .into_iter()
+            .collect();
+        assert!(validate_portable_update_manifest(&unknown).is_err());
+    }
+
+    let mut mismatched = portable_update_test_manifest("1.2.3");
+    mismatched.assets.insert(
+        format!("{platform}-amd64"),
+        portable_update_test_asset("1.2.3", "aarch64"),
+    );
+    assert!(validate_portable_update_manifest(&mismatched).is_err());
+}
+
+#[test]
+fn portable_update_manifest_rejects_untrusted_or_mismatched_release_urls() {
+    for release_url in [
+        "https://github.com/router-for-me/EvelProxyTool/releases/tag/v1.2.3",
+        "https://github.com/evel2903/EvelProxyTool/releases/tag/v9.9.9",
+        "https://github.com/evel2903/EvelProxyTool/releases/tag/v1.2.3/extra",
+        "https://github.com/evel2903/EvelProxyTool/releases/tag/v1.2.3?source=test",
+        "https://github.com/evel2903/EvelProxyTool/releases/tag/v1.2.3#fragment",
+        "http://github.com/evel2903/EvelProxyTool/releases/tag/v1.2.3",
+        "https://github.com.example.invalid/evel2903/EvelProxyTool/releases/tag/v1.2.3",
+        "https://github.com:444/evel2903/EvelProxyTool/releases/tag/v1.2.3",
+        "https://user@github.com/evel2903/EvelProxyTool/releases/tag/v1.2.3",
+    ] {
+        let mut manifest = portable_update_test_manifest("1.2.3");
+        manifest.release_url = release_url.to_string();
+        assert!(validate_portable_update_manifest(&manifest).is_err(), "{release_url}");
+    }
+}
+
+#[test]
+fn portable_update_manifest_retains_download_integrity_checks() {
+    let (platform, display, suffix) = portable_update_asset_platform().unwrap();
+    let key = format!("{platform}-amd64");
+    let valid_url = portable_update_test_asset("1.2.3", "amd64").url;
+    for url in [
+        valid_url.replace("https://", "http://"),
+        valid_url.replace("github.com/", "github.com.example.invalid/"),
+        valid_url.replace("github.com/", "user@github.com/"),
+        valid_url.replace("github.com/", "github.com:444/"),
+        valid_url.replace("evel2903/", "router-for-me/"),
+        valid_url.replace("EvelProxyTool/releases", "EvelProxyTool-copy/releases"),
+        format!("{valid_url}?download=true"),
+        format!("{valid_url}#fragment"),
+        format!("{}v1.2.3/Other-v1.2.3-{display}-amd64.{suffix}", app_release_download_prefix()),
+    ] {
+        let mut manifest = portable_update_test_manifest("1.2.3");
+        manifest.assets.get_mut(&key).unwrap().url = url.clone();
+        assert!(validate_portable_update_manifest(&manifest).is_err(), "{url}");
+    }
+    for size in [0, 512 * 1024 * 1024 + 1] {
+        let mut manifest = portable_update_test_manifest("1.2.3");
+        manifest.assets.get_mut(&key).unwrap().size_bytes = size;
+        assert!(validate_portable_update_manifest(&manifest).is_err());
+    }
+    for digest in ["ab".repeat(31), "zz".repeat(32)] {
+        let mut manifest = portable_update_test_manifest("1.2.3");
+        manifest.assets.get_mut(&key).unwrap().sha256 = digest;
+        assert!(validate_portable_update_manifest(&manifest).is_err());
+    }
+}
+
+#[test]
+fn portable_update_missing_current_architecture_reports_unsupported_without_pending_update() {
+    let (platform, _, _) = portable_update_asset_platform().unwrap();
+    let (key, arch) = portable_update_target().unwrap();
+    let mut manifest = portable_update_test_manifest("1.2.3");
+    manifest.assets.remove(key);
+    validate_portable_update_manifest(&manifest).unwrap();
+    let (info, pending) =
+        resolve_portable_app_update(&manifest, "1.2.2", Some((key, arch)), true).unwrap();
+    assert!(info.update_available);
+    assert!(!info.auto_update_supported);
+    assert!(info.download_size_bytes.is_none());
+    assert!(info.unsupported_reason.unwrap().contains("current platform or architecture"));
+    assert!(pending.is_none());
+    assert_eq!(manifest.assets.len(), 1, "{platform}");
+}
+
+#[test]
+fn portable_update_resolution_requires_a_portable_install_and_newer_version() {
+    let manifest = portable_update_test_manifest("1.2.3");
+    let target = portable_update_target();
+    let (unsupported, pending) =
+        resolve_portable_app_update(&manifest, "1.2.2", target, false).unwrap();
+    assert!(!unsupported.auto_update_supported);
+    assert!(unsupported.unsupported_reason.unwrap().contains("not a portable version"));
+    assert!(pending.is_none());
+    let (current, pending) =
+        resolve_portable_app_update(&manifest, "1.2.3", target, true).unwrap();
+    assert!(!current.update_available);
+    assert!(current.auto_update_supported);
+    assert!(pending.is_none());
+}
+
+#[cfg(windows)]
+#[test]
+fn portable_update_selects_full_asset_per_target_with_legacy_fallback() {
+    let mut manifest = portable_update_test_manifest("1.2.3");
+    for arch in ["amd64", "aarch64"] {
+        manifest.assets.insert(
+            format!("windows-{arch}"),
+            portable_update_test_legacy_asset("1.2.3", arch),
+        );
+    }
+    manifest.full_assets = Some(
+        [("windows-amd64".to_string(), portable_update_test_asset("1.2.3", "amd64"))]
+            .into_iter()
+            .collect(),
+    );
+    validate_portable_update_manifest(&manifest).unwrap();
+    assert_eq!(
+        select_portable_update_asset(&manifest, "windows-amd64").unwrap().url,
+        portable_update_test_asset("1.2.3", "amd64").url
+    );
+    let (info, pending) = resolve_portable_app_update(
+        &manifest,
+        "1.2.2",
+        Some(("windows-aarch64", "aarch64")),
+        true,
+    )
+    .unwrap();
+    assert!(info.auto_update_supported);
+    assert_eq!(
+        pending.unwrap().asset.url,
+        portable_update_test_legacy_asset("1.2.3", "aarch64").url
+    );
+    manifest.full_assets = None;
+    assert_eq!(
+        select_portable_update_asset(&manifest, "windows-amd64").unwrap().url,
+        portable_update_test_legacy_asset("1.2.3", "amd64").url
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn portable_update_full_catalog_rejects_legacy_packages() {
+    let mut manifest = portable_update_test_manifest("1.2.3");
+    manifest.full_assets = Some(
+        [("windows-amd64".to_string(), portable_update_test_legacy_asset("1.2.3", "amd64"))]
+            .into_iter()
+            .collect(),
+    );
+    assert!(validate_portable_update_manifest(&manifest).is_err());
 }
 
 #[test]
@@ -523,7 +725,7 @@ fn macos_update_descriptor_is_confined_to_the_app_and_temp_directories() {
 }
 
 #[test]
-fn synthetic_release_uses_official_asset_names_and_urls() {
+fn synthetic_release_uses_fork_asset_names_and_urls() {
     let release = release_from_tag("7.2.80");
     let platform = CorePlatform {
         os: "linux".to_string(),
@@ -538,7 +740,7 @@ fn synthetic_release_uses_official_asset_names_and_urls() {
     assert_eq!(asset.name, "CLIProxyAPI_7.2.80_linux_amd64.tar.gz");
     assert_eq!(
             asset.browser_download_url,
-            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.80/CLIProxyAPI_7.2.80_linux_amd64.tar.gz"
+            "https://github.com/evel2903/CLIProxyAPI/releases/download/v7.2.80/CLIProxyAPI_7.2.80_linux_amd64.tar.gz"
         );
 }
 
@@ -557,7 +759,7 @@ fn synthetic_core_release_uses_gitcode_as_download_fallback() {
 
     assert_eq!(
             asset.browser_download_url,
-            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.80/CLIProxyAPI_7.2.80_windows_amd64.zip"
+            "https://github.com/evel2903/CLIProxyAPI/releases/download/v7.2.80/CLIProxyAPI_7.2.80_windows_amd64.zip"
         );
     assert_eq!(
             asset.fallback_download_urls,

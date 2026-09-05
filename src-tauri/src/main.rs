@@ -79,14 +79,7 @@ const RELEASE_PAGE_URL: &str = "https://github.com/evel2903/CLIProxyAPI/releases
 const RELEASE_ATOM_URL: &str = "https://github.com/evel2903/CLIProxyAPI/releases.atom";
 const RELEASE_DOWNLOAD_PREFIX: &str =
     "https://github.com/evel2903/CLIProxyAPI/releases/download/";
-#[cfg(windows)]
-const APP_UPDATE_MANIFEST_URL: &str = "https://github.com/router-for-me/EvelProxyTool/releases/latest/download/portable-update-windows.json";
-#[cfg(target_os = "linux")]
-const APP_UPDATE_MANIFEST_URL: &str = "https://github.com/router-for-me/EvelProxyTool/releases/latest/download/portable-update-linux.json";
-#[cfg(target_os = "macos")]
-const APP_UPDATE_MANIFEST_URL: &str = "https://github.com/router-for-me/EvelProxyTool/releases/latest/download/portable-update-darwin.json";
-const APP_RELEASE_DOWNLOAD_PREFIX: &str =
-    "https://github.com/router-for-me/EvelProxyTool/releases/download/";
+const APP_RELEASES_URL: &str = "https://github.com/evel2903/EvelProxyTool/releases";
 #[cfg(windows)]
 const APP_UPDATE_MANIFEST_NAME: &str = "portable-update-windows.json";
 #[cfg(target_os = "linux")]

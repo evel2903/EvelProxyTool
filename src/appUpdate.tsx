@@ -15,16 +15,9 @@ import { getCurrentLocale, translate, useI18n } from './i18n';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { canInstallAppUpdate, type AppUpdateInfo } from './appUpdateModel';
 
-export type AppUpdateInfo = {
-  currentVersion: string;
-  latestVersion: string;
-  updateAvailable: boolean;
-  releaseUrl: string;
-  autoUpdateSupported: boolean;
-  downloadSizeBytes: number | null;
-  unsupportedReason: string | null;
-};
+export type { AppUpdateInfo } from './appUpdateModel';
 
 export type AppUpdatePhase =
   | 'idle'
@@ -58,6 +51,7 @@ type AppUpdateContextValue = {
   confirmOpen: boolean;
   hasUpdate: boolean;
   processing: boolean;
+  canInstall: boolean;
   check: () => Promise<void>;
   requestInstall: () => void;
   dismissConfirm: () => void;
@@ -84,7 +78,14 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [starting, setStarting] = useState(false);
   const startupCheckStarted = useRef(false);
+  const processing = task.running || starting;
+  const canInstall = canInstallAppUpdate(info, checking, processing);
+
+  useEffect(() => {
+    if (!canInstall) setConfirmOpen(false);
+  }, [canInstall]);
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -144,14 +145,18 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const install = useCallback(async () => {
+    if (!canInstall) return;
     setConfirmOpen(false);
+    setStarting(true);
     setError('');
     try {
       await invoke('start_app_update');
     } catch (nextError) {
       setError(String(nextError));
+    } finally {
+      setStarting(false);
     }
-  }, []);
+  }, [canInstall]);
 
   const cancel = useCallback(async () => {
     try {
@@ -166,15 +171,18 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
     task,
     error,
     checking,
-    confirmOpen,
+    confirmOpen: confirmOpen && canInstall,
     hasUpdate: Boolean(info?.updateAvailable),
-    processing: task.running,
+    processing,
+    canInstall,
     check,
-    requestInstall: () => setConfirmOpen(true),
+    requestInstall: () => {
+      if (canInstall) setConfirmOpen(true);
+    },
     dismissConfirm: () => setConfirmOpen(false),
     install,
     cancel,
-  }), [cancel, check, checking, confirmOpen, error, info, install, task]);
+  }), [cancel, canInstall, check, checking, confirmOpen, error, info, install, processing, task]);
 
   return <AppUpdateContext.Provider value={value}>{children}</AppUpdateContext.Provider>;
 }
@@ -192,6 +200,7 @@ export function AppUpdateDialog() {
     task,
     error,
     confirmOpen,
+    canInstall,
     dismissConfirm,
     install,
     cancel,
@@ -227,7 +236,7 @@ export function AppUpdateDialog() {
               <Button type="button" variant="outline" onClick={dismissConfirm}>
                 {t('common.cancel')}
               </Button>
-              <Button type="button" onClick={() => void install()}>
+              <Button type="button" disabled={!canInstall} onClick={() => void install()}>
                 <Download size={15} aria-hidden="true" />
                 {t('appUpdate.installNow')}
               </Button>

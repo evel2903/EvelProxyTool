@@ -23,7 +23,7 @@ export async function generatePortableUpdateManifest({
   const platformSpec = platformSpecs[normalizedPlatform];
   if (!platformSpec) throw new Error(`Unsupported update platform: ${platform}`);
   const resolvedOutput = resolve(output ?? join(resolvedDirectory, `portable-update-${normalizedPlatform}.json`));
-  const resolvedRepository = repository ?? 'router-for-me/EvelProxyTool';
+  const resolvedRepository = repository ?? 'evel2903/EvelProxyTool';
   const resolvedGitcodeRepository = String(gitcodeRepository ?? '').trim();
   const normalizedRawTag = String(rawTag ?? '').trim();
   const tag = normalizedRawTag.startsWith('v') ? normalizedRawTag : `v${normalizedRawTag}`;
@@ -80,13 +80,22 @@ export async function generatePortableUpdateManifest({
     }
   }
 
+  // A release may publish only one architecture or only the full Windows ZIP.
+  // Keep legacy payloads when present and make every full package selectable.
+  for (const [target, asset] of Object.entries(fullAssets)) {
+    assets[target] ??= asset;
+  }
+  if (Object.keys(assets).length === 0) {
+    throw new Error(`No supported portable release assets found for ${normalizedPlatform}`);
+  }
+
   const manifest = {
     schemaVersion: 1,
     version,
     publishedAt,
     releaseUrl: `https://github.com/${resolvedRepository}/releases/tag/${tag}`,
     assets,
-    ...(platformSpec.legacy ? { fullAssets } : {}),
+    ...(Object.keys(fullAssets).length > 0 ? { fullAssets } : {}),
   };
 
   await writeFile(resolvedOutput, `${JSON.stringify(manifest, null, 2)}\n`);

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "version": "0.2.28",
+  "publishedAt": "2026-09-05T17:52:18.419Z",
+  "releaseUrl": "https://github.com/evel2903/EvelProxyTool/releases/tag/v0.2.28",
+  "assets": {
+    "windows-amd64": {
+      "url": "https://github.com/evel2903/EvelProxyTool/releases/download/v0.2.28/EvelProxyTool-update-v0.2.28-Windows-amd64.zip",
+      "sha256": "12a30e6993c12b485a232e2dc10ad28ee1261b9d5343750244f59ee050409ed3",
+      "sizeBytes": 8225689
+    }
+  },
+  "fullAssets": {
+    "windows-amd64": {
+      "url": "https://github.com/evel2903/EvelProxyTool/releases/download/v0.2.28/EvelProxyTool-v0.2.28-Windows-amd64.zip",
+      "sha256": "d68353529ccb91c12006276b181651ef489f0a67aa4e61d8a3469071d6c4db69",
+      "sizeBytes": 28891071
+    }
+  }
+}

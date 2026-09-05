@@ -26,6 +26,7 @@ import geminiIcon from '../assets/icons/gemini.svg';
 import { clientApiProfiles } from '../services/clientAccess';
 import { useI18n } from '../i18n';
 import { useAppUpdate } from '../appUpdate';
+import { appUpdateManualHint } from '../appUpdateModel';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,7 +88,7 @@ type CoreConfigSummary = {
   apiKeys: Array<{ apiKey: string }>;
 };
 
-const APP_RELEASE_URL = 'https://github.com/router-for-me/EvelProxyTool/releases/latest';
+const APP_RELEASE_URL = 'https://github.com/evel2903/EvelProxyTool/releases/latest';
 
 let latestAutoCheckStarted = false;
 let cachedLatest: CoreLatest | null = null;
@@ -130,10 +131,12 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
     info: appUpdate,
     error: appUpdateError,
     checking: checkingAppUpdate,
-    task: appUpdateTask,
+    processing: processingAppUpdate,
+    canInstall: canInstallAppUpdate,
     check: checkAppUpdate,
     requestInstall: requestAppUpdate,
   } = useAppUpdate();
+  const manualUpdateHint = appUpdateManualHint(appUpdate);
   const {
     status: coreStatus,
     statusError,
@@ -1044,12 +1047,13 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                         ? t('appUpdate.upToDate')
                         : t('appUpdate.phase.checking'))}
                 </p>
+                {manualUpdateHint && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t(manualUpdateHint.messageKey)}
+                    {manualUpdateHint.detail && ` ${manualUpdateHint.detail}`}
+                  </p>
+                )}
               </div>
-              {!appUpdate?.autoUpdateSupported && (
-                <Badge variant={appUpdateError ? 'destructive' : 'success'}>
-                  {'Portable'}
-                </Badge>
-              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 p-5 pt-2 border-t border-border/40">
@@ -1057,16 +1061,16 @@ export function KernelPage({ view = 'home' }: { view?: KernelView }) {
                 type="button"
                 variant="outline"
                 className="text-xs font-semibold"
-                disabled={checkingAppUpdate || Boolean(appUpdateTask?.running)}
+                disabled={checkingAppUpdate || processingAppUpdate}
                 onClick={() => void checkAppUpdate()}
               >
                 {checkingAppUpdate ? t('appUpdate.checking') : t('appUpdate.check')}
               </Button>
-              {appUpdate?.updateAvailable ? (
+              {appUpdate?.updateAvailable && appUpdate.autoUpdateSupported ? (
                 <Button
                   type="button"
                   className="text-xs font-semibold"
-                  disabled={Boolean(appUpdateTask?.running)}
+                  disabled={!canInstallAppUpdate}
                   onClick={() => void requestAppUpdate()}
                 >
                   {t('appUpdate.installNow')}
