@@ -47,6 +47,17 @@ export const pruneQuotaCache = (validKeys: Set<string>) => {
   });
 };
 
+export const invalidateQuotaCache = (keys: Set<string>) => {
+  if (keys.size === 0) return;
+  generation += 1;
+  updateQuotaCache((current) => Object.fromEntries(
+    Object.entries(current).map(([key, value]) => [
+      key,
+      keys.has(key) || value.status === 'loading' ? { status: 'idle', rows: [] } : value,
+    ]),
+  ) as QuotaCache);
+};
+
 export function useQuotaCache() {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

@@ -3,11 +3,28 @@ import {
   captureQuotaCacheGeneration,
   commitQuotaCacheIfCurrent,
   getQuotaCacheSnapshot,
+  invalidateQuotaCache,
   pruneQuotaCache,
   updateQuotaCache,
 } from '../src/services/quotaCache';
 
 describe('额度跨页面缓存', () => {
+  it('invalidates replaced credentials and rejects pending results from before import', () => {
+    updateQuotaCache({
+      replaced: { status: 'success', rows: [], fetchedAt: 1 },
+      pending: { status: 'loading', rows: [] },
+      retained: { status: 'success', rows: [], fetchedAt: 2 },
+    });
+    const generation = captureQuotaCacheGeneration();
+    invalidateQuotaCache(new Set(['replaced']));
+    expect(commitQuotaCacheIfCurrent(generation, () => { throw new Error('stale request committed'); })).toBe(false);
+    expect(getQuotaCacheSnapshot()).toEqual({
+      replaced: { status: 'idle', rows: [] },
+      pending: { status: 'idle', rows: [] },
+      retained: { status: 'success', rows: [], fetchedAt: 2 },
+    });
+  });
+
   it('保留仍存在的认证文件额度并清理失效项', () => {
     updateQuotaCache({
       first: { status: 'success', rows: [], fetchedAt: 1 },

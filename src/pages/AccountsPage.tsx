@@ -5,6 +5,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  FileJson,
   FolderOpen,
   Import,
   Info,
@@ -80,6 +81,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
+import { AuthJsonImportDialog } from '../components/AuthJsonImportDialog';
 
 type OAuthProviderId = 'codex' | 'claude' | 'antigravity' | 'kimi' | 'xai';
 type OAuthFlowStatus = 'idle' | 'waiting' | 'success' | 'error';
@@ -865,6 +867,7 @@ export function AccountsPage() {
   const { t, locale } = useI18n();
   const manager = useAuthFileManager();
   const oauthLogin = useOAuthLogin({ onLoginComplete: () => void manager.loadFiles() });
+  const [jsonImportOpen, setJsonImportOpen] = useState(false);
 
   const [autoRefreshSeconds, setAutoRefreshSeconds] = useState<number>(() => {
     try {
@@ -900,15 +903,16 @@ export function AccountsPage() {
   }, [maskEmails]);
 
   useEffect(() => {
+    if (manager.busy || manager.loading) return;
     manager.files.forEach((file) => {
       if (readBoolean(file, 'disabled')) return;
       const state = manager.quotas[quotaKey(file)];
       if (!state || state.status === 'idle') void manager.refreshQuota(file);
     });
-  }, [manager.files, manager.quotas, manager.refreshQuota]);
+  }, [manager.busy, manager.loading, manager.files, manager.quotas, manager.refreshQuota]);
 
   useEffect(() => {
-    if (!autoRefreshSeconds) return;
+    if (!autoRefreshSeconds || manager.busy || manager.loading) return;
     const id = window.setInterval(() => {
       manager.files.forEach((file) => {
         if (readBoolean(file, 'disabled')) return;
@@ -916,7 +920,7 @@ export function AccountsPage() {
       });
     }, autoRefreshSeconds * 1000);
     return () => window.clearInterval(id);
-  }, [autoRefreshSeconds, manager.files, manager.refreshQuota]);
+  }, [autoRefreshSeconds, manager.busy, manager.loading, manager.files, manager.refreshQuota]);
 
   const resetCodexQuota = useCallback(async (file: AuthFile, quota: QuotaState) => {
     const confirmed = window.confirm([
@@ -984,6 +988,9 @@ export function AccountsPage() {
           </Button>
           <Button type="button" size="sm" onClick={() => manager.fileInputRef.current?.click()} disabled={manager.busy}>
             <Import size={16} aria-hidden="true" />{t('authFiles.import')}
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setJsonImportOpen(true)} disabled={manager.busy}>
+            <FileJson size={16} aria-hidden="true" />{t('jsonImport.title')}
           </Button>
           <input ref={manager.fileInputRef} type="file" accept=".json,application/json" multiple hidden onChange={(event) => void manager.handleUpload(event)} />
         </div>
@@ -1141,6 +1148,7 @@ export function AccountsPage() {
       ) : null}
 
       {manager.oauthModelProvider ? <OauthModelDialog manager={manager} /> : null}
+      {jsonImportOpen ? <AuthJsonImportDialog onClose={() => setJsonImportOpen(false)} onImport={manager.uploadFiles} /> : null}
     </section>
   );
 }

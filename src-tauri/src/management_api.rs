@@ -104,10 +104,7 @@ pub(crate) async fn upload_auth_file(
     name: String,
     data: Vec<u8>,
 ) -> Result<serde_json::Value, String> {
-    let name = name.trim().to_string();
-    if name.is_empty() || !name.to_ascii_lowercase().ends_with(".json") {
-        return Err("Auth file name must end with .json".to_string());
-    }
+    let name = validate_auth_file_upload(&name, &data)?;
 
     let config = gui_config_state.snapshot()?;
     let client = management_http_client()?;
@@ -121,8 +118,70 @@ pub(crate) async fn upload_auth_file(
         .body(data)
         .send()
         .await
-        .map_err(|err| format!("Failed to upload auth file: {err}"))?;
-    read_management_value(response).await
+        .map_err(|error| {
+            if error.is_timeout() {
+                "Auth file upload timed out".to_string()
+            } else if error.is_connect() {
+                "Could not connect to the management API to upload the auth file".to_string()
+            } else {
+                "Failed to upload auth file".to_string()
+            }
+        })?;
+    if !response.status().is_success() {
+        // An upload error body can contain the submitted credentials. Keep it
+        // out of notifications and logs while retaining the actionable status.
+        return Err(format!(
+            "Failed to upload auth file (HTTP {})",
+            response.status().as_u16()
+        ));
+    }
+    read_management_value(response)
+        .await
+        .map_err(|_| "Failed to read auth file upload response".to_string())
+}
+
+const MAX_AUTH_FILE_BYTES: usize = 10 * 1024 * 1024;
+
+fn validate_auth_file_upload(name: &str, data: &[u8]) -> Result<String, String> {
+    let name = name.trim();
+    if name.len() <= 5 || !name.to_ascii_lowercase().ends_with(".json") {
+        return Err("Auth file name must end with .json".to_string());
+    }
+    if name.chars().any(|character| {
+        character.is_control()
+            || matches!(character, '/' | '\\' | ':' | '<' | '>' | '"' | '|' | '?' | '*')
+    }) {
+        return Err("Auth file name must be a valid file name without a path".to_string());
+    }
+    // Windows device names remain reserved with an extension, including extra
+    // extensions and the superscript port numbers recognized by Windows.
+    let base = name.split('.').next().unwrap_or_default().trim_end();
+    let base = base.to_ascii_uppercase();
+    let reserved_port = base
+        .strip_prefix("COM")
+        .or_else(|| base.strip_prefix("LPT"))
+        .is_some_and(|suffix| {
+            matches!(
+                suffix,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+            )
+        });
+    if matches!(
+        base.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CLOCK$" | "CONIN$" | "CONOUT$"
+    ) || reserved_port
+    {
+        return Err("Auth file name is reserved by the operating system".to_string());
+    }
+    if data.len() > MAX_AUTH_FILE_BYTES {
+        return Err("Auth file must not exceed 10 MiB".to_string());
+    }
+    let value: serde_json::Value = serde_json::from_slice(data)
+        .map_err(|_| "Auth file must contain valid JSON".to_string())?;
+    if !value.as_object().is_some_and(|object| !object.is_empty()) {
+        return Err("Auth file must contain a nonempty JSON object".to_string());
+    }
+    Ok(name.to_string())
 }
 
 #[tauri::command]
@@ -402,5 +461,62 @@ fn format_management_error(status: u16, body: &str) -> String {
         format!("Management API error ({status})")
     } else {
         format!("Management API error ({status}): {}", truncate_for_error(body))
+    }
+}
+
+#[cfg(test)]
+mod auth_file_upload_tests {
+    use super::{validate_auth_file_upload, MAX_AUTH_FILE_BYTES};
+
+    const AUTH_JSON: &[u8] = br#"{"type":"codex","access_token":"example-secret"}"#;
+
+    #[test]
+    fn accepts_safe_json_names_and_preserves_credentials() {
+        for name in ["codex-user@example.com.json", "account.JSON", "tài-khoản.json", "COM10.json"] {
+            assert_eq!(validate_auth_file_upload(name, AUTH_JSON), Ok(name.to_string()));
+        }
+        assert_eq!(
+            validate_auth_file_upload(" account.json ", AUTH_JSON),
+            Ok("account.json".to_string())
+        );
+    }
+
+    #[test]
+    fn rejects_paths_streams_invalid_names_and_windows_devices() {
+        for name in [
+            "", ".json", "account.txt", "account.json.exe", "../account.json",
+            "folder/account.json", "folder\\account.json", "C:\\account.json",
+            "\\\\server\\account.json", "account.json:stream.json", "bad\0.json",
+            "bad\nname.json", "bad<name.json", "bad>name.json", "bad\"name.json",
+            "bad|name.json", "bad?name.json", "bad*name.json", "CON.json", "prn.json",
+            "AUX.extra.json", "NUL .json", "COM1.json", "LPT9.json", "COM¹.json",
+            "LPT².json", "COM³.json", "CONIN$.json", "CONOUT$.json", "CLOCK$.json",
+        ] {
+            assert!(validate_auth_file_upload(name, AUTH_JSON).is_err(), "accepted {name:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_empty_malformed_and_non_object_json_without_exposing_tokens() {
+        for data in [
+            b"".as_slice(), b"   ", b"{}", b"[]", b"null", b"true", b"42",
+            br#""example-secret""#, br#"{"access_token":"example-secret""#,
+            b"{\"access_token\":\"\xff\"}",
+        ] {
+            let error = validate_auth_file_upload("account.json", data).unwrap_err();
+            assert!(!error.contains("example-secret"));
+        }
+    }
+
+    #[test]
+    fn permits_the_size_boundary_and_rejects_larger_uploads() {
+        let mut data = AUTH_JSON.to_vec();
+        data.resize(MAX_AUTH_FILE_BYTES, b' ');
+        assert!(validate_auth_file_upload("account.json", &data).is_ok());
+        data.push(b' ');
+        assert_eq!(
+            validate_auth_file_upload("account.json", &data),
+            Err("Auth file must not exceed 10 MiB".to_string())
+        );
     }
 }

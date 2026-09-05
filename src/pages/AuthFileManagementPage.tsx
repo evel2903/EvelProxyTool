@@ -23,6 +23,7 @@ import {
 import {
   captureQuotaCacheGeneration,
   commitQuotaCacheIfCurrent,
+  invalidateQuotaCache,
   pruneQuotaCache,
   updateQuotaCache,
   useQuotaCache,
@@ -40,6 +41,7 @@ import {
   normalizeAuthFilePriorityInput,
   parseAuthFilePriority,
 } from '../services/authFiles';
+import { uploadAuthFiles } from '../services/authFileUpload';
 import {
   exclusionsForOpenOAuthModels,
   oauthExcludedRulesFromPayload,
@@ -373,32 +375,32 @@ export function useAuthFileManager() {
     });
   }, [files, filter, providerFilter, statusFilter]);
 
+  const uploadFiles = useCallback(async (selected: readonly File[]) => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await uploadAuthFiles(selected);
+      const uploadedNames = new Set(result.uploaded);
+      invalidateQuotaCache(new Set(files.filter((file) => uploadedNames.has(fileName(file))).map(quotaKey)));
+      await loadFiles();
+      if (result.uploaded.length > 0) setNotice(t('authFiles.uploaded', { count: result.uploaded.length }));
+      if (result.failed.length > 0) setError(t('authFiles.uploadFailed', {
+        count: result.failed.length,
+        errors: result.failed.map(({ file, error: message }) => `${file.name}: ${message}`).join('; '),
+      }));
+      return result;
+    } finally {
+      setBusy(false);
+    }
+  }, [files, loadFiles, t]);
+
   const handleUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = '';
     if (selected.length === 0) return;
-    setBusy(true);
-    setError('');
-    let uploaded = 0;
-    const failures: string[] = [];
-    for (const file of selected) {
-      try {
-        await managementApi.uploadAuthFile(file);
-        uploaded += 1;
-      } catch (requestError) {
-        failures.push(`${file.name}：${String(requestError)}`);
-      }
-    }
-    try {
-      await loadFiles();
-      if (uploaded > 0) setNotice(t('authFiles.uploaded', { count: uploaded }));
-      if (failures.length > 0) setError(t('authFiles.uploadFailed', { count: failures.length, errors: failures.join('; ') }));
-    } catch (requestError) {
-      setError(String(requestError));
-    } finally {
-      setBusy(false);
-    }
-  }, [loadFiles, t]);
+    await uploadFiles(selected);
+  }, [uploadFiles]);
 
   const toggleStatus = useCallback(async (file: AuthFile) => {
     const name = fileName(file);
@@ -530,6 +532,7 @@ export function useAuthFileManager() {
     loadFiles,
     refreshQuota,
     handleUpload,
+    uploadFiles,
     toggleStatus,
     deleteFile,
     openAuthFilesDirectory,

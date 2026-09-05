@@ -55,6 +55,19 @@ và độ ưu tiên hiển thị ngay trong bảng:
 EvelProxyTool mở trang xác thực trong trình duyệt và hỗ trợ hoàn tất luồng callback thủ công khi việc
 chuyển hướng tự động không khả dụng, kèm theo tùy chọn tự động làm mới hạn mức theo chu kỳ.
 
+Trong **Tài khoản → Đăng nhập bằng JSON**, bạn có thể dán nội dung hoặc chọn tệp JSON.
+
+Chọn **Nền tảng** trước khi nhập. Codex (ChatGPT) hỗ trợ cả ba định dạng bên dưới; các nền tảng khác
+dùng JSON xác thực CPA. **Tự nhận diện từ JSON** sử dụng nền tảng được khai báo trong tệp.
+
+- **JSON phiên ChatGPT**: đăng nhập ChatGPT, mở `https://chatgpt.com/api/auth/session`, rồi dán JSON trả về để thêm tài khoản Codex.
+- **JSON xác thực CPA**: nhập thông tin xác thực đã xuất từ CPA.
+- **JSON xuất từ Sub2API**: tự tách các tài khoản OpenAI OAuth thành từng tệp xác thực Codex.
+
+Lõi cần đang chạy để nhận tài khoản. Mỗi nội dung JSON tối đa 10 MiB; nếu một số tài khoản nhập thất bại,
+nút thử lại chỉ gửi lại các tài khoản đó. JSON phiên ChatGPT chỉ dùng được khi token còn hiệu lực;
+nếu không có refresh token, bạn cần nhập phiên mới khi token hết hạn.
+
 ### Tổng hợp nhà cung cấp API
 
 Khu vực quản lý nhà cung cấp cho phép quản lý thông tin xác thực API và endpoint upstream theo giao
