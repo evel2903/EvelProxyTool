@@ -27,6 +27,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import antigravityIcon from '../assets/icons/antigravity.svg';
 import claudeIcon from '../assets/icons/claude.svg';
 import codexIcon from '../assets/icons/codex.svg';
 import deepseekIcon from '../assets/icons/deepseek.svg';
@@ -67,6 +68,7 @@ type AgentClientId =
   | 'claude-code'
   | 'claude-desktop'
   | 'codex'
+  | 'antigravity'
   | 'opencode'
   | 'openclaw'
   | 'hermes'
@@ -110,6 +112,13 @@ type AgentLaunchTarget = {
   id: 'app' | 'cli';
   label: string;
   detail: string;
+};
+
+type AntigravityDesktopStatus = {
+  running: boolean;
+  inferenceRequests: number;
+  completedResponses: number;
+  lastError: string | null;
 };
 
 type AgentConfigActionResult = {
@@ -196,7 +205,7 @@ type AgentDefinition = {
   name: string;
   icon?: string;
   Icon?: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
-  descriptionKey: 'agents.description.claudeCode' | 'agents.description.claudeDesktop' | 'agents.description.codex' | 'agents.description.opencode' | 'agents.description.openclaw' | 'agents.description.hermes' | 'agents.description.deepseekHarness' | 'agents.description.zcode' | 'agents.description.kimiCode' | 'agents.description.grokBuild' | 'agents.description.pi';
+  descriptionKey: 'agents.description.claudeCode' | 'agents.description.claudeDesktop' | 'agents.description.codex' | 'agents.description.antigravity' | 'agents.description.opencode' | 'agents.description.openclaw' | 'agents.description.hermes' | 'agents.description.deepseekHarness' | 'agents.description.zcode' | 'agents.description.kimiCode' | 'agents.description.grokBuild' | 'agents.description.pi';
 };
 
 type AgentSubpageId = 'core' | 'sessions';
@@ -225,6 +234,12 @@ const agentDefinitions: AgentDefinition[] = [
     name: 'Codex',
     icon: codexIcon,
     descriptionKey: 'agents.description.codex',
+  },
+  {
+    id: 'antigravity',
+    name: 'Google Antigravity',
+    icon: antigravityIcon,
+    descriptionKey: 'agents.description.antigravity',
   },
   {
     id: 'deepseek-harness',
@@ -637,6 +652,23 @@ export function AgentsPage() {
   const [selected, setSelected] = useState<AgentClientId>(readSelectedAgentClient);
   const [activeSubpage, setActiveSubpage] = useState<AgentSubpageId>(DEFAULT_AGENT_SUBPAGE);
   const [statuses, setStatuses] = useState<AgentConfigStatus[]>([]);
+  const [antigravityDesktop, setAntigravityDesktop] = useState<AntigravityDesktopStatus | null>(null);
+  useEffect(() => {
+    if (selected !== 'antigravity') return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      try {
+        const status = await invoke<AntigravityDesktopStatus>('get_antigravity_desktop_status');
+        if (!disposed) setAntigravityDesktop(status);
+      } catch {
+        if (!disposed) setAntigravityDesktop(null);
+      }
+      if (!disposed) timer = setTimeout(() => { void refresh(); }, 2000);
+    };
+    void refresh();
+    return () => { disposed = true; if (timer) clearTimeout(timer); };
+  }, [selected]);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [modelByClient, setModelByClient] = useState<Partial<Record<AgentClientId, string>>>(
     readAgentModelSelections,
@@ -951,6 +983,7 @@ export function AgentsPage() {
   const canEnable = Boolean(
     activeStatus?.supportedPlatform
       && activeStatus.installed
+      && (selected !== 'antigravity' || activeStatus.launchTargets.some((target) => target.id === 'app'))
       && !modelLoading
       && (isClaudeModelMappingClient
         ? claudeMappingsReady && claudeCodeRuntimeSettingsReady
@@ -1595,6 +1628,24 @@ export function AgentsPage() {
                   ) : (
                     <span className="agent-inline-message warning">{activeStatus.warnings.join('；')}</span>
                   )}
+                </div>
+              ) : null}
+
+              {selected === 'antigravity' ? (
+                <div className="agent-status-messages" aria-live="polite">
+                  <span className="agent-inline-message">
+                    {
+                      !antigravityDesktop ? t('agents.antigravity.unavailable')
+                        : !antigravityDesktop.running ? t('agents.antigravity.idle')
+                          : antigravityDesktop.completedResponses > 0
+                            ? t('agents.antigravity.connected', { count: antigravityDesktop.completedResponses })
+                            : t('agents.antigravity.waiting')
+                    }
+                  </span>
+                  {antigravityDesktop?.lastError ? (
+                    <span className="agent-inline-message error" role="alert">{antigravityDesktop.lastError}</span>
+                  ) : null}
+                  <span className="agent-inline-message">{t('agents.antigravity.keepOpen')}</span>
                 </div>
               ) : null}
 

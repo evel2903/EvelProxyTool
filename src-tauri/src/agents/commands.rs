@@ -21,6 +21,7 @@ pub(crate) fn inspect_agent_config_statuses(
         AgentStatusDetectionTarget::Client(AgentClient::ClaudeCode),
         AgentStatusDetectionTarget::Client(AgentClient::ClaudeDesktop),
         AgentStatusDetectionTarget::Client(AgentClient::Codex),
+        AgentStatusDetectionTarget::Client(AgentClient::Antigravity),
         AgentStatusDetectionTarget::Client(AgentClient::OpenCode),
         AgentStatusDetectionTarget::Client(AgentClient::OpenClaw),
         AgentStatusDetectionTarget::Client(AgentClient::Hermes),
@@ -872,6 +873,9 @@ pub(crate) fn close_agent_config_modification(
     let _guard = AGENT_CONFIG_FILE_LOCK
         .lock()
         .map_err(|_| "Agent config file lock is poisoned".to_string())?;
+    if client == AgentClient::Antigravity {
+        super::antigravity_desktop::close_desktop_connection()?;
+    }
     restore_agent_session_configuration(client, &home)?;
     Ok(action_result("closed", false, None, Vec::new(), Vec::new()))
 }
@@ -1078,6 +1082,9 @@ pub(crate) fn validate_agent_can_enable(
     let detection = inspect_agent_config(client, home, port, api_key);
     if !detection.installed {
         return Err(format!("{} is not installed", client.name()));
+    }
+    if client == AgentClient::Antigravity && !antigravity_desktop_version_supported(detection.app_version.as_deref()) {
+        return Err("The desktop bridge currently supports Antigravity 2.15.1 on Windows".to_owned());
     }
     Ok(())
 }

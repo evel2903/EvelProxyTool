@@ -41,6 +41,7 @@ pub(crate) fn agent_config_paths(client: AgentClient, home: &Path) -> Vec<PathBu
         ],
         AgentClient::KimiCode => vec![kimi_code_home(home).join(KIMI_CODE_CONFIG_FILE)],
         AgentClient::GrokBuild => vec![grok_build_home(home).join(GROK_BUILD_CONFIG_FILE)],
+        AgentClient::Antigravity => vec![home.join(".gemini/config/config.json")],
     }
 }
 
@@ -829,7 +830,13 @@ pub(crate) fn inspect_agent_config(
         }
         Err(error) => (false, None, false, false, Some(error)),
     };
-    let executable = find_agent_executable(client, home);
+    // Desktop and agentapi are not the standalone agy CLI. Keep their
+    // discovery separate so checking the version never opens the desktop UI.
+    let executable = if client == AgentClient::Antigravity {
+        find_antigravity_cli_executable(home)
+    } else {
+        find_agent_executable(client, home)
+    };
     // ZCode's desktop executable is an Electron app, not a CLI. Invoking it
     // with --version can start the GUI and block discovery, so only probe a
     // separately installed command-line entry point here.
@@ -844,26 +851,40 @@ pub(crate) fn inspect_agent_config(
     let codex_app_installation = (client == AgentClient::Codex)
         .then(|| find_codex_app_installation(home))
         .flatten();
+    let antigravity_app_installation = (client == AgentClient::Antigravity)
+        .then(|| find_antigravity_app_executable(home))
+        .flatten();
     let app_version = match client {
         AgentClient::ClaudeDesktop => read_claude_desktop_version(home),
         AgentClient::Codex => codex_app_installation
             .as_ref()
             .and_then(read_codex_app_installation_version),
+        AgentClient::Antigravity => read_antigravity_version(home),
         AgentClient::DeepSeekHarness => read_deepseek_harness_profile_version(home),
         AgentClient::ZCode => read_zcode_app_version(home),
         _ => None,
     };
-    let version = cli_version.clone().or_else(|| app_version.clone());
+    let version = if client == AgentClient::Antigravity {
+        app_version.clone()
+    } else {
+        cli_version.clone().or_else(|| app_version.clone())
+    };
     let installed = version.is_some()
         || (client == AgentClient::ZCode && executable.is_some())
-        || codex_app_installation.is_some();
+        || codex_app_installation.is_some()
+        || antigravity_app_installation.is_some();
     let launch_targets = agent_launch_targets(
         client,
         executable.as_deref(),
         app_version.as_deref(),
-        codex_app_installation.is_some(),
+        codex_app_installation.is_some() || antigravity_app_installation.is_some(),
     );
     let mut warnings = Vec::new();
+    if client == AgentClient::Antigravity {
+        if !antigravity_desktop_version_supported(app_version.as_deref()) {
+            warnings.push("Desktop proxy integration currently targets Antigravity 2.15.1 on Windows. This installation is not supported by the desktop bridge.".to_string());
+        }
+    }
     if !client.supported_platform() {
         warnings.push("Claude Desktop 3P config is not supported on this platform".to_string());
     } else if !installed && config_exists {
@@ -941,6 +962,17 @@ pub(crate) fn agent_launch_targets(
                     detail: path_to_string(executable),
                 });
             }
+        }
+        AgentClient::Antigravity => {
+            if app_installed && antigravity_desktop_version_supported(app_version) {
+                targets.push(AgentLaunchTarget {
+                    id: "app".to_string(),
+                    label: "Antigravity Desktop".to_string(),
+                    detail: "Antigravity 2.15.1 desktop through the local CPA bridge".to_string(),
+                });
+            }
+            // Availability of a launcher is not evidence of completed traffic.
+            // The UI reports bridge requests/completions separately.
         }
         AgentClient::ZCode => {
             if let Some(executable) = executable {
@@ -1092,6 +1124,8 @@ pub(crate) fn inspect_agent_managed_config(
             .map(|(configured, model)| (configured, model, false)),
         AgentClient::GrokBuild => inspect_grok_build_agent_config(&paths[0], port, api_key)
             .map(|(configured, model)| (configured, model, false)),
+        AgentClient::Antigravity => inspect_antigravity_agent_config(paths, port, api_key)
+            .map(|(configured, model)| (configured, model, false)),
     }
 }
 
@@ -1211,6 +1245,7 @@ pub(crate) fn agent_has_managed_marker(
             Ok(provider_exists && model_selected)
         }
         AgentClient::DeepSeekHarness => deepseek_harness_has_managed_marker(paths),
+        AgentClient::Antigravity => antigravity_has_managed_marker(paths),
         AgentClient::ZCode => {
             let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
             for path in paths {
@@ -1860,6 +1895,9 @@ pub(crate) fn find_agent_executable(client: AgentClient, home: &Path) -> Option<
     }
     if client == AgentClient::GrokBuild {
         return find_grok_build_executable(home);
+    }
+    if client == AgentClient::Antigravity {
+        return find_antigravity_executable(home);
     }
     find_named_agent_executable(home, client.executable_names())
 }
@@ -2992,4 +3030,134 @@ pub(crate) fn deepseek_harness_has_managed_marker(paths: &[PathBuf]) -> Result<b
         == Some(DEEPSEEK_HARNESS_PROVIDER_ID);
     let credential_exists = yaml_mapping_value(&credentials, DEEPSEEK_HARNESS_CREDENTIAL).is_some();
     Ok(provider_exists || default_selected || credential_exists)
+}
+
+pub(crate) fn find_antigravity_executable(home: &Path) -> Option<PathBuf> {
+    find_antigravity_cli_executable(home)
+}
+
+pub(crate) fn find_antigravity_app_executable(home: &Path) -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        find_windows_antigravity_app_executable(home)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let app = PathBuf::from("/Applications/Antigravity.app");
+        if app.is_dir() {
+            Some(app.join("Contents/MacOS/Antigravity"))
+        } else {
+            None
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let candidates = [
+            PathBuf::from("/usr/bin/antigravity"),
+            PathBuf::from("/usr/local/bin/antigravity"),
+            home.join(".local/bin/antigravity"),
+        ];
+        candidates.into_iter().find(|p| p.is_file())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = home;
+        None
+    }
+}
+
+pub(crate) fn find_windows_antigravity_app_executable(home: &Path) -> Option<PathBuf> {
+    let local = env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join("AppData/Local"));
+    let mut candidates = vec![
+        local.join("Programs/antigravity/Antigravity.exe"),
+        local.join("antigravity/Antigravity.exe"),
+    ];
+    for variable in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Some(root) = env::var_os(variable)
+            .map(PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty())
+        {
+            candidates.push(root.join("antigravity/Antigravity.exe"));
+            candidates.push(root.join("Google/Antigravity/Antigravity.exe"));
+        }
+    }
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+pub(crate) fn find_antigravity_cli_executable(home: &Path) -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        let local = env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData/Local"));
+        let candidates = [
+            // Official Antigravity CLI installation.
+            local.join("agy/bin/agy.exe"),
+            local.join("antigravity-cli/bin/agy.exe"),
+        ];
+        if let Some(path) = candidates.into_iter().find(|path| path.is_file()) {
+            return Some(path);
+        }
+    }
+    // Do not treat the desktop IDE's internal `agentapi.bat` as the CLI: it
+    // talks to the IDE language server and does not honor a Gemini base URL.
+    find_named_agent_executable(home, &["agy"])
+}
+
+pub(crate) fn read_antigravity_version(home: &Path) -> Option<String> {
+    let executable = find_antigravity_app_executable(home)?;
+    #[cfg(target_os = "windows")]
+    {
+        read_windows_executable_version(&executable)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let application = executable.ancestors()
+            .find(|path| path.extension().and_then(|value| value.to_str()) == Some("app"))?;
+        read_macos_app_version(application)
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        // Never invent a version or execute the desktop GUI during detection.
+        read_package_json_version(&executable.parent()?.join("resources/app/package.json"))
+    }
+}
+
+fn inspect_antigravity_agent_config(
+    paths: &[PathBuf],
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>), String> {
+    if paths.is_empty() || !paths[0].is_file() {
+        return Ok((false, None));
+    }
+    let content = fs::read_to_string(&paths[0])
+        .map_err(|error| format!("Failed to read Antigravity config: {error}"))?;
+    let json: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|error| format!("Failed to parse Antigravity config: {error}"))?;
+    if let Some(managed) = json.get("evelProxyTool") {
+        let is_managed = managed.get("managed").and_then(serde_json::Value::as_bool).unwrap_or(false);
+        let config_port = managed.get("port").and_then(serde_json::Value::as_u64);
+        let model = managed.get("model").and_then(serde_json::Value::as_str).map(String::from);
+        if is_managed
+            && config_port == Some(u64::from(port))
+            && managed.get("proxyUrl").and_then(serde_json::Value::as_str)
+                == Some(format!("http://127.0.0.1:{port}").as_str())
+            && managed.get("apiKey").and_then(serde_json::Value::as_str) == Some(api_key)
+            && model.as_deref().is_some_and(|value| !value.trim().is_empty())
+        {
+            return Ok((true, model));
+        }
+    }
+    Ok((false, None))
+}
+
+fn antigravity_has_managed_marker(paths: &[PathBuf]) -> Result<bool, String> {
+    if paths.is_empty() || !paths[0].is_file() {
+        return Ok(false);
+    }
+    let root = read_agent_json_or_empty(&paths[0], "Antigravity config")?;
+    Ok(root.get("evelProxyTool").and_then(|v| v.get("managed")).and_then(serde_json::Value::as_bool).unwrap_or(false))
 }

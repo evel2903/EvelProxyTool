@@ -756,6 +756,12 @@ pub(crate) fn fresh_agent_contents_with_oauth(
             model,
             models,
         )?]),
+        AgentClient::Antigravity => Ok(vec![build_antigravity_agent_config(
+            None,
+            port,
+            api_key,
+            model,
+        )?]),
     }
 }
 
@@ -1389,9 +1395,10 @@ pub(crate) fn restore_agent_applied_state_configuration(
     Ok(())
 }
 
-pub(crate) fn agent_clients_restored_on_exit() -> [AgentClient; 8] {
+pub(crate) fn agent_clients_restored_on_exit() -> [AgentClient; 9] {
     [
         AgentClient::Codex,
+        AgentClient::Antigravity,
         AgentClient::OpenCode,
         AgentClient::OpenClaw,
         AgentClient::Hermes,
@@ -1633,7 +1640,7 @@ pub(crate) fn reset_agent_configuration_to_default_with_oauth(
         claude_code_model_mappings,
         claude_desktop_model_mappings,
     } = request;
-    if client == AgentClient::DeepSeekHarness {
+    if matches!(client, AgentClient::DeepSeekHarness | AgentClient::Antigravity) {
         let updates = build_agent_updates_with_oauth(
             client,
             home,

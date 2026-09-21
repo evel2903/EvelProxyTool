@@ -1,7 +1,7 @@
 use super::*;
 
 #[tauri::command]
-pub(crate) fn launch_agent(
+pub(crate) async fn launch_agent(
     app: tauri::AppHandle,
     gui_config_state: tauri::State<'_, GuiConfigState>,
     client: String,
@@ -33,7 +33,7 @@ pub(crate) fn launch_agent(
         let executable =
             find_pi_executable(&home).ok_or_else(|| "Pi CLI executable not found".to_string())?;
         let launch_directory = resolve_launch_directory(working_directory.as_deref(), &home)?;
-        return launch_cli_agent(&executable, PI_AGENT_NAME, &launch_directory, &[]);
+        return launch_cli_agent(&executable, PI_AGENT_NAME, &launch_directory, &[], &[]);
     }
 
     let client = AgentClient::parse(&client)?;
@@ -52,6 +52,7 @@ pub(crate) fn launch_agent(
     let default_target = match client {
         AgentClient::ClaudeDesktop | AgentClient::ZCode => "app",
         AgentClient::Codex if find_codex_app_installation(&home).is_some() => "app",
+        AgentClient::Antigravity => "app",
         _ => "cli",
     };
     let requested_target = requested_target.unwrap_or(default_target);
@@ -63,7 +64,13 @@ pub(crate) fn launch_agent(
             launch_desktop_agent(&executable, client.name())
         }
         (AgentClient::Codex, "app") => launch_codex_desktop(&home),
-        (AgentClient::ClaudeDesktop | AgentClient::ZCode, "cli") => {
+        (AgentClient::Antigravity, "app") => {
+            let model = status.applied_model.as_deref().ok_or("Apply an Antigravity model first")?;
+            super::antigravity_desktop::launch_antigravity_desktop(
+                &home, config.port, effective_agent_api_key(&config), model,
+            ).await
+        }
+        (AgentClient::ClaudeDesktop | AgentClient::ZCode | AgentClient::Antigravity, "cli") => {
             Err(format!("{} does not support CLI launch", client.name()))
         }
         (_, "cli") => {
@@ -80,6 +87,7 @@ pub(crate) fn launch_agent(
                 client.name(),
                 &launch_directory,
                 environment_to_remove,
+                &[],
             )
         }
         (_, "app") => Err(format!("{} does not support desktop app launch", client.name())),
@@ -414,16 +422,23 @@ fn launch_cli_agent(
     label: &str,
     working_directory: &Path,
     environment_to_remove: &[&str],
+    environment: &[(&str, &str)],
 ) -> Result<(), String> {
     let removals = environment_to_remove
         .iter()
         .map(|key| format!("-u {}", shell_single_quote(key)))
         .collect::<Vec<_>>()
         .join(" ");
+    let variables = environment
+        .iter()
+        .map(|(key, value)| format!("{}={}", shell_single_quote(key), shell_single_quote(value)))
+        .collect::<Vec<_>>()
+        .join(" ");
     let command_line = format!(
-        "cd {} && exec env {} {}",
+        "cd {} && exec env {} {} {}",
         shell_single_quote(&path_to_string(working_directory)),
         removals,
+        variables,
         shell_single_quote(&path_to_string(executable)),
     );
     let script = format!(
@@ -449,6 +464,7 @@ fn launch_cli_agent(
     label: &str,
     working_directory: &Path,
     environment_to_remove: &[&str],
+    environment: &[(&str, &str)],
 ) -> Result<(), String> {
     let terminals: &[(&str, &[&str])] = &[
         ("x-terminal-emulator", &["-e"]),
@@ -478,6 +494,9 @@ fn launch_cli_agent(
         for key in environment_to_remove {
             command.env_remove(key);
         }
+        for (key, value) in environment {
+            command.env(key, value);
+        }
         match command.spawn() {
             Ok(_) => return Ok(()),
             Err(error) => last_error = Some(error.to_string()),
@@ -495,6 +514,7 @@ fn launch_cli_agent(
     label: &str,
     working_directory: &Path,
     environment_to_remove: &[&str],
+    environment: &[(&str, &str)],
 ) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
 
@@ -505,6 +525,9 @@ fn launch_cli_agent(
         .creation_flags(CREATE_NEW_CONSOLE);
     for key in environment_to_remove {
         command.env_remove(key);
+    }
+    for (key, value) in environment {
+        command.env(key, value);
     }
     command
         .spawn()
@@ -518,6 +541,7 @@ fn launch_cli_agent(
     label: &str,
     _working_directory: &Path,
     _environment_to_remove: &[&str],
+    _environment: &[(&str, &str)],
 ) -> Result<(), String> {
     Err(format!("Current platform does not support launching {label}"))
 }
@@ -565,6 +589,20 @@ mod tests {
         let kimi = agent_launch_targets(AgentClient::KimiCode, Some(executable), None, false);
         assert_eq!(zcode[0].id, "app");
         assert_eq!(kimi[0].id, "cli");
+    }
+
+    #[test]
+    fn antigravity_desktop_does_not_require_or_substitute_cli() {
+        let executable = Path::new("agentapi.bat");
+        let targets =
+            agent_launch_targets(AgentClient::Antigravity, Some(executable), Some("1.0.0"), true);
+        assert!(targets.is_empty());
+        let desktop = agent_launch_targets(AgentClient::Antigravity, None, Some("2.15.1"), true);
+        if cfg!(target_os = "windows") {
+            assert_eq!(desktop.len(), 1);
+            assert_eq!(desktop[0].id, "app");
+        } else { assert!(desktop.is_empty()); }
+        assert!(agent_launch_targets(AgentClient::Antigravity, None, Some("2.16.0"), true).is_empty());
     }
 
     #[cfg(target_os = "windows")]

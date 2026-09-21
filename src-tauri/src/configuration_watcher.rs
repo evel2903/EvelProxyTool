@@ -67,6 +67,7 @@ fn tracked_configuration_paths(app: &tauri::AppHandle) -> Result<Vec<PathBuf>, S
         AgentClient::ClaudeCode,
         AgentClient::ClaudeDesktop,
         AgentClient::Codex,
+        AgentClient::Antigravity,
         AgentClient::OpenCode,
         AgentClient::OpenClaw,
         AgentClient::Hermes,

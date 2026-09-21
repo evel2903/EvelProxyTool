@@ -2,6 +2,80 @@ use super::support::*;
 use super::*;
 
 #[test]
+fn antigravity_default_config_and_restore_keep_desktop_preferences() {
+    let directory = agent_test_home("antigravity-default-and-restore");
+    let path = agent_config_paths(AgentClient::Antigravity, &directory).remove(0);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, r#"{"userSettings":{"theme":"dark"},"mcpServers":{"fixture":{}}}"#).unwrap();
+    reset_agent_configuration_to_default(AgentClient::Antigravity, &directory, 8317, "test-key", "gemini-test", None).unwrap();
+    let mut current: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(current["userSettings"]["theme"], "dark");
+    assert!(current["mcpServers"]["fixture"].is_object());
+    current["userSettings"]["theme"] = serde_json::json!("light");
+    fs::write(&path, current.to_string()).unwrap();
+    restore_agent_session_configuration(AgentClient::Antigravity, &directory).unwrap();
+    let restored: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(restored["userSettings"]["theme"], "light");
+    assert!(restored["mcpServers"]["fixture"].is_object());
+    assert!(restored.get("evelProxyTool").is_none());
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn antigravity_rejects_invalid_existing_config_without_discarding_it() {
+    for current in ["{broken", "[]", "null", "42"] {
+        assert!(build_antigravity_agent_config(Some(current), 8317, "key", "model").is_err());
+    }
+}
+
+#[test]
+fn antigravity_restore_preserves_preferences_changed_while_enabled() {
+    let original = r#"{"userSettings":{"theme":"dark"},"keep":1}"#;
+    let current = r#"{"userSettings":{"theme":"light"},"keep":1,"newSetting":true,"evelProxyTool":{"managed":true}}"#;
+    let restored = build_restored_antigravity_config(current, Some(original)).unwrap().unwrap();
+    let value: serde_json::Value = serde_json::from_str(&restored).unwrap();
+    assert_eq!(value["userSettings"]["theme"], "light");
+    assert_eq!(value["newSetting"], true);
+    assert_eq!(value["keep"], 1);
+    assert!(value.get("evelProxyTool").is_none());
+    assert_eq!(build_restored_antigravity_config(r#"{"evelProxyTool":{}}"#, None).unwrap(), None);
+}
+
+#[test]
+fn antigravity_restore_keeps_original_managed_field_without_rolling_back_other_fields() {
+    let original = r#"{"evelProxyTool":{"previous":true},"keep":1}"#;
+    let current = r#"{"evelProxyTool":{"managed":true},"keep":2}"#;
+    let restored = build_restored_antigravity_config(current, Some(original)).unwrap().unwrap();
+    let value: serde_json::Value = serde_json::from_str(&restored).unwrap();
+    assert_eq!(value["evelProxyTool"]["previous"], true);
+    assert_eq!(value["keep"], 2);
+}
+
+#[test]
+fn antigravity_config_inspection_rejects_stale_keys_urls_models_and_wrapped_ports() {
+    let directory = agent_test_home("antigravity-inspection");
+    let paths = agent_config_paths(AgentClient::Antigravity, &directory);
+    fs::create_dir_all(paths[0].parent().unwrap()).unwrap();
+    let rendered = build_antigravity_agent_config(Some(r#"{"userSettings":{"theme":"dark"}}"#), 8317, "key", "model").unwrap();
+    fs::write(&paths[0], &rendered).unwrap();
+    let inspect = || inspect_agent_managed_config(AgentClient::Antigravity, &paths, 8317, "key").unwrap();
+    assert_eq!(inspect(), (true, Some("model".to_string()), false));
+    for (field, value) in [
+        ("apiKey", serde_json::json!("old-key")),
+        ("proxyUrl", serde_json::json!("http://elsewhere:8317")),
+        ("model", serde_json::json!("  ")),
+        ("port", serde_json::json!(8317u64 + 65536)),
+        ("managed", serde_json::json!(false)),
+    ] {
+        let mut config: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        config["evelProxyTool"][field] = value;
+        fs::write(&paths[0], serde_json::to_vec(&config).unwrap()).unwrap();
+        assert!(!inspect().0, "accepted stale {field}");
+    }
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn claude_agent_config_preserves_existing_fields() {
     let rendered = build_claude_agent_config(
             Some(

@@ -275,6 +275,14 @@ pub(crate) fn build_agent_updates_with_oauth(
                 after,
             }])
         }
+        AgentClient::Antigravity => {
+            let before = read_optional_text(&paths[0])?;
+            let after = build_antigravity_agent_config(before.as_deref(), port, api_key, model)?;
+            Ok(vec![AgentFileUpdate {
+                path: paths[0].clone(),
+                after,
+            }])
+        }
     }
 }
 
@@ -1431,6 +1439,7 @@ pub(crate) fn remove_agent_managed_configuration(
         AgentClient::ZCode => remove_zcode_managed_configuration(paths),
         AgentClient::KimiCode => remove_kimi_code_managed_configuration(paths),
         AgentClient::GrokBuild => remove_grok_build_managed_configuration(paths),
+        AgentClient::Antigravity => remove_antigravity_managed_configuration(paths),
     }
 }
 
@@ -2409,6 +2418,7 @@ pub(crate) fn build_agent_session_restored_bytes(
         AgentClient::ZCode => build_restored_zcode_config(current, original)?,
         AgentClient::KimiCode => build_restored_kimi_code_config(current, original)?,
         AgentClient::GrokBuild => build_restored_grok_build_config(current, original)?,
+        AgentClient::Antigravity => build_restored_antigravity_config(current, original)?,
     };
     if let (Some(restored), Some(original), Some(original_bytes)) =
         (restored.as_deref(), original, original_bytes)
@@ -3156,4 +3166,68 @@ pub(crate) fn build_hermes_agent_config(
     serde_norway::from_str::<serde_norway::Value>(&rendered)
         .map_err(|error| format!("Failed to validate Hermes config: {error}"))?;
     Ok(rendered)
+}
+
+pub(crate) fn build_antigravity_agent_config(
+    existing: Option<&str>,
+    port: u16,
+    api_key: &str,
+    model: &str,
+) -> Result<String, String> {
+    let mut root: serde_json::Map<String, serde_json::Value> = if let Some(existing_text) = existing {
+        serde_json::from_str(existing_text)
+            .map_err(|error| format!("Failed to parse Antigravity config: {error}"))?
+    } else {
+        serde_json::Map::new()
+    };
+
+    let managed = serde_json::json!({
+        "managed": true,
+        "proxyUrl": format!("http://127.0.0.1:{port}"),
+        "port": port,
+        "apiKey": api_key,
+        "model": model,
+    });
+    root.insert("evelProxyTool".to_string(), managed);
+    serde_json::to_string_pretty(&root).map_err(|e| format!("Failed to serialize Antigravity config: {e}"))
+}
+
+pub(crate) fn remove_antigravity_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    let mut changed_files = Vec::new();
+    if paths.is_empty() || !paths[0].is_file() {
+        return Ok(changed_files);
+    }
+    let content = fs::read_to_string(&paths[0])
+        .map_err(|error| format!("Failed to read Antigravity config: {error}"))?;
+    let mut root: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&content)
+        .map_err(|error| format!("Failed to parse Antigravity config: {error}"))?;
+    if root.remove("evelProxyTool").is_some() {
+        let updated = serde_json::to_string_pretty(&root)
+            .map_err(|error| format!("Failed to serialize Antigravity config: {error}"))?;
+        write_bytes_atomically(&paths[0], updated.as_bytes())?;
+        changed_files.push(path_to_string(&paths[0]));
+    }
+    Ok(changed_files)
+}
+
+pub(crate) fn build_restored_antigravity_config(
+    current: &str,
+    original: Option<&str>,
+) -> Result<Option<String>, String> {
+    let mut root: serde_json::Map<String, serde_json::Value> = serde_json::from_str(current)
+        .map_err(|error| format!("Failed to parse Antigravity config for restore: {error}"))?;
+    let original = original
+        .map(serde_json::from_str::<serde_json::Map<String, serde_json::Value>>)
+        .transpose()
+        .map_err(|error| format!("Failed to parse original Antigravity config: {error}"))?;
+    // Restore only our field. Antigravity may have saved new preferences while
+    // the integration was active; replacing the whole file would lose them.
+    match original.as_ref().and_then(|root| root.get("evelProxyTool")) {
+        Some(value) => { root.insert("evelProxyTool".to_string(), value.clone()); }
+        None => { root.remove("evelProxyTool"); }
+    }
+    if root.is_empty() && original.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(serde_json::to_string_pretty(&root).map_err(|e| e.to_string())?))
 }

@@ -1,0 +1,32 @@
+{
+  "desktop": "2.15.1.0",
+  "model": "gemini-3.8-flash-high",
+  "requests": [
+    {
+      "time": "2026-09-21T19:30:40.021546+07:00",
+      "account": "A",
+      "failed": false
+    },
+    {
+      "time": "2026-09-21T19:30:40.0243404+07:00",
+      "account": "B",
+      "failed": false
+    },
+    {
+      "time": "2026-09-21T19:38:35.287973+07:00",
+      "account": "C",
+      "failed": false
+    },
+    {
+      "time": "2026-09-21T19:38:35.3927417+07:00",
+      "account": "D",
+      "failed": false
+    },
+    {
+      "time": "2026-09-21T19:38:45.5800572+07:00",
+      "account": "E",
+      "failed": false
+    }
+  ],
+  "successfulDistinctAccounts": 5
+}
