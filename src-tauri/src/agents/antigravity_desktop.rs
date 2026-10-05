@@ -34,7 +34,11 @@ pub(crate) async fn get_antigravity_desktop_status() -> AntigravityDesktopStatus
 }
 
 pub(crate) fn antigravity_desktop_version_supported(version: Option<&str>) -> bool {
-    cfg!(target_os = "windows") && matches!(version, Some("2.15.1" | "2.15.1.0"))
+    // These are the Windows desktop builds whose native Cloud Code transport
+    // has been checked for the local bridge contract. Keep this allowlist
+    // explicit so a future desktop update cannot silently break proxying.
+    cfg!(target_os = "windows")
+        && matches!(version, Some("2.15.1" | "2.15.1.0" | "2.19.1" | "2.19.1.0"))
 }
 
 pub(super) fn close_desktop_connection() -> Result<(), String> {
@@ -54,7 +58,8 @@ pub(super) async fn launch_antigravity_desktop(
 ) -> Result<(), String> {
     if !antigravity_desktop_version_supported(read_antigravity_version(home).as_deref()) {
         return Err(
-            "The desktop bridge currently supports Antigravity 2.15.1 on Windows".to_owned(),
+            "The desktop bridge currently supports Antigravity 2.15.1 and 2.19.1 on Windows"
+                .to_owned(),
         );
     }
     let executable =
@@ -157,8 +162,23 @@ mod tests {
     }
     #[test]
     fn unknown_desktop_versions_do_not_claim_compatibility() {
-        for version in [None, Some("2.14.0"), Some("2.16.0"), Some("unknown")] {
+        for version in [
+            None,
+            Some("2.14.0"),
+            Some("2.16.0"),
+            Some("2.19.2"),
+            Some("unknown"),
+        ] {
             assert!(!antigravity_desktop_version_supported(version));
+        }
+    }
+
+    #[test]
+    fn checked_desktop_versions_are_supported() {
+        for version in ["2.15.1", "2.15.1.0", "2.19.1", "2.19.1.0"] {
+            if cfg!(target_os = "windows") {
+                assert!(antigravity_desktop_version_supported(Some(version)));
+            }
         }
     }
 }

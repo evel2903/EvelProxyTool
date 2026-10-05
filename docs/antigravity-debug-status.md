@@ -1,7 +1,7 @@
 # Antigravity desktop verification — 2026-09-21
 
-The app now launches Antigravity 2.15.1 on Windows through an in-process CPA
-bridge. A real desktop conversation returned `CPA_DESKTOP_OK`. No standalone
+The app now recognizes Antigravity 2.15.1 and 2.19.1 on Windows for its in-process
+CPA bridge. A real desktop conversation on 2.15.1 returned `CPA_DESKTOP_OK`. No standalone
 CLI, installed archive changes, global environment changes, or replacement of
 the desktop Google login are required.
 
@@ -67,7 +67,7 @@ the desktop Google login are required.
 
 ## Remaining limits
 
-Only Antigravity 2.15.1 on Windows is supported by the version guard. This CPA
+Antigravity 2.15.1 and 2.19.1 on Windows are supported by the version guard. This CPA
 currently exposes one model, so changing to a second real model cannot be tested
 on this installation. Cancellation is verified at the HTTP bridge level, not
 through the native Cancel button. Real quota exhaustion is not induced; forced
