@@ -41,7 +41,16 @@ describe('JSON credential import', () => {
       { type: 'codex', metadata: { access_token: 'secret' } }, { type: 'service_account', access_token: 'secret' }]) {
       expect(() => parse(value, 'auth')).toThrow(AuthJsonImportError);
     }
-    assertError('[{"type":"codex","access_token":"secret"}]', 'auth', 'invalid_shape');
+    assertError('[]', 'auth', 'invalid_shape');
+  });
+
+  it('imports a top-level list of native auth objects and reports the failing entry index', () => {
+    const list = [{ type: 'codex', email: 'one@example.com', access_token: 'one' },
+      { type: 'claude', email: 'two@example.com', access_token: 'two' }];
+    expect(parse(list, 'auth').map((file) => file.content)).toEqual(list);
+    expect(new Set(parse(list, 'auth').map((file) => file.name)).size).toBe(2);
+    const error = assertError(JSON.stringify([list[0], { type: 'codex', email: 'x@example.com' }]), 'auth', 'missing_credentials');
+    expect(error.entryIndex).toBe(1);
   });
 
   it('adds the selected provider to untyped auth JSON without rewriting credentials or routing fields', () => {
@@ -141,11 +150,12 @@ describe('JSON credential import', () => {
       .toMatchObject({ email: 'explicit@example.com', account_id: 'explicit-account' });
   });
 
-  it('accepts repeated references to one token but rejects multiple accounts before returning files', () => {
+  it('accepts repeated references to one token, splits a session list, but rejects multiple accounts in one object', () => {
     expect(parse({ user: { email: 'one@example.com' }, accessToken: 'one', token: { access_token: 'one' } })).toHaveLength(1);
     const input = [{ email: 'one@example.com', accessToken: 'one-secret' },
       { email: 'two@example.com', accessToken: 'two-secret' }];
-    const error = assertError(JSON.stringify(input), 'session', 'multiple_sessions');
+    expect(parse(input).map((file) => file.content.access_token)).toEqual(['one-secret', 'two-secret']);
+    const error = assertError(JSON.stringify({ sessions: input }), 'session', 'multiple_sessions');
     expect(error.message).not.toContain('one-secret');
     expect(error.message).not.toContain('two@example.com');
   });

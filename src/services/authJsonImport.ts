@@ -260,7 +260,18 @@ export const parseAuthJsonImport = (
   if (!object(value) && !Array.isArray(value)) throw new AuthJsonImportError('invalid_shape');
   const records = inspect(value);
   const now = new Date().toISOString();
-  const contents = mode === 'auth' ? [nativeAuth(value, records, provider)]
-    : mode === 'session' ? [sessionAuth(records, now)] : sub2apiAuth(value, now);
+  const convert = (item: unknown, itemRecords: JsonObject[]) =>
+    mode === 'auth' ? nativeAuth(item, itemRecords, provider) : sessionAuth(itemRecords, now);
+  // A top-level array is a list of accounts: convert each item on its own (sub2api handles lists itself).
+  const contents = mode === 'sub2api' ? sub2apiAuth(value, now)
+    : !Array.isArray(value) ? [convert(value, records)]
+      : value.map((item, index) => {
+        try {
+          return convert(item, inspect(item));
+        } catch (error) {
+          throw error instanceof AuthJsonImportError ? new AuthJsonImportError(error.code, index) : error;
+        }
+      });
+  if (!contents.length) throw new AuthJsonImportError('invalid_shape');
   return fileNames(contents, records);
 };
