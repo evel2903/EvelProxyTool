@@ -1084,7 +1084,7 @@ pub(crate) fn validate_agent_can_enable(
         return Err(format!("{} is not installed", client.name()));
     }
     if client == AgentClient::Antigravity && !antigravity_desktop_version_supported(detection.app_version.as_deref()) {
-        return Err("The desktop bridge currently supports Antigravity 2.15.1 and 2.19.1 on Windows".to_owned());
+        return Err("The desktop bridge currently supports Antigravity 2.15.1, 2.19.1, and 2.21.1 on Windows".to_owned());
     }
     Ok(())
 }

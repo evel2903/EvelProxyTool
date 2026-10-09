@@ -1,7 +1,7 @@
 # Kế hoạch sửa Antigravity desktop qua CPA
 
-Trạng thái 2026-10-05: đã tích hợp vào app và xác minh desktop → CPA thực tế; guard
-đã mở rộng để nhận diện Antigravity 2.19.1 trên Windows.
+Trạng thái 2026-10-09: đã tích hợp vào app và xác minh desktop → CPA thực tế; guard
+đã mở rộng để nhận diện Antigravity 2.19.1 và 2.21.1 trên Windows.
 
 Antigravity 2.15.1 trên Windows đã trả lời `CPA_DESKTOP_OK` từ giao diện native.
 Log desktop ghi nhận streaming qua cầu nối loopback; cơ sở dữ liệu usage của
@@ -22,7 +22,7 @@ khoản upstream theo chính sách routing hiện có. Đổi tài khoản ở C
 nghĩa với đổi tài khoản đăng nhập hiển thị trong Antigravity.
 
 Không yêu cầu cài standalone CLI để hoàn thành mục tiêu desktop. Các phiên bản đã
-kiểm tra gồm desktop 2.15.1 và 2.19.1 trên Windows. Các bản khác chỉ được công bố
+kiểm tra gồm desktop 2.15.1, 2.19.1 và 2.21.1 trên Windows. Các bản khác chỉ được công bố
 hỗ trợ khi đã kiểm tra khả năng tương thích.
 
 ## Căn cứ ban đầu trước khi triển khai

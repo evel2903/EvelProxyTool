@@ -38,7 +38,10 @@ pub(crate) fn antigravity_desktop_version_supported(version: Option<&str>) -> bo
     // has been checked for the local bridge contract. Keep this allowlist
     // explicit so a future desktop update cannot silently break proxying.
     cfg!(target_os = "windows")
-        && matches!(version, Some("2.15.1" | "2.15.1.0" | "2.19.1" | "2.19.1.0"))
+        && matches!(
+            version,
+            Some("2.15.1" | "2.15.1.0" | "2.19.1" | "2.19.1.0" | "2.21.1" | "2.21.1.0")
+        )
 }
 
 pub(super) fn close_desktop_connection() -> Result<(), String> {
@@ -58,7 +61,7 @@ pub(super) async fn launch_antigravity_desktop(
 ) -> Result<(), String> {
     if !antigravity_desktop_version_supported(read_antigravity_version(home).as_deref()) {
         return Err(
-            "The desktop bridge currently supports Antigravity 2.15.1 and 2.19.1 on Windows"
+            "The desktop bridge currently supports Antigravity 2.15.1, 2.19.1, and 2.21.1 on Windows"
                 .to_owned(),
         );
     }
@@ -167,6 +170,7 @@ mod tests {
             Some("2.14.0"),
             Some("2.16.0"),
             Some("2.19.2"),
+            Some("2.22.0"),
             Some("unknown"),
         ] {
             assert!(!antigravity_desktop_version_supported(version));
@@ -175,7 +179,9 @@ mod tests {
 
     #[test]
     fn checked_desktop_versions_are_supported() {
-        for version in ["2.15.1", "2.15.1.0", "2.19.1", "2.19.1.0"] {
+        for version in [
+            "2.15.1", "2.15.1.0", "2.19.1", "2.19.1.0", "2.21.1", "2.21.1.0",
+        ] {
             if cfg!(target_os = "windows") {
                 assert!(antigravity_desktop_version_supported(Some(version)));
             }

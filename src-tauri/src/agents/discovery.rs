@@ -882,7 +882,7 @@ pub(crate) fn inspect_agent_config(
     let mut warnings = Vec::new();
     if client == AgentClient::Antigravity {
         if !antigravity_desktop_version_supported(app_version.as_deref()) {
-            warnings.push("Desktop proxy integration supports Antigravity 2.15.1 and 2.19.1 on Windows. This installation is not supported by the desktop bridge.".to_string());
+            warnings.push("Desktop proxy integration supports Antigravity 2.15.1, 2.19.1, and 2.21.1 on Windows. This installation is not supported by the desktop bridge.".to_string());
         }
     }
     if !client.supported_platform() {
