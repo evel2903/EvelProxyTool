@@ -431,11 +431,7 @@ pub(crate) fn apply_gui_managed_settings(
             "auth-dir",
             serde_norway::Value::String(config.auth_dir.clone()),
         )?;
-        changed |= set_core_yaml_top_level_value(
-            document,
-            "usage-statistics-enabled",
-            serde_norway::Value::Bool(config.usage_statistics_enabled),
-        )?;
+        changed |= set_core_usage_statistics_enabled(document, config.usage_statistics_enabled)?;
         changed |= set_core_yaml_nested_value(
             document,
             "remote-management",

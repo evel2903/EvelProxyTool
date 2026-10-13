@@ -705,6 +705,76 @@ fn managed_session_settings_use_canonical_yaml_and_preserve_unrelated_content() 
 }
 
 #[test]
+fn usage_statistics_setting_targets_v8_observability_section() {
+    let input = "config-version: 8\n# Application logs, request logs, usage aggregation, and profiling.\nobservability:\n    usage:\n        # When false, disable in-memory usage statistics aggregation\n        usage-statistics-enabled: false\n        redis-usage-queue-retention-seconds: 60\n";
+    let document = serde_norway::from_str::<serde_norway::Value>(input).unwrap();
+    assert!(
+        !core_config_settings_from_value(&document)
+            .unwrap()
+            .usage_statistics_enabled
+    );
+
+    let config = GuiConfigFile {
+        usage_statistics_enabled: true,
+        ..GuiConfigFile::default()
+    };
+    let rendered = apply_gui_managed_settings(input, &config).unwrap();
+    let document = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+
+    assert_eq!(
+        document["observability"]["usage"]["usage-statistics-enabled"],
+        true
+    );
+    assert_eq!(
+        document["observability"]["usage"]["redis-usage-queue-retention-seconds"],
+        60
+    );
+    assert!(document.get("usage-statistics-enabled").is_none());
+    assert!(rendered.contains("# When false, disable in-memory usage statistics aggregation"));
+    assert!(
+        core_config_settings_from_value(&document)
+            .unwrap()
+            .usage_statistics_enabled
+    );
+}
+
+#[test]
+fn usage_statistics_setting_creates_v8_section_and_updates_stale_legacy_key() {
+    let input = "config-version: 8\nusage-statistics-enabled: false\n";
+    let config = GuiConfigFile {
+        usage_statistics_enabled: true,
+        ..GuiConfigFile::default()
+    };
+    let rendered = apply_gui_managed_settings(input, &config).unwrap();
+    let document = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+
+    assert_eq!(
+        document["observability"]["usage"]["usage-statistics-enabled"],
+        true
+    );
+    assert_eq!(document["usage-statistics-enabled"], true);
+}
+
+#[test]
+fn usage_statistics_setting_keeps_legacy_top_level_layout() {
+    let input = "port: 8317\nusage-statistics-enabled: true\n";
+    let config = GuiConfigFile {
+        usage_statistics_enabled: false,
+        ..GuiConfigFile::default()
+    };
+    let rendered = apply_gui_managed_settings(input, &config).unwrap();
+    let document = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+
+    assert_eq!(document["usage-statistics-enabled"], false);
+    assert!(document.get("observability").is_none());
+    assert!(
+        !core_config_settings_from_value(&document)
+            .unwrap()
+            .usage_statistics_enabled
+    );
+}
+
+#[test]
 fn optional_core_strings_are_trimmed_and_reject_control_characters() {
     assert_eq!(
         normalize_optional_config_string("  socks5://proxy:7890  ".to_string(), "Proxy URL")

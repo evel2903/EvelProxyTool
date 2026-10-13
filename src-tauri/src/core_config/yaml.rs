@@ -761,6 +761,64 @@ pub(crate) fn set_core_yaml_top_level_value(
     Ok(true)
 }
 
+pub(crate) const USAGE_STATISTICS_ENABLED_KEY: &str = "usage-statistics-enabled";
+pub(crate) const V8_USAGE_STATISTICS_ENABLED_PATH: [&str; 3] =
+    ["observability", "usage", USAGE_STATISTICS_ENABLED_KEY];
+
+pub(crate) fn core_yaml_uses_v8_layout(root: &serde_norway::Mapping) -> bool {
+    yaml_mapping_value(root, "config-version")
+        .and_then(serde_norway::Value::as_u64)
+        .is_some_and(|version| version >= 8)
+        || yaml_mapping_value(root, "observability").is_some_and(serde_norway::Value::is_mapping)
+}
+
+pub(crate) fn set_core_yaml_path_value(
+    document: &mut serde_norway::Value,
+    path: &[&str],
+    value: serde_norway::Value,
+) -> Result<bool, String> {
+    let (last, parents) = path
+        .split_last()
+        .ok_or_else(|| "Core config path must not be empty".to_string())?;
+    let mut mapping = document
+        .as_mapping_mut()
+        .ok_or_else(|| "Core config top level must be a YAML mapping".to_string())?;
+    for section in parents {
+        mapping = mapping
+            .entry(yaml_key(section))
+            .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
+            .as_mapping_mut()
+            .ok_or_else(|| format!("Core config section {section} must be a YAML mapping"))?;
+    }
+    let key = yaml_key(last);
+    if mapping.get(&key) == Some(&value) {
+        return Ok(false);
+    }
+    mapping.insert(key, value);
+    Ok(true)
+}
+
+pub(crate) fn set_core_usage_statistics_enabled(
+    document: &mut serde_norway::Value,
+    enabled: bool,
+) -> Result<bool, String> {
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "Core config top level must be a YAML mapping".to_string())?;
+    let uses_v8_layout = core_yaml_uses_v8_layout(root);
+    let has_legacy_key = yaml_mapping_value(root, USAGE_STATISTICS_ENABLED_KEY).is_some();
+    let value = serde_norway::Value::Bool(enabled);
+    let mut changed = false;
+    if uses_v8_layout {
+        changed |=
+            set_core_yaml_path_value(document, &V8_USAGE_STATISTICS_ENABLED_PATH, value.clone())?;
+    }
+    if !uses_v8_layout || has_legacy_key {
+        changed |= set_core_yaml_top_level_value(document, USAGE_STATISTICS_ENABLED_KEY, value)?;
+    }
+    Ok(changed)
+}
+
 pub(crate) fn set_core_yaml_nested_value(
     document: &mut serde_norway::Value,
     section: &str,
@@ -999,7 +1057,8 @@ pub(crate) fn core_config_settings_from_value(
         })
         .transpose()?
         .unwrap_or_else(|| OAUTH_DIR_NAME.to_string());
-    let usage_statistics_enabled = yaml_mapping_value(root, "usage-statistics-enabled")
+    let usage_statistics_enabled = nested_yaml_value(root, &V8_USAGE_STATISTICS_ENABLED_PATH)
+        .or_else(|| yaml_mapping_value(root, USAGE_STATISTICS_ENABLED_KEY))
         .map(|value| {
             value
                 .as_bool()
