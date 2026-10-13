@@ -333,7 +333,7 @@ fn prepare_catalog_with_sources(
     sources: &CatalogSources,
 ) -> Result<PreparedCodexCatalog, String> {
     if runtime_models.is_empty() {
-        return Err("CPA currently has no models to write to Codex".to_string());
+        return Err("CPA currently has no model that can be written to Codex".to_string());
     }
 
     let mut entries = Vec::with_capacity(runtime_models.len());

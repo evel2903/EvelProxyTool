@@ -797,7 +797,8 @@ pub(crate) fn patch_core_api_keys_yaml(
         &["auth", "providers", "config-api-key", "api-key-entries"],
     )
     .is_some()
-        || nested_yaml_value(root, &["auth", "providers", "config-api-key", "api-keys"]).is_some();
+        || nested_yaml_value(root, &["auth", "providers", "config-api-key", "api-keys"]).is_some()
+        || nested_yaml_value(root, &["access", "api-keys"]).is_some();
     let content = if has_legacy_api_keys {
         let file = content
             .parse::<yaml_edit::YamlFile>()
@@ -932,6 +933,7 @@ pub(crate) fn clear_legacy_api_key_paths(document: &yaml_edit::Document) {
 
     document.remove_path("auth.providers.config-api-key.api-key-entries");
     document.remove_path("auth.providers.config-api-key.api-keys");
+    document.remove_path("access.api-keys");
 }
 
 #[cfg(test)]
@@ -1116,6 +1118,15 @@ pub(crate) fn core_config_settings_from_value(
 }
 
 pub(crate) fn extract_core_api_keys(root: &serde_norway::Mapping) -> Result<Vec<String>, String> {
+    if let Some(access) = yaml_mapping_value(root, "access").and_then(serde_norway::Value::as_mapping) {
+        if let Some(value) = yaml_mapping_value(access, "api-keys") {
+            let keys = extract_api_key_sequence(value, "access.api-keys")?;
+            if !keys.is_empty() {
+                return Ok(keys);
+            }
+        }
+    }
+
     if let Some(value) = yaml_mapping_value(root, "api-keys") {
         return extract_api_key_sequence(value, "api-keys");
     }
