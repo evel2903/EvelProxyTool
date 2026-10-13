@@ -197,6 +197,8 @@ export function useAuthFileManager() {
   const [filter, setFilter] = useState('');
   const [providerFilter, setProviderFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'enabled' | 'disabled' | 'runtime'>('all');
+  const [planFilter, setPlanFilter] = useState('all');
+  const [quotaFilter, setQuotaFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -355,6 +357,19 @@ export function useAuthFileManager() {
     [files],
   );
 
+  const availablePlans = useMemo(() => {
+    const plans = new Set<string>(['Plus', 'Team', 'Pro', 'Free']);
+    files.forEach((file) => {
+      const q = quotas[quotaKey(file)];
+      const rawPlan = q?.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan');
+      if (rawPlan && rawPlan.trim()) {
+        const norm = rawPlan.trim().charAt(0).toUpperCase() + rawPlan.trim().slice(1).toLowerCase();
+        plans.add(norm);
+      }
+    });
+    return Array.from(plans).sort((a, b) => a.localeCompare(b));
+  }, [files, quotas]);
+
   const visibleFiles = useMemo(() => {
     const query = filter.trim().toLowerCase();
     return files.filter((file) => {
@@ -371,9 +386,39 @@ export function useAuthFileManager() {
           .join(' ')
           .toLowerCase()
           .includes(query);
-      return providerMatch && runtimeMatch && searchMatch;
+
+      const q = quotas[quotaKey(file)];
+      const rawPlan = q?.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan');
+      const planName = rawPlan ? (rawPlan.trim().charAt(0).toUpperCase() + rawPlan.trim().slice(1).toLowerCase()) : '';
+      const planMatch = planFilter === 'all' || planName.toLowerCase() === planFilter.toLowerCase();
+
+      let quotaMatch = true;
+      if (quotaFilter !== 'all') {
+        const primary = q?.rows
+          ?.filter((row) => row.remainingPercent !== null)
+          ?.sort((left, right) => (left.remainingPercent ?? 0) - (right.remainingPercent ?? 0))[0];
+        const percent = primary && primary.remainingPercent !== null
+          ? Math.max(0, Math.min(100, Math.round(primary.remainingPercent)))
+          : null;
+
+        if (quotaFilter === '0') {
+          quotaMatch = percent === 0;
+        } else if (quotaFilter === '<15') {
+          quotaMatch = percent !== null && percent < 15;
+        } else if (quotaFilter === '>0') {
+          quotaMatch = percent !== null && percent > 0;
+        } else if (quotaFilter === '>=50') {
+          quotaMatch = percent !== null && percent >= 50;
+        } else if (quotaFilter === 'error') {
+          quotaMatch = q?.status === 'error';
+        } else if (quotaFilter === 'unloaded') {
+          quotaMatch = !q || q.status === 'idle' || q.status === 'loading';
+        }
+      }
+
+      return providerMatch && runtimeMatch && searchMatch && planMatch && quotaMatch;
     });
-  }, [files, filter, providerFilter, statusFilter]);
+  }, [files, filter, providerFilter, statusFilter, planFilter, quotaFilter, quotas]);
 
   const uploadFiles = useCallback(async (selected: readonly File[]) => {
     setBusy(true);
@@ -489,6 +534,48 @@ export function useAuthFileManager() {
     }
   }, [loadFiles, t]);
 
+  const deleteFiles = useCallback(async (selectedFiles: AuthFile[]) => {
+    const targets = selectedFiles.filter((file) => !isRuntimeOnly(file));
+    if (targets.length === 0) return;
+    if (!window.confirm(t('authFiles.bulkDeleteConfirm', { count: targets.length }))) return;
+    setBusy(true);
+    setError('');
+    try {
+      await Promise.all(
+        targets.map((file) => managementApi.delete('/auth-files', { query: { name: fileName(file) } }))
+      );
+      setNotice(t('authFiles.bulkDeleted', { count: targets.length }));
+      await loadFiles();
+    } catch (requestError) {
+      setError(String(requestError));
+    } finally {
+      setBusy(false);
+    }
+  }, [loadFiles, t]);
+
+  const toggleFilesStatus = useCallback(async (selectedFiles: AuthFile[], disabled: boolean) => {
+    const targets = selectedFiles.filter((file) => !isRuntimeOnly(file));
+    if (targets.length === 0) return;
+    setBusy(true);
+    setError('');
+    try {
+      await Promise.all(
+        targets.map((file) =>
+          managementApi.patch('/auth-files/status', {
+            name: fileName(file),
+            disabled,
+          })
+        )
+      );
+      setNotice(disabled ? t('authFiles.bulkDisable') : t('authFiles.bulkEnable'));
+      await loadFiles();
+    } catch (requestError) {
+      setError(String(requestError));
+    } finally {
+      setBusy(false);
+    }
+  }, [loadFiles, t]);
+
   const openAuthFilesDirectory = useCallback(async () => {
     setBusy(true);
     setError('');
@@ -522,6 +609,11 @@ export function useAuthFileManager() {
     setProviderFilter,
     statusFilter,
     setStatusFilter,
+    planFilter,
+    setPlanFilter,
+    quotaFilter,
+    setQuotaFilter,
+    availablePlans,
     loading,
     busy,
     error,
@@ -535,6 +627,8 @@ export function useAuthFileManager() {
     uploadFiles,
     toggleStatus,
     deleteFile,
+    deleteFiles,
+    toggleFilesStatus,
     openAuthFilesDirectory,
     copyName,
     providers,

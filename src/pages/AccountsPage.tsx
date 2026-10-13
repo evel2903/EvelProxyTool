@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Check,
+  CheckSquare,
   Copy,
   ExternalLink,
   FileJson,
@@ -13,10 +14,12 @@ import {
   LoaderCircle,
   LogIn,
   Pencil,
+  Power,
   RefreshCw,
   Search,
   Sliders,
   Trash2,
+  X,
 } from 'lucide-react';
 import antigravityIcon from '../assets/icons/antigravity.svg';
 import claudeIcon from '../assets/icons/claude.svg';
@@ -30,7 +33,7 @@ import {
   snapshotAuthFiles,
   type AuthFileSnapshot,
 } from '../services/authFiles';
-import { formatDate, managementApi, readBoolean, readNumber, responseList } from '../services/managementApi';
+import { formatDate, managementApi, readBoolean, readNumber, readString, responseList } from '../services/managementApi';
 import { createOAuthLoginSuccessCache } from '../services/oauthLoginState';
 import {
   captureQuotaCacheGeneration,
@@ -61,6 +64,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -647,18 +651,20 @@ function PendingLoginCard({
 
 function QuotaBar({ quota }: { quota: QuotaState }) {
   const { t } = useI18n();
-  if (quota.status === 'idle') return <span className="text-xs text-muted-foreground font-mono">—</span>;
-  if (quota.status === 'loading') {
-    return (
+  let content: React.ReactNode;
+
+  if (quota.status === 'idle') {
+    content = <span className="text-xs text-muted-foreground font-mono">—</span>;
+  } else if (quota.status === 'loading') {
+    content = (
       <div className="grid size-8 place-items-center text-muted-foreground" aria-label={t('authFiles.quota.loading')}>
         <LoaderCircle size={16} className="animate-spin text-primary" aria-hidden="true" />
       </div>
     );
-  }
-  if (quota.status === 'error') {
+  } else if (quota.status === 'error') {
     if (quota.verifyUrl) {
       const verifyUrl = quota.verifyUrl;
-      return (
+      content = (
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -672,36 +678,47 @@ function QuotaBar({ quota }: { quota: QuotaState }) {
           <TooltipContent>{quota.error || t('authFiles.quota.failed')}</TooltipContent>
         </Tooltip>
       );
+    } else {
+      content = (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-xs text-destructive font-medium underline decoration-dotted underline-offset-2">{t('authFiles.quota.failed')}</span>
+          </TooltipTrigger>
+          <TooltipContent>{quota.error || t('authFiles.quota.failed')}</TooltipContent>
+        </Tooltip>
+      );
     }
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="text-xs text-destructive font-medium underline decoration-dotted underline-offset-2">{t('authFiles.quota.failed')}</span>
-        </TooltipTrigger>
-        <TooltipContent>{quota.error || t('authFiles.quota.failed')}</TooltipContent>
-      </Tooltip>
-    );
+  } else {
+    const primary = quota.rows
+      .filter((row) => row.remainingPercent !== null)
+      .sort((left, right) => (left.remainingPercent ?? 0) - (right.remainingPercent ?? 0))[0];
+    if (!primary) {
+      content = <span className="text-xs text-muted-foreground">{t('authFiles.quota.empty')}</span>;
+    } else {
+      const percent = Math.max(0, Math.min(100, Math.round(primary.remainingPercent ?? 0)));
+      content = (
+        <>
+          <QuotaRing percent={percent} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="text-muted-foreground transition-colors hover:text-foreground p-0.5 rounded cursor-pointer"
+                aria-label={t('authFiles.quota.viewDetails')}
+              >
+                <Info size={15} aria-hidden="true" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent><AuthFileQuotaSummary quota={quota} /></TooltipContent>
+          </Tooltip>
+        </>
+      );
+    }
   }
-  const primary = quota.rows
-    .filter((row) => row.remainingPercent !== null)
-    .sort((left, right) => (left.remainingPercent ?? 0) - (right.remainingPercent ?? 0))[0];
-  if (!primary) return <span className="text-xs text-muted-foreground">{t('authFiles.quota.empty')}</span>;
-  const percent = Math.max(0, Math.min(100, Math.round(primary.remainingPercent ?? 0)));
+
   return (
-    <div className="flex items-center gap-2">
-      <QuotaRing percent={percent} />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className="text-muted-foreground transition-colors hover:text-foreground p-0.5 rounded cursor-pointer"
-            aria-label={t('authFiles.quota.viewDetails')}
-          >
-            <Info size={15} aria-hidden="true" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent><AuthFileQuotaSummary quota={quota} /></TooltipContent>
-      </Tooltip>
+    <div className="flex h-8 items-center gap-2">
+      {content}
     </div>
   );
 }
@@ -740,12 +757,16 @@ function AccountRow({
   manager,
   onResetCodex,
   maskEmails,
+  isSelected,
+  onToggleSelect,
 }: {
   file: AuthFile;
   quota: QuotaState;
   manager: ReturnType<typeof useAuthFileManager>;
   onResetCodex?: () => void;
   maskEmails: boolean;
+  isSelected: boolean;
+  onToggleSelect: (name: string) => void;
 }) {
   const { t } = useI18n();
   const name = fileName(file);
@@ -755,39 +776,52 @@ function AccountRow({
   const priority = parseAuthFilePriority(file.priority) ?? 0;
   const icon = providerIcons[providerKey(file)] ?? providerIcons.gemini;
   const canFetchQuota = Boolean(quotaProviderForFile(file));
+  const rawPlan = quota.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan');
+  const displayPlan = rawPlan ? (rawPlan.trim().charAt(0).toUpperCase() + rawPlan.trim().slice(1).toLowerCase()) : null;
 
   return (
-    <TableRow className={disabled ? 'opacity-60' : undefined}>
-      <TableCell className="min-w-[180px] whitespace-nowrap">
-        <div className="flex items-center gap-2.5">
+    <TableRow className={cn('h-[76px] transition-colors', disabled ? 'opacity-60' : undefined, isSelected ? 'bg-muted/40' : undefined)}>
+      <TableCell className="w-10 px-3 text-center align-middle">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelect(name)}
+          aria-label={name}
+        />
+      </TableCell>
+      <TableCell className="min-w-[190px] whitespace-nowrap align-middle">
+        <div className="flex h-10 items-center gap-2.5">
           <img src={icon} alt="" className="size-6 shrink-0" />
           <strong className="truncate font-medium text-sm text-foreground" title={name}>{displayName}</strong>
         </div>
       </TableCell>
-      <TableCell className="w-28 min-w-[100px] whitespace-nowrap">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <TableCell className="w-28 min-w-[100px] whitespace-nowrap align-middle">
+        <div className="flex h-10 items-center gap-1.5">
           <Badge variant={disabled || unavailable ? 'destructive' : 'success'}>{statusText(file)}</Badge>
           {isRuntimeOnly(file) ? <Badge variant="outline">{t('authFiles.runtime')}</Badge> : null}
         </div>
       </TableCell>
-      <TableCell className="w-24 min-w-[80px] whitespace-nowrap">
-        {quota.plan ? <Badge variant="outline" className="font-semibold">{quota.plan}</Badge> : <span className="text-xs text-muted-foreground font-mono">—</span>}
+      <TableCell className="w-24 min-w-[80px] whitespace-nowrap align-middle">
+        <div className="flex h-10 items-center">
+          {displayPlan ? <Badge variant="outline" className="font-semibold">{displayPlan}</Badge> : <span className="text-xs text-muted-foreground font-mono">—</span>}
+        </div>
       </TableCell>
-      <TableCell className="w-28 min-w-[90px] whitespace-nowrap">
+      <TableCell className="w-28 min-w-[90px] whitespace-nowrap align-middle">
         <QuotaBar quota={quota} />
       </TableCell>
-      <TableCell className="w-36 min-w-[120px] whitespace-nowrap text-xs text-muted-foreground">
-        {quota.status === 'success' ? (quota.rows.find((row) => row.reset)?.reset ?? '—') : '—'}
+      <TableCell className="w-32 min-w-[110px] whitespace-nowrap align-middle text-xs text-muted-foreground">
+        <div className="flex h-10 items-center truncate">
+          {quota.status === 'success' ? (quota.rows.find((row) => row.reset)?.reset ?? '—') : '—'}
+        </div>
       </TableCell>
-      <TableCell className="w-36 min-w-[120px] whitespace-nowrap text-xs text-muted-foreground">
-        <div className="grid gap-0.5">
+      <TableCell className="w-32 min-w-[110px] whitespace-nowrap align-middle text-xs text-muted-foreground">
+        <div className="flex h-10 flex-col justify-center gap-0.5">
           <span>{readNumber(file, 'size') === null ? t('authFiles.unknownSize') : `${Math.ceil((readNumber(file, 'size') ?? 0) / 1024)} KB`}</span>
           <span>{formatDate(file.modtime ?? file.updated_at ?? file.last_refresh)}</span>
         </div>
       </TableCell>
-      <TableCell className="w-64 min-w-[210px] whitespace-nowrap">
-        <div className="grid gap-1.5">
-          <div className="flex flex-wrap items-center gap-1.5">
+      <TableCell className="w-[280px] min-w-[280px] whitespace-nowrap align-middle">
+        <div className="flex h-[60px] flex-col justify-center gap-1.5">
+          <div className="flex h-7 items-center gap-1.5">
             {canFetchQuota ? (
               <Button type="button" variant="outline" size="icon-sm" disabled={manager.busy || disabled || quota.status === 'loading'} title={disabled ? t('quota.fileDisabled') : t('quota.refresh')} onClick={() => void manager.refreshQuota(file)}>
                 <RefreshCw size={14} className={quota.status === 'loading' ? 'animate-spin' : undefined} aria-hidden="true" />
@@ -805,7 +839,7 @@ function AccountRow({
               <Trash2 size={14} aria-hidden="true" />
             </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex h-7 items-center gap-1.5">
             <Button type="button" variant="outline" size="sm" disabled={manager.busy} onClick={() => void manager.toggleStatus(file)}>{disabled ? t('common.enable') : t('common.disable')}</Button>
             <Button type="button" variant="outline" size="sm" disabled={manager.busy} title={t('authFiles.priority.hint')} onClick={() => manager.openPriorityEditor(file)}>
               <Pencil size={14} aria-hidden="true" />{t('authFiles.priority.button', { priority: priority ?? 0 })}
@@ -823,40 +857,61 @@ function AccountsTable({
   manager,
   resetCodexQuota,
   maskEmails,
+  selectedNames,
+  onToggleSelect,
+  onToggleSelectAll,
 }: {
   files: AuthFile[];
   manager: ReturnType<typeof useAuthFileManager>;
   resetCodexQuota: (file: AuthFile, quota: QuotaState) => void;
   maskEmails: boolean;
+  selectedNames: Set<string>;
+  onToggleSelect: (name: string) => void;
+  onToggleSelectAll: () => void;
 }) {
   const { t } = useI18n();
+  const allSelected = files.length > 0 && files.every((f) => selectedNames.has(fileName(f)));
+  const someSelected = files.some((f) => selectedNames.has(fileName(f)));
+
   return (
     <div className="overflow-x-auto rounded-b-xl border border-t-0 bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="min-w-[180px]">{t('accounts.column.account')}</TableHead>
+            <TableHead className="w-10 px-3 text-center align-middle">
+              <Checkbox
+                checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                onCheckedChange={onToggleSelectAll}
+                aria-label="Select all"
+              />
+            </TableHead>
+            <TableHead className="min-w-[190px]">{t('accounts.column.account')}</TableHead>
             <TableHead className="w-28 min-w-[100px] whitespace-nowrap">{t('accounts.column.status')}</TableHead>
             <TableHead className="w-24 min-w-[80px] whitespace-nowrap">{t('accounts.column.plan')}</TableHead>
             <TableHead className="w-28 min-w-[90px] whitespace-nowrap">{t('accounts.column.quota')}</TableHead>
-            <TableHead className="w-36 min-w-[120px] whitespace-nowrap">{t('accounts.column.expiry')}</TableHead>
-            <TableHead className="w-36 min-w-[120px] whitespace-nowrap">{t('accounts.column.updated')}</TableHead>
-            <TableHead className="w-64 min-w-[210px] whitespace-nowrap">{t('accounts.column.actions')}</TableHead>
+            <TableHead className="w-32 min-w-[110px] whitespace-nowrap">{t('accounts.column.expiry')}</TableHead>
+            <TableHead className="w-32 min-w-[110px] whitespace-nowrap">{t('accounts.column.updated')}</TableHead>
+            <TableHead className="w-[280px] min-w-[280px] whitespace-nowrap">{t('accounts.column.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {files.map((file) => (
-            <AccountRow
-              key={quotaKey(file)}
-              file={file}
-              quota={manager.quotas[quotaKey(file)] ?? idleQuota()}
-              manager={manager}
-              maskEmails={maskEmails}
-              onResetCodex={quotaProviderForFile(file) === 'codex' && (manager.quotas[quotaKey(file)]?.resetCredits ?? 0) > 0
-                ? () => void resetCodexQuota(file, manager.quotas[quotaKey(file)] ?? idleQuota())
-                : undefined}
-            />
-          ))}
+          {files.map((file) => {
+            const name = fileName(file);
+            return (
+              <AccountRow
+                key={quotaKey(file)}
+                file={file}
+                quota={manager.quotas[quotaKey(file)] ?? idleQuota()}
+                manager={manager}
+                maskEmails={maskEmails}
+                isSelected={selectedNames.has(name)}
+                onToggleSelect={onToggleSelect}
+                onResetCodex={quotaProviderForFile(file) === 'codex' && (manager.quotas[quotaKey(file)]?.resetCredits ?? 0) > 0
+                  ? () => void resetCodexQuota(file, manager.quotas[quotaKey(file)] ?? idleQuota())
+                  : undefined}
+              />
+            );
+          })}
         </TableBody>
       </Table>
     </div>
@@ -970,6 +1025,76 @@ export function AccountsPage() {
     () => manager.visibleFiles.slice().sort((left, right) => fileName(left).localeCompare(fileName(right))),
     [manager.visibleFiles],
   );
+
+  const [selectedNames, setSelectedNames] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setSelectedNames((prev) => {
+      if (prev.size === 0) return prev;
+      const existingNames = new Set(manager.files.map(fileName));
+      const next = new Set<string>();
+      prev.forEach((name) => {
+        if (existingNames.has(name)) next.add(name);
+      });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [manager.files]);
+
+  const selectedFiles = useMemo(
+    () => manager.files.filter((file) => selectedNames.has(fileName(file))),
+    [manager.files, selectedNames],
+  );
+
+  const handleToggleSelect = useCallback((name: string) => {
+    setSelectedNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedNames((prev) => {
+      const visibleNames = sortedVisibleFiles.map(fileName);
+      const allVisibleSelected = visibleNames.length > 0 && visibleNames.every((n) => prev.has(n));
+      if (allVisibleSelected) {
+        const next = new Set(prev);
+        visibleNames.forEach((n) => next.delete(n));
+        return next;
+      } else {
+        const next = new Set(prev);
+        visibleNames.forEach((n) => next.add(n));
+        return next;
+      }
+    });
+  }, [sortedVisibleFiles]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedNames(new Set());
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedFiles.length === 0) return;
+    await manager.deleteFiles(selectedFiles);
+    setSelectedNames(new Set());
+  }, [manager, selectedFiles]);
+
+  const handleBulkEnable = useCallback(async () => {
+    if (selectedFiles.length === 0) return;
+    await manager.toggleFilesStatus(selectedFiles, false);
+  }, [manager, selectedFiles]);
+
+  const handleBulkDisable = useCallback(async () => {
+    if (selectedFiles.length === 0) return;
+    await manager.toggleFilesStatus(selectedFiles, true);
+  }, [manager, selectedFiles]);
+
+  const handleBulkRefresh = useCallback(() => {
+    selectedFiles.forEach((file) => {
+      void manager.refreshQuota(file);
+    });
+  }, [manager, selectedFiles]);
 
   return (
     <section className="grid gap-4">
@@ -1103,24 +1228,45 @@ export function AccountsPage() {
       </Card>
 
       <div className="flex flex-wrap items-center gap-2 rounded-t-lg border border-b-0 bg-card p-3">
-        <div className="relative min-w-56 flex-1">
+        <div className="relative min-w-44 flex-1">
           <Search size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input className="pl-8" value={manager.filter} onChange={(event) => manager.setFilter(event.currentTarget.value)} placeholder={t('authFiles.searchPlaceholder')} />
         </div>
         <Select value={manager.providerFilter} onValueChange={manager.setProviderFilter}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-auto min-w-[130px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('authFiles.filter.allProviders')}</SelectItem>
             {manager.providers.map((provider) => <SelectItem key={provider} value={provider}>{provider}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={manager.statusFilter} onValueChange={(value) => manager.setStatusFilter(value as typeof manager.statusFilter)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-auto min-w-[120px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('authFiles.filter.allStatuses')}</SelectItem>
             <SelectItem value="enabled">{t('authFiles.filter.enabled')}</SelectItem>
             <SelectItem value="disabled">{t('authFiles.filter.disabled')}</SelectItem>
             <SelectItem value="runtime">{t('authFiles.filter.runtime')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={manager.planFilter} onValueChange={manager.setPlanFilter}>
+          <SelectTrigger className="w-auto min-w-[120px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('authFiles.filter.allPlans')}</SelectItem>
+            {manager.availablePlans.map((plan) => (
+              <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={manager.quotaFilter} onValueChange={manager.setQuotaFilter}>
+          <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('authFiles.filter.allQuotas')}</SelectItem>
+            <SelectItem value="0">{t('authFiles.filter.quota0')}</SelectItem>
+            <SelectItem value="<15">{t('authFiles.filter.quotaLow')}</SelectItem>
+            <SelectItem value=">0">{t('authFiles.filter.quotaAvailable')}</SelectItem>
+            <SelectItem value=">=50">{t('authFiles.filter.quotaHigh')}</SelectItem>
+            <SelectItem value="error">{t('authFiles.filter.quotaError')}</SelectItem>
+            <SelectItem value="unloaded">{t('authFiles.filter.quotaUnloaded')}</SelectItem>
           </SelectContent>
         </Select>
         <label className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
@@ -1129,12 +1275,84 @@ export function AccountsPage() {
         </label>
       </div>
 
+      {selectedNames.size > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-x border-b bg-muted/40 px-3.5 py-2 text-sm">
+          <div className="flex items-center gap-2 font-medium">
+            <CheckSquare size={16} className="text-primary" />
+            <span>{t('authFiles.selectedCount', { count: selectedNames.size })}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={handleDeselectAll}
+            >
+              {t('authFiles.deselectAll')}
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={handleBulkRefresh}
+              disabled={manager.busy}
+            >
+              <RefreshCw size={13} aria-hidden="true" />
+              {t('authFiles.bulkRefreshQuota')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => void handleBulkEnable()}
+              disabled={manager.busy}
+            >
+              <Power size={13} className="text-emerald-500" aria-hidden="true" />
+              {t('authFiles.bulkEnable')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => void handleBulkDisable()}
+              disabled={manager.busy}
+            >
+              <Power size={13} className="text-muted-foreground" aria-hidden="true" />
+              {t('authFiles.bulkDisable')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium"
+              onClick={() => void handleBulkDelete()}
+              disabled={manager.busy}
+            >
+              <Trash2 size={13} aria-hidden="true" />
+              {t('authFiles.bulkDelete')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {manager.loading ? (
         <div className="flex items-center gap-2 rounded-b-lg border border-t-0 p-4 text-sm text-muted-foreground"><LoaderCircle size={20} className="animate-spin" aria-hidden="true" />{t('authFiles.loading')}</div>
       ) : sortedVisibleFiles.length === 0 ? (
         <div className="rounded-b-lg border border-t-0 border-dashed p-8 text-center text-sm text-muted-foreground">{t('accounts.panel.empty')}</div>
       ) : (
-        <AccountsTable files={sortedVisibleFiles} manager={manager} resetCodexQuota={resetCodexQuota} maskEmails={maskEmails} />
+        <AccountsTable
+          files={sortedVisibleFiles}
+          manager={manager}
+          resetCodexQuota={resetCodexQuota}
+          maskEmails={maskEmails}
+          selectedNames={selectedNames}
+          onToggleSelect={handleToggleSelect}
+          onToggleSelectAll={handleToggleSelectAll}
+        />
       )}
 
       {manager.priorityEditor ? (
