@@ -872,23 +872,67 @@ pub(crate) fn start_core_process_inner(
         .args(["-config", &config_path])
         .current_dir(&install_dir)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     configure_background_command(&mut command);
     configure_child_lifetime(&mut command);
 
     let mut child = command
         .spawn()
         .map_err(|err| format!("Failed to start the CPA core: {err}"))?;
+    let output_tails = [
+        child.stdout.take().map(drain_output_tail),
+        child.stderr.take().map(drain_output_tail),
+    ];
 
     if let Err(error) = wait_for_core_management_port(&mut child, management_address) {
         let _ = terminate_child(&mut child);
-        return Err(error);
+        return Err(with_output_tail(error, output_tails));
     }
 
     process_state.store_child(child)?;
 
     Ok(())
+}
+
+// The core reports startup failures (e.g. "failed to load config") only on stdout/stderr and exits 0.
+// Drain the pipes for the process lifetime so it never blocks on a full pipe; keep just the last lines.
+pub(crate) fn drain_output_tail<R: io::Read + Send + 'static>(
+    reader: R,
+) -> thread::JoinHandle<Vec<String>> {
+    use std::io::BufRead;
+
+    thread::spawn(move || {
+        let mut reader = io::BufReader::new(reader);
+        let mut buffer = Vec::new();
+        let mut tail = std::collections::VecDeque::new();
+        while reader.read_until(b'\n', &mut buffer).is_ok_and(|read| read > 0) {
+            if tail.len() == 4 {
+                tail.pop_front();
+            }
+            tail.push_back(String::from_utf8_lossy(&buffer).trim().to_string());
+            buffer.clear();
+        }
+        tail.into()
+    })
+}
+
+pub(crate) fn with_output_tail(
+    error: String,
+    tails: [Option<thread::JoinHandle<Vec<String>>>; 2],
+) -> String {
+    let lines = tails
+        .into_iter()
+        .flatten()
+        .filter_map(|tail| tail.join().ok())
+        .flatten()
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        error
+    } else {
+        format!("{error}; core output: {}", lines.join(" | "))
+    }
 }
 
 pub(crate) fn wait_for_core_management_port(

@@ -272,3 +272,15 @@ fn release_page_assets_parse_download_links_and_sha256() {
         .browser_download_url
         .ends_with("/releases/download/v1.2.3/CLIProxyAPI_1.2.3_linux_amd64.tar.gz"));
 }
+
+#[test]
+fn startup_failure_message_includes_last_core_output_lines() {
+    let output = b"CLIProxyAPI Version: 8.0.27\n1\n2\n3\nfailed to load config: access must be a mapping\n".to_vec();
+    let tails = [Some(drain_output_tail(std::io::Cursor::new(output))), None];
+    let message = with_output_tail("CPA core exited immediately after starting: exit code: 0".to_string(), tails);
+
+    assert!(message.starts_with("CPA core exited immediately after starting: exit code: 0; core output: "), "{message}");
+    assert!(message.ends_with("failed to load config: access must be a mapping"), "{message}");
+    assert!(!message.contains("CLIProxyAPI Version"), "only the last lines are kept: {message}");
+    assert_eq!(with_output_tail("boom".to_string(), [None, None]), "boom");
+}

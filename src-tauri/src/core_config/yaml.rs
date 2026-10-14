@@ -850,13 +850,15 @@ pub(crate) fn patch_core_api_keys_yaml(
     let root = parsed
         .as_mapping()
         .ok_or_else(|| "Core config top level must be a YAML mapping".to_string())?;
+    if core_yaml_uses_v8_layout(root) || yaml_mapping_value(root, "access").is_some() {
+        return patch_v8_access_api_keys_yaml(content, root, api_keys);
+    }
     let has_legacy_api_keys = nested_yaml_value(
         root,
         &["auth", "providers", "config-api-key", "api-key-entries"],
     )
     .is_some()
-        || nested_yaml_value(root, &["auth", "providers", "config-api-key", "api-keys"]).is_some()
-        || nested_yaml_value(root, &["access", "api-keys"]).is_some();
+        || nested_yaml_value(root, &["auth", "providers", "config-api-key", "api-keys"]).is_some();
     let content = if has_legacy_api_keys {
         let file = content
             .parse::<yaml_edit::YamlFile>()
@@ -871,6 +873,36 @@ pub(crate) fn patch_core_api_keys_yaml(
     };
     let block = render_core_api_keys_yaml(api_keys)?;
     let updated = replace_top_level_yaml_block(&content, "api-keys", &block);
+    serde_norway::from_str::<serde_norway::Value>(&updated)
+        .map_err(|err| format!("Failed to validate updated core config: {err}"))?;
+    Ok(updated)
+}
+
+// v8 keeps client keys in `access.api-keys`; the root `api-keys` is reserved for provider groups.
+pub(crate) fn patch_v8_access_api_keys_yaml(
+    content: &str,
+    root: &serde_norway::Mapping,
+    api_keys: &[String],
+) -> Result<String, String> {
+    let keys = serde_norway::Value::Sequence(
+        api_keys.iter().cloned().map(serde_norway::Value::String).collect(),
+    );
+    // v0.2.39-0.2.40 left a bare `access:` (null), which the core rejects; yaml_edit can't swap it.
+    let content = if yaml_mapping_value(root, "access").is_some_and(serde_norway::Value::is_null) {
+        replace_top_level_yaml_block(content, "access", "access:\n    api-keys: []\n")
+    } else {
+        content.to_string()
+    };
+    let patched = patch_core_yaml_document(&content, |document| {
+        set_core_yaml_path_value(document, &["access", "api-keys"], keys)
+    })?
+    .unwrap_or(content);
+    // v0.2.39-0.2.40 wrote a legacy root list; drop it so only access.api-keys remains.
+    let updated = if yaml_mapping_value(root, "api-keys").is_some_and(serde_norway::Value::is_sequence) {
+        replace_top_level_yaml_block(&patched, "api-keys", "")
+    } else {
+        patched
+    };
     serde_norway::from_str::<serde_norway::Value>(&updated)
         .map_err(|err| format!("Failed to validate updated core config: {err}"))?;
     Ok(updated)
@@ -991,7 +1023,6 @@ pub(crate) fn clear_legacy_api_key_paths(document: &yaml_edit::Document) {
 
     document.remove_path("auth.providers.config-api-key.api-key-entries");
     document.remove_path("auth.providers.config-api-key.api-keys");
-    document.remove_path("access.api-keys");
 }
 
 #[cfg(test)]
@@ -1186,7 +1217,8 @@ pub(crate) fn extract_core_api_keys(root: &serde_norway::Mapping) -> Result<Vec<
         }
     }
 
-    if let Some(value) = yaml_mapping_value(root, "api-keys") {
+    // A v8 root api-keys mapping holds provider groups, not client keys.
+    if let Some(value) = yaml_mapping_value(root, "api-keys").filter(|value| !value.is_mapping()) {
         return extract_api_key_sequence(value, "api-keys");
     }
 

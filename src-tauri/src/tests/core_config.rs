@@ -597,6 +597,62 @@ fn runtime_api_key_patch_replaces_indentationless_core_sequence() {
     assert!(rendered.contains("debug: false"), "{rendered}");
 }
 
+const V8_ACCESS_CONFIG: &str = "config-version: 8\n# Client authentication\naccess:\n    # API keys for authentication\n    api-keys:\n        - '123456'\n\ncredentials:\n    concurrency:\n        cpa-heartbeat-timeout: \"3s\"\n";
+
+fn v8_api_keys(rendered: &str) -> (Vec<String>, bool) {
+    let parsed = serde_norway::from_str::<serde_norway::Value>(rendered)
+        .unwrap_or_else(|error| panic!("invalid YAML: {error}\n{rendered}"));
+    let root = parsed.as_mapping().unwrap();
+    (
+        extract_core_api_keys(root).unwrap_or_else(|error| panic!("{error}\n{rendered}")),
+        yaml_mapping_value(root, "api-keys").is_some(),
+    )
+}
+
+#[test]
+fn v8_api_key_patch_writes_access_api_keys_and_keeps_comments() {
+    let rendered =
+        patch_core_api_keys_yaml(V8_ACCESS_CONFIG, &["123456".to_string(), "new-key".to_string()])
+            .unwrap();
+    assert_eq!(v8_api_keys(&rendered), (vec!["123456".into(), "new-key".into()], false), "{rendered}");
+    assert!(rendered.contains("# Client authentication"), "{rendered}");
+    assert!(rendered.contains("cpa-heartbeat-timeout"), "{rendered}");
+    assert_eq!(patch_core_api_keys_yaml(&rendered, &["123456".to_string(), "new-key".to_string()]).unwrap(), rendered);
+}
+
+#[test]
+fn v8_api_key_patch_keeps_access_mapping_when_all_keys_removed() {
+    let rendered = patch_core_api_keys_yaml(V8_ACCESS_CONFIG, &[]).unwrap();
+    let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+    assert!(parsed["access"].is_mapping(), "{rendered}");
+    assert_eq!(v8_api_keys(&rendered), (Vec::new(), false), "{rendered}");
+    let restored = patch_core_api_keys_yaml(&rendered, &["back".to_string()]).unwrap();
+    assert_eq!(v8_api_keys(&restored), (vec!["back".into()], false), "{restored}");
+}
+
+#[test]
+fn v8_api_key_patch_repairs_config_broken_by_v0_2_39() {
+    // access.api-keys was deleted and the keys written as a legacy root list.
+    let broken = "config-version: 8\n# Client authentication\naccess:\n    # API keys for authentication\napi-keys:\n  - '123456'\n\ncredentials:\n    concurrency:\n        cpa-heartbeat-timeout: \"3s\"\n";
+    let rendered = patch_core_api_keys_yaml(broken, &["123456".to_string()]).unwrap();
+    let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+    assert!(parsed["access"].is_mapping(), "{rendered}");
+    assert_eq!(v8_api_keys(&rendered), (vec!["123456".into()], false), "{rendered}");
+    assert!(rendered.contains("cpa-heartbeat-timeout"), "{rendered}");
+}
+
+#[test]
+fn v8_api_key_patch_leaves_root_provider_groups_alone() {
+    let input = "config-version: 8\naccess:\n    api-keys:\n        - old\napi-keys:\n    codex:\n        - base-url: https://example.com\n          keys:\n              - upstream\n";
+    let rendered = patch_core_api_keys_yaml(input, &["new".to_string()]).unwrap();
+    let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+    assert_eq!(parsed["api-keys"]["codex"][0]["keys"][0], "upstream", "{rendered}");
+    assert_eq!(v8_api_keys(&rendered).0, vec!["new"], "{rendered}");
+    // Reading must not mistake provider groups for client keys, even with no client keys.
+    let cleared = patch_core_api_keys_yaml(input, &[]).unwrap();
+    assert_eq!(v8_api_keys(&cleared).0, Vec::<String>::new(), "{cleared}");
+}
+
 #[test]
 fn yaml_edit_runtime_patch_migrates_legacy_api_key_entries() {
     let input = "auth:\n  providers:\n    config-api-key:\n      api-key-entries:\n        - api-key: first-key\n        - key: second-key\nplugins:\n  enabled: false\n";
