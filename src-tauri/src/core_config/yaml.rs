@@ -108,10 +108,9 @@ pub(crate) fn patch_core_api_keys(api_keys: &[String]) -> Result<(), String> {
 pub(crate) fn patch_core_management_secret_key(secret_key: &str) -> Result<(), String> {
     let secret_key = secret_key.to_string();
     patch_existing_core_config(move |document| {
-        set_core_yaml_nested_value(
+        set_core_setting(
             document,
-            "remote-management",
-            "secret-key",
+            CoreSetting::ManagementSecretKey,
             serde_norway::Value::String(secret_key),
         )
     })
@@ -143,9 +142,9 @@ pub(crate) fn patch_core_routing_strategy(strategy: &str) -> Result<(), String> 
 pub(crate) fn patch_core_proxy_url(proxy_url: &str) -> Result<(), String> {
     let proxy_url = proxy_url.to_string();
     patch_existing_core_config(move |document| {
-        set_core_yaml_top_level_value(
+        set_core_setting(
             document,
-            "proxy-url",
+            CoreSetting::ProxyUrl,
             serde_norway::Value::String(proxy_url),
         )
     })
@@ -772,6 +771,67 @@ pub(crate) fn core_yaml_uses_v8_layout(root: &serde_norway::Mapping) -> bool {
         || yaml_mapping_value(root, "observability").is_some_and(serde_norway::Value::is_mapping)
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum CoreSetting {
+    Host,
+    Port,
+    AuthDir,
+    ManagementSecretKey,
+    ProxyUrl,
+    RequestRetry,
+    MaxRetryCredentials,
+    MaxRetryInterval,
+    StreamingBootstrapRetries,
+}
+
+// v8 moved these GUI-managed settings. The v8 template ships every new key with a default and the
+// core ignores a legacy key once its new key exists, so each layout must use its own path.
+pub(crate) fn core_setting_path(setting: CoreSetting, v8: bool) -> &'static [&'static str] {
+    use CoreSetting::*;
+    match (setting, v8) {
+        (Host, false) => &["host"],
+        (Host, true) => &["server", "host"],
+        (Port, false) => &["port"],
+        (Port, true) => &["server", "port"],
+        (AuthDir, false) => &["auth-dir"],
+        (AuthDir, true) => &["oauth", "auth-dir"],
+        (ManagementSecretKey, false) => &["remote-management", "secret-key"],
+        (ManagementSecretKey, true) => &["management", "secret-key"],
+        (ProxyUrl, false) => &["proxy-url"],
+        (ProxyUrl, true) => &["requests", "proxy-url"],
+        (RequestRetry, false) => &["request-retry"],
+        (RequestRetry, true) => &["routing", "retry", "request-retry"],
+        (MaxRetryCredentials, false) => &["max-retry-credentials"],
+        (MaxRetryCredentials, true) => &["routing", "retry", "max-retry-credentials"],
+        (MaxRetryInterval, false) => &["max-retry-interval"],
+        (MaxRetryInterval, true) => &["routing", "retry", "max-retry-interval"],
+        (StreamingBootstrapRetries, false) => &["streaming", "bootstrap-retries"],
+        (StreamingBootstrapRetries, true) => &["requests", "streaming", "bootstrap-retries"],
+    }
+}
+
+pub(crate) fn set_core_setting(
+    document: &mut serde_norway::Value,
+    setting: CoreSetting,
+    value: serde_norway::Value,
+) -> Result<bool, String> {
+    let v8 = core_yaml_uses_v8_layout(
+        document
+            .as_mapping()
+            .ok_or_else(|| "Core config top level must be a YAML mapping".to_string())?,
+    );
+    set_core_yaml_path_value(document, core_setting_path(setting, v8), value)
+}
+
+// Reads the v8 key first and falls back to the legacy one, which the core still accepts.
+pub(crate) fn core_setting_value(
+    root: &serde_norway::Mapping,
+    setting: CoreSetting,
+) -> Option<&serde_norway::Value> {
+    nested_yaml_value(root, core_setting_path(setting, true))
+        .or_else(|| nested_yaml_value(root, core_setting_path(setting, false)))
+}
+
 pub(crate) fn set_core_yaml_path_value(
     document: &mut serde_norway::Value,
     path: &[&str],
@@ -1060,7 +1120,7 @@ pub(crate) fn core_config_settings_from_value(
     let root = document
         .as_mapping()
         .ok_or_else(|| "Core config top level must be a YAML mapping".to_string())?;
-    let host = yaml_mapping_value(root, "host")
+    let host = core_setting_value(root, CoreSetting::Host)
         .map(|value| {
             value
                 .as_str()
@@ -1069,7 +1129,7 @@ pub(crate) fn core_config_settings_from_value(
         })
         .transpose()?
         .unwrap_or_else(|| "127.0.0.1".to_string());
-    let port = yaml_mapping_value(root, "port")
+    let port = core_setting_value(root, CoreSetting::Port)
         .map(|value| {
             value
                 .as_u64()
@@ -1079,7 +1139,7 @@ pub(crate) fn core_config_settings_from_value(
         })
         .transpose()?
         .unwrap_or(8317);
-    let auth_dir = yaml_mapping_value(root, "auth-dir")
+    let auth_dir = core_setting_value(root, CoreSetting::AuthDir)
         .map(|value| {
             value
                 .as_str()
@@ -1119,7 +1179,7 @@ pub(crate) fn core_config_settings_from_value(
         })
         .transpose()?
         .unwrap_or_else(|| "round-robin".to_string());
-    let proxy_url = yaml_mapping_value(root, "proxy-url")
+    let proxy_url = core_setting_value(root, CoreSetting::ProxyUrl)
         .map(|value| {
             value
                 .as_str()
@@ -1148,7 +1208,7 @@ pub(crate) fn core_config_settings_from_value(
             })
             .transpose()?
             .unwrap_or_default();
-    let request_retry = yaml_mapping_value(root, "request-retry")
+    let request_retry = core_setting_value(root, CoreSetting::RequestRetry)
         .map(|value| {
             value
                 .as_u64()
@@ -1157,7 +1217,7 @@ pub(crate) fn core_config_settings_from_value(
         })
         .transpose()?
         .unwrap_or(DEFAULT_REQUEST_RETRY);
-    let max_retry_credentials = yaml_mapping_value(root, "max-retry-credentials")
+    let max_retry_credentials = core_setting_value(root, CoreSetting::MaxRetryCredentials)
         .map(|value| {
             value
                 .as_u64()
@@ -1166,7 +1226,7 @@ pub(crate) fn core_config_settings_from_value(
         })
         .transpose()?
         .unwrap_or(DEFAULT_MAX_RETRY_CREDENTIALS);
-    let max_retry_interval = yaml_mapping_value(root, "max-retry-interval")
+    let max_retry_interval = core_setting_value(root, CoreSetting::MaxRetryInterval)
         .map(|value| {
             value
                 .as_u64()
@@ -1175,7 +1235,7 @@ pub(crate) fn core_config_settings_from_value(
         })
         .transpose()?
         .unwrap_or(DEFAULT_MAX_RETRY_INTERVAL);
-    let streaming_bootstrap_retries = nested_yaml_value(root, &["streaming", "bootstrap-retries"])
+    let streaming_bootstrap_retries = core_setting_value(root, CoreSetting::StreamingBootstrapRetries)
         .map(|value| {
             value
                 .as_u64()
@@ -1277,12 +1337,12 @@ pub(crate) fn extract_api_key_value(value: &serde_norway::Value) -> Option<Resul
 pub(crate) fn extract_core_management_secret_key(
     root: &serde_norway::Mapping,
 ) -> Result<Option<String>, String> {
-    let Some(value) = nested_yaml_value(root, &["remote-management", "secret-key"]) else {
+    let Some(value) = core_setting_value(root, CoreSetting::ManagementSecretKey) else {
         return Ok(None);
     };
     let value = value
         .as_str()
-        .ok_or_else(|| "remote-management.secret-key must be a string".to_string())?
+        .ok_or_else(|| "management secret-key must be a string".to_string())?
         .trim()
         .to_string();
     if value.is_empty() {

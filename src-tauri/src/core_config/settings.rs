@@ -324,9 +324,9 @@ pub(crate) fn patch_core_network_routing_yaml(
     patch_core_yaml_document(content, |document| {
         let original = document.clone();
         apply_network_settings(document, config)?;
-        set_core_yaml_top_level_value(
+        set_core_setting(
             document,
-            "proxy-url",
+            CoreSetting::ProxyUrl,
             serde_norway::Value::String(config.proxy_url.clone()),
         )?;
         set_core_yaml_nested_value(
@@ -341,28 +341,27 @@ pub(crate) fn patch_core_network_routing_yaml(
             "session-affinity-ttl",
             serde_norway::Value::String(config.routing_session_affinity_ttl.clone()),
         )?;
-        set_core_yaml_top_level_value(
+        set_core_setting(
             document,
-            "request-retry",
+            CoreSetting::RequestRetry,
             serde_norway::to_value(config.request_retry)
                 .map_err(|err| format!("Failed to serialize request retry count: {err}"))?,
         )?;
-        set_core_yaml_top_level_value(
+        set_core_setting(
             document,
-            "max-retry-credentials",
+            CoreSetting::MaxRetryCredentials,
             serde_norway::to_value(config.max_retry_credentials)
                 .map_err(|err| format!("Failed to serialize max retry credential count: {err}"))?,
         )?;
-        set_core_yaml_top_level_value(
+        set_core_setting(
             document,
-            "max-retry-interval",
+            CoreSetting::MaxRetryInterval,
             serde_norway::to_value(config.max_retry_interval)
                 .map_err(|err| format!("Failed to serialize max retry wait time: {err}"))?,
         )?;
-        set_core_yaml_nested_value(
+        set_core_setting(
             document,
-            "streaming",
-            "bootstrap-retries",
+            CoreSetting::StreamingBootstrapRetries,
             serde_norway::to_value(config.streaming_bootstrap_retries)
                 .map_err(|err| format!("Failed to serialize streaming bootstrap retry count: {err}"))?,
         )?;
@@ -392,19 +391,16 @@ pub(crate) fn apply_network_settings(
     document: &mut serde_norway::Value,
     config: &GuiConfigFile,
 ) -> Result<(), String> {
-    let mapping = document
-        .as_mapping_mut()
-        .ok_or_else(|| "Core config top level must be a YAML mapping".to_string())?;
-
-    let host = config.host.trim();
-    mapping.insert(
-        serde_norway::Value::String("host".to_string()),
-        serde_norway::Value::String(host.to_string()),
-    );
-    mapping.insert(
-        serde_norway::Value::String("port".to_string()),
+    set_core_setting(
+        document,
+        CoreSetting::Host,
+        serde_norway::Value::String(config.host.trim().to_string()),
+    )?;
+    set_core_setting(
+        document,
+        CoreSetting::Port,
         serde_norway::to_value(config.port).map_err(|err| format!("Failed to serialize core port: {err}"))?,
-    );
+    )?;
     Ok(())
 }
 
@@ -415,27 +411,26 @@ pub(crate) fn apply_gui_managed_settings(
     let host = config.host.trim();
     let updated = patch_core_yaml_document(content, |document| {
         let mut changed = false;
-        changed |= set_core_yaml_top_level_value(
+        changed |= set_core_setting(
             document,
-            "host",
+            CoreSetting::Host,
             serde_norway::Value::String(host.to_string()),
         )?;
-        changed |= set_core_yaml_top_level_value(
+        changed |= set_core_setting(
             document,
-            "port",
+            CoreSetting::Port,
             serde_norway::to_value(config.port)
                 .map_err(|err| format!("Failed to serialize core port: {err}"))?,
         )?;
-        changed |= set_core_yaml_top_level_value(
+        changed |= set_core_setting(
             document,
-            "auth-dir",
+            CoreSetting::AuthDir,
             serde_norway::Value::String(config.auth_dir.clone()),
         )?;
         changed |= set_core_usage_statistics_enabled(document, config.usage_statistics_enabled)?;
-        changed |= set_core_yaml_nested_value(
+        changed |= set_core_setting(
             document,
-            "remote-management",
-            "secret-key",
+            CoreSetting::ManagementSecretKey,
             serde_norway::Value::String(config.management_secret_key.clone()),
         )?;
         changed |= set_core_yaml_nested_value(
@@ -450,9 +445,9 @@ pub(crate) fn apply_gui_managed_settings(
             "strategy",
             serde_norway::Value::String(config.routing_strategy.clone()),
         )?;
-        changed |= set_core_yaml_top_level_value(
+        changed |= set_core_setting(
             document,
-            "proxy-url",
+            CoreSetting::ProxyUrl,
             serde_norway::Value::String(config.proxy_url.clone()),
         )?;
         changed |= set_core_yaml_nested_value(
@@ -467,28 +462,27 @@ pub(crate) fn apply_gui_managed_settings(
             "session-affinity-ttl",
             serde_norway::Value::String(config.routing_session_affinity_ttl.clone()),
         )?;
-        changed |= set_core_yaml_top_level_value(
+        changed |= set_core_setting(
             document,
-            "request-retry",
+            CoreSetting::RequestRetry,
             serde_norway::to_value(config.request_retry)
                 .map_err(|err| format!("Failed to serialize request retry count: {err}"))?,
         )?;
-        changed |= set_core_yaml_top_level_value(
+        changed |= set_core_setting(
             document,
-            "max-retry-credentials",
+            CoreSetting::MaxRetryCredentials,
             serde_norway::to_value(config.max_retry_credentials)
                 .map_err(|err| format!("Failed to serialize max retry credential count: {err}"))?,
         )?;
-        changed |= set_core_yaml_top_level_value(
+        changed |= set_core_setting(
             document,
-            "max-retry-interval",
+            CoreSetting::MaxRetryInterval,
             serde_norway::to_value(config.max_retry_interval)
                 .map_err(|err| format!("Failed to serialize max retry wait time: {err}"))?,
         )?;
-        changed |= set_core_yaml_nested_value(
+        changed |= set_core_setting(
             document,
-            "streaming",
-            "bootstrap-retries",
+            CoreSetting::StreamingBootstrapRetries,
             serde_norway::to_value(config.streaming_bootstrap_retries)
                 .map_err(|err| format!("Failed to serialize streaming bootstrap retry count: {err}"))?,
         )?;

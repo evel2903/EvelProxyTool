@@ -653,6 +653,134 @@ fn v8_api_key_patch_leaves_root_provider_groups_alone() {
     assert_eq!(v8_api_keys(&cleared).0, Vec::<String>::new(), "{cleared}");
 }
 
+const V8_TEMPLATE: &str = "config-version: 8
+server:
+  host: \"\"
+  port: 8317
+management:
+  allow-remote: false
+  secret-key: \"\"
+requests:
+  proxy-url: \"\"
+  streaming:
+    bootstrap-retries: 0
+routing:
+  strategy: round-robin
+  retry:
+    request-retry: 3
+    max-retry-credentials: 0
+    max-retry-interval: 30
+oauth:
+  auth-dir: \"~/.cli-proxy-api\"
+access:
+  api-keys:
+    - your-api-key-1
+";
+
+fn v8_gui_config() -> GuiConfigFile {
+    GuiConfigFile {
+        host: "127.0.0.1".to_string(),
+        port: 9527,
+        auth_dir: "oauth".to_string(),
+        management_secret_key: "management-secret-for-test-0123456789".to_string(),
+        proxy_url: "socks5://127.0.0.1:7890".to_string(),
+        request_retry: 1,
+        max_retry_credentials: 2,
+        max_retry_interval: 5,
+        streaming_bootstrap_retries: 1,
+        api_keys: vec![GuiApiKeyEntry { key: "client-key".to_string(), remark: String::new() }],
+        ..GuiConfigFile::default()
+    }
+}
+
+fn assert_v8_gui_settings(rendered: &str) {
+    let document = serde_norway::from_str::<serde_norway::Value>(rendered)
+        .unwrap_or_else(|error| panic!("invalid YAML: {error}
+{rendered}"));
+    assert_eq!(document["server"]["host"], "127.0.0.1", "{rendered}");
+    assert_eq!(document["server"]["port"], 9527, "{rendered}");
+    assert_eq!(document["oauth"]["auth-dir"], "oauth", "{rendered}");
+    assert_eq!(document["management"]["secret-key"], "management-secret-for-test-0123456789", "{rendered}");
+    assert_eq!(document["requests"]["proxy-url"], "socks5://127.0.0.1:7890", "{rendered}");
+    assert_eq!(document["requests"]["streaming"]["bootstrap-retries"], 1, "{rendered}");
+    assert_eq!(document["routing"]["retry"]["request-retry"], 1, "{rendered}");
+    assert_eq!(document["routing"]["retry"]["max-retry-credentials"], 2, "{rendered}");
+    assert_eq!(document["routing"]["retry"]["max-retry-interval"], 5, "{rendered}");
+    assert_eq!(document["access"]["api-keys"][0], "client-key", "{rendered}");
+
+    let settings = core_config_settings_from_value(&document).unwrap();
+    assert_eq!(settings.host, "127.0.0.1");
+    assert_eq!(settings.port, 9527);
+    assert_eq!(settings.auth_dir, "oauth");
+    assert_eq!(settings.management_secret_key.as_deref(), Some("management-secret-for-test-0123456789"));
+    assert_eq!(settings.proxy_url, "socks5://127.0.0.1:7890");
+    assert_eq!(settings.request_retry, 1);
+    assert_eq!(settings.max_retry_credentials, 2);
+    assert_eq!(settings.max_retry_interval, 5);
+    assert_eq!(settings.streaming_bootstrap_retries, 1);
+}
+
+#[test]
+fn v8_template_gets_gui_settings_at_v8_paths_not_shadowed_legacy_keys() {
+    let merged = merge_core_config_yaml(V8_TEMPLATE, None, &v8_gui_config()).unwrap();
+    assert_v8_gui_settings(&merged);
+
+    // The core ignores a legacy key once its v8 key exists, so none may be written.
+    let document = serde_norway::from_str::<serde_norway::Value>(&merged).unwrap();
+    let root = document.as_mapping().unwrap();
+    for legacy in [
+        "host", "port", "auth-dir", "remote-management", "proxy-url", "request-retry",
+        "max-retry-credentials", "max-retry-interval", "streaming", "api-keys",
+    ] {
+        assert!(yaml_mapping_value(root, legacy).is_none(), "legacy key {legacy} written:
+{merged}");
+    }
+}
+
+#[test]
+fn v8_config_with_stale_legacy_keys_is_updated_at_v8_paths() {
+    // What v0.2.40 and older produced: new keys at defaults plus ignored legacy keys at the end.
+    let stale = format!(
+        "{V8_TEMPLATE}host: 0.0.0.0
+port: 1
+auth-dir: ''
+remote-management: {{\"secret-key\":\"old\"}}
+proxy-url: ''
+request-retry: 9
+"
+    );
+    let merged = merge_core_config_yaml(V8_TEMPLATE, Some(&stale), &v8_gui_config()).unwrap();
+    assert_v8_gui_settings(&merged);
+
+    let routing = patch_core_network_routing_yaml(&merged, &GuiConfigFile {
+        port: 9600,
+        request_retry: 4,
+        ..v8_gui_config()
+    })
+    .unwrap()
+    .unwrap();
+    let document = serde_norway::from_str::<serde_norway::Value>(&routing).unwrap();
+    assert_eq!(document["server"]["port"], 9600, "{routing}");
+    assert_eq!(document["routing"]["retry"]["request-retry"], 4, "{routing}");
+    assert_eq!(core_config_settings_from_value(&document).unwrap().port, 9600);
+}
+
+#[test]
+fn v8_management_secret_and_proxy_patches_target_v8_paths() {
+    let secret = patch_core_yaml_document(V8_TEMPLATE, |document| {
+        set_core_setting(
+            document,
+            CoreSetting::ManagementSecretKey,
+            serde_norway::Value::String("rotated-secret".to_string()),
+        )
+    })
+    .unwrap()
+    .unwrap();
+    let document = serde_norway::from_str::<serde_norway::Value>(&secret).unwrap();
+    assert_eq!(document["management"]["secret-key"], "rotated-secret", "{secret}");
+    assert!(yaml_mapping_value(document.as_mapping().unwrap(), "remote-management").is_none(), "{secret}");
+}
+
 #[test]
 fn yaml_edit_runtime_patch_migrates_legacy_api_key_entries() {
     let input = "auth:\n  providers:\n    config-api-key:\n      api-key-entries:\n        - api-key: first-key\n        - key: second-key\nplugins:\n  enabled: false\n";
