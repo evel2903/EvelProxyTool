@@ -74,7 +74,7 @@ const headersByProvider: Record<QuotaProvider, Record<string, string>> = {
   antigravity: {
     Authorization: 'Bearer $TOKEN$',
     'Content-Type': 'application/json',
-    'User-Agent': 'antigravity/1.20.5 windows/amd64',
+    'User-Agent': 'antigravity/2.23.0 windows/amd64',
   },
 };
 
@@ -724,9 +724,25 @@ const loadClaudePlan = async (file: AuthFile): Promise<string | undefined> => {
   }
 };
 
-const loadAntigravityPlan = async (file: AuthFile): Promise<string | undefined> => {
+type AntigravityCodeAssistInfo = {
+  plan?: string;
+  projectId?: string;
+};
+
+const extractAntigravityProjectId = (payload: Record<string, unknown>): string => {
+  const direct = readString(payload, 'cloudaicompanionProject', 'cloud_ai_companion_project');
+  if (direct) return direct;
+  const projectRecord = isRecord(payload.cloudaicompanionProject)
+    ? payload.cloudaicompanionProject
+    : isRecord(payload.cloud_ai_companion_project)
+      ? payload.cloud_ai_companion_project
+      : null;
+  return projectRecord ? readString(projectRecord, 'id', 'projectId', 'project_id') : '';
+};
+
+const loadAntigravityCodeAssist = async (file: AuthFile): Promise<AntigravityCodeAssistInfo> => {
   const authIndex = normalizeAuthIndex(file.auth_index ?? file.authIndex);
-  if (!authIndex) return undefined;
+  if (!authIndex) return {};
   try {
     const payload = await requestQuotaPayload(
       authIndex,
@@ -735,7 +751,7 @@ const loadAntigravityPlan = async (file: AuthFile): Promise<string | undefined> 
       'POST',
       JSON.stringify({ metadata: { ideType: 'ANTIGRAVITY' } }),
     );
-    if (!isRecord(payload)) return undefined;
+    if (!isRecord(payload)) return {};
     const currentTier = isRecord(payload.currentTier)
       ? payload.currentTier
       : isRecord(payload.current_tier)
@@ -755,9 +771,12 @@ const loadAntigravityPlan = async (file: AuthFile): Promise<string | undefined> 
       'g1-ultra-tier': 'Ultra',
       'g1-ultra-lite-tier': 'Ultra Lite',
     };
-    return knownPlans[tierId] || tierName || tierId || undefined;
+    return {
+      plan: knownPlans[tierId] || tierName || tierId || undefined,
+      projectId: extractAntigravityProjectId(payload) || undefined,
+    };
   } catch {
-    return undefined;
+    return {};
   }
 };
 
@@ -765,6 +784,7 @@ async function callUpstreamQuota(
   file: AuthFile,
   provider: QuotaProvider,
   resolvedCodexAccountId?: string,
+  fallbackAntigravityProjectPromise?: Promise<string | undefined>,
 ): Promise<unknown> {
   const authIndex = normalizeAuthIndex(file.auth_index ?? file.authIndex);
   if (!authIndex) throw new Error(quotaText('quota.service.error.missingAuthIndex'));
@@ -773,7 +793,9 @@ async function callUpstreamQuota(
     const accountId = resolvedCodexAccountId ?? await resolveCodexAccountId(file);
     if (accountId) header['Chatgpt-Account-Id'] = accountId;
   }
-  const project = provider === 'antigravity' ? await resolveProjectId(file) : '';
+  const project = provider === 'antigravity'
+    ? (resolveProjectId(file) || (await fallbackAntigravityProjectPromise) || '')
+    : '';
   if (provider === 'antigravity' && !project) {
     throw new Error(quotaText('quota.service.error.missingProject'));
   }
@@ -841,16 +863,24 @@ export async function loadQuota(file: AuthFile): Promise<QuotaState> {
       error: quotaText('quota.service.error.unsupportedProvider'),
     };
   }
+  const antigravityCodeAssistPromise = provider === 'antigravity'
+    ? loadAntigravityCodeAssist(file)
+    : null;
+  const planPromise = provider === 'claude'
+    ? loadClaudePlan(file)
+    : antigravityCodeAssistPromise
+      ? antigravityCodeAssistPromise.then((info) => info.plan)
+      : Promise.resolve(undefined);
   try {
     const codexAccountId = provider === 'codex' ? await resolveCodexAccountId(file) : '';
     const payloadPromise = provider === 'xai'
       ? callXaiQuota(file)
-      : callUpstreamQuota(file, provider, codexAccountId);
-    const planPromise = provider === 'claude'
-      ? loadClaudePlan(file)
-      : provider === 'antigravity'
-        ? loadAntigravityPlan(file)
-        : Promise.resolve(undefined);
+      : callUpstreamQuota(
+          file,
+          provider,
+          codexAccountId,
+          antigravityCodeAssistPromise?.then((info) => info.projectId),
+        );
     const resetCreditsPromise = provider === 'codex'
       ? callCodexResetCredits(file, codexAccountId).catch(() => null)
       : Promise.resolve(null);
@@ -864,6 +894,7 @@ export async function loadQuota(file: AuthFile): Promise<QuotaState> {
       return {
         status: 'error',
         rows: [],
+        plan: detectedPlan,
         error: quotaText('quota.service.error.unrecognized'),
       };
     }
@@ -879,9 +910,11 @@ export async function loadQuota(file: AuthFile): Promise<QuotaState> {
       fetchedAt: Date.now(),
     };
   } catch (error) {
+    const detectedPlan = await planPromise.catch(() => undefined);
     return {
       status: 'error',
       rows: [],
+      plan: detectedPlan,
       error: error instanceof Error ? error.message : String(error),
       verifyUrl: error instanceof QuotaUpstreamError ? error.verifyUrl : undefined,
     };
