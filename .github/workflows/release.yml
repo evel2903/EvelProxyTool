@@ -64,6 +64,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - runner: macos-15
+            os: darwin
+            display_os: Darwin
+            arch: aarch64
+            suffix: dmg
           - runner: windows-2025
             os: windows
             display_os: Windows
@@ -159,15 +164,22 @@ jobs:
           staging_dir="$RUNNER_TEMP/easycli-dmg-staging"
           bundle_dir="src-tauri/target/release/bundle"
           output_dmg="${{ steps.package.outputs.stem }}.dmg"
-          keychain_list="$(security list-keychains -d user)"
-          existing_keychains=()
-          while IFS= read -r existing_keychain; do
-            existing_keychain="${existing_keychain#*\"}"
-            existing_keychain="${existing_keychain%\"*}"
-            if [ -n "$existing_keychain" ]; then
-              existing_keychains+=("$existing_keychain")
-            fi
-          done <<< "$keychain_list"
+          use_apple_cert=false
+          if [ -n "$APPLE_CERTIFICATE" ] && [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            use_apple_cert=true
+          fi
+
+          if [ "$use_apple_cert" = "true" ]; then
+            keychain_list="$(security list-keychains -d user)"
+            existing_keychains=()
+            while IFS= read -r existing_keychain; do
+              existing_keychain="${existing_keychain#*\"}"
+              existing_keychain="${existing_keychain%\"*}"
+              if [ -n "$existing_keychain" ]; then
+                existing_keychains+=("$existing_keychain")
+              fi
+            done <<< "$keychain_list"
+          fi
 
           cleanup() {
             set +e
@@ -177,28 +189,36 @@ jobs:
             rm -f "$certificate_path"
             rm -f "$unsigned_core_archive"
             rm -rf "$signed_core_dir" "$staging_dir"
-            security delete-keychain "$keychain_path"
+            if [ "$use_apple_cert" = "true" ]; then
+              security delete-keychain "$keychain_path"
+            fi
           }
           trap cleanup EXIT
 
-          (umask 077; printf '%s' "$APPLE_CERTIFICATE" | base64 -D > "$certificate_path")
-          security create-keychain -p "$keychain_password" "$keychain_path"
-          if [ "${#existing_keychains[@]}" -gt 0 ]; then
-            security list-keychains -d user -s "$keychain_path" "${existing_keychains[@]}"
-          else
-            security list-keychains -d user -s "$keychain_path"
+          if [ "$use_apple_cert" = "true" ]; then
+            (umask 077; printf '%s' "$APPLE_CERTIFICATE" | base64 -D > "$certificate_path")
+            security create-keychain -p "$keychain_password" "$keychain_path"
+            if [ "${#existing_keychains[@]}" -gt 0 ]; then
+              security list-keychains -d user -s "$keychain_path" "${existing_keychains[@]}"
+            else
+              security list-keychains -d user -s "$keychain_path"
+            fi
+            security set-keychain-settings -lut 21600 "$keychain_path"
+            security unlock-keychain -p "$keychain_password" "$keychain_path"
+            security import "$certificate_path" -k "$keychain_path" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
           fi
-          security set-keychain-settings -lut 21600 "$keychain_path"
-          security unlock-keychain -p "$keychain_password" "$keychain_path"
-          security import "$certificate_path" -k "$keychain_path" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
 
           core_archive="$(find cpa-core -maxdepth 1 -type f -name 'CLIProxyAPI_*_darwin_${{ matrix.arch }}.tar.gz' -print -quit)"
           cp "$core_archive" "$unsigned_core_archive"
           mkdir -p "$signed_core_dir"
           tar -xzf "$core_archive" -C "$signed_core_dir"
           core_binary="$(find "$signed_core_dir" -type f -name 'cli-proxy-api' -print -quit)"
-          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" --keychain "$keychain_path" "$core_binary"
+          if [ "$use_apple_cert" = "true" ]; then
+            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" --keychain "$keychain_path" "$core_binary"
+          else
+            codesign --force --sign - "$core_binary"
+          fi
           signed_archive="$RUNNER_TEMP/$(basename "$core_archive")"
           COPYFILE_DISABLE=1 tar -czf "$signed_archive" -C "$signed_core_dir" .
           mv "$signed_archive" "$core_archive"
@@ -207,10 +227,18 @@ jobs:
 
           # Build the notarized app with Tauri, then create the DMG with hdiutil.
           # Tauri's generated create-dmg script is unreliable on GitHub's macOS runners.
-          env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD \
-            bun tauri bundle --bundles app --ci --config src-tauri/tauri.dmg.conf.json
+          if [ "$use_apple_cert" = "true" ]; then
+            env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD \
+              bun tauri bundle --bundles app --ci --config src-tauri/tauri.dmg.conf.json
+          else
+            env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD -u APPLE_SIGNING_IDENTITY -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
+              bun tauri bundle --bundles app --ci --config src-tauri/tauri.dmg.conf.json
+          fi
 
           app_path="$bundle_dir/macos/EvelProxyTool.app"
+          if [ "$use_apple_cert" != "true" ]; then
+            codesign --force --deep --sign - "$app_path"
+          fi
 
           rm -rf "$staging_dir"
           mkdir -p "$staging_dir"
@@ -222,13 +250,19 @@ jobs:
             -format UDZO \
             -ov \
             "$output_dmg"
-          codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" --keychain "$keychain_path" "$output_dmg"
-          xcrun notarytool submit "$output_dmg" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-          xcrun stapler staple "$output_dmg"
+          if [ "$use_apple_cert" = "true" ]; then
+            codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" --keychain "$keychain_path" "$output_dmg"
+            if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+              xcrun notarytool submit "$output_dmg" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" \
+                --wait
+              xcrun stapler staple "$output_dmg"
+            fi
+          else
+            codesign --force --sign - "$output_dmg"
+          fi
       - name: Archive Linux release
         if: matrix.os == 'linux'
         run: tar -czf "${{ steps.package.outputs.stem }}.tar.gz" -C release "${{ steps.package.outputs.stem }}"
@@ -278,7 +312,7 @@ jobs:
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
-          for platform in windows; do
+          for platform in windows darwin; do
             node scripts/manifest.mjs \
               --directory artifacts \
               --output "artifacts/portable-update-${platform}.json" \
@@ -319,6 +353,7 @@ jobs:
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" artifacts/* --clobber
+            gh release edit "$RELEASE_TAG" --draft=false
           else
             gh release create "$RELEASE_TAG" "${release_args[@]}" artifacts/*
           fi
