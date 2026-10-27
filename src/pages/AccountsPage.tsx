@@ -26,6 +26,7 @@ import claudeIcon from '../assets/icons/claude.svg';
 import codexIcon from '../assets/icons/codex.svg';
 import grokIcon from '../assets/icons/grok.svg';
 import kimiIcon from '../assets/icons/kimi-light.svg';
+import metaIcon from '../assets/icons/meta.svg';
 import { useI18n } from '../i18n';
 import {
   changedOAuthAuthFileNames,
@@ -87,12 +88,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Progress } from '@/components/ui/progress';
 import { AuthJsonImportDialog } from '../components/AuthJsonImportDialog';
 
-type OAuthProviderId = 'codex' | 'claude' | 'antigravity' | 'kimi' | 'xai';
+type OAuthProviderId = 'codex' | 'claude' | 'antigravity' | 'kimi' | 'xai' | 'meta';
 type OAuthFlowStatus = 'idle' | 'waiting' | 'success' | 'error';
 
 type OAuthProviderState = {
   url?: string;
   state?: string;
+  userCode?: string;
   status: OAuthFlowStatus;
   error?: string;
   polling?: boolean;
@@ -106,6 +108,7 @@ type OAuthProviderState = {
 type OAuthStartResult = {
   url: string;
   state?: string | null;
+  userCode?: string | null;
   opened: boolean;
   openError?: string | null;
 };
@@ -126,9 +129,10 @@ const oauthProviders = [
   { id: 'antigravity' as const, name: 'Antigravity OAuth', icon: antigravityIcon },
   { id: 'kimi' as const, name: 'Kimi OAuth', icon: kimiIcon },
   { id: 'xai' as const, name: 'xAI OAuth', icon: grokIcon },
+  { id: 'meta' as const, name: 'Muse (Meta) OAuth', icon: metaIcon },
 ];
 
-const providerOrder: QuotaProvider[] = ['claude', 'antigravity', 'codex', 'xai', 'kimi'];
+const providerOrder: OAuthProviderId[] = ['claude', 'antigravity', 'codex', 'xai', 'kimi', 'meta'];
 
 const OAUTH_CALLBACK_SUPPORTED = new Set<OAuthProviderId>([
   'codex',
@@ -423,6 +427,7 @@ function useOAuthLogin({ onLoginComplete }: { onLoginComplete?: () => void }) {
     updateProviderState(provider, {
       url: undefined,
       state: undefined,
+      userCode: undefined,
       status: 'waiting',
       polling: true,
       error: undefined,
@@ -441,6 +446,7 @@ function useOAuthLogin({ onLoginComplete }: { onLoginComplete?: () => void }) {
         updateProviderState(provider, {
           url: result.url,
           state: undefined,
+          userCode: result.userCode || undefined,
           status: 'error',
           error: t('oauth.missingState'),
           polling: false,
@@ -452,6 +458,7 @@ function useOAuthLogin({ onLoginComplete }: { onLoginComplete?: () => void }) {
       updateProviderState(provider, {
         url: result.url,
         state: result.state,
+        userCode: result.userCode || undefined,
         status: 'waiting',
         polling: true,
       });
@@ -516,6 +523,16 @@ function useOAuthLogin({ onLoginComplete }: { onLoginComplete?: () => void }) {
     }
   }, [showNotice, t]);
 
+  const copyUserCode = useCallback(async (userCode?: string) => {
+    if (!userCode) return;
+    try {
+      await navigator.clipboard.writeText(userCode);
+      showNotice(t('oauth.userCodeCopied'), 'success');
+    } catch {
+      showNotice(t('oauth.userCodeCopyFailed'), 'error');
+    }
+  }, [showNotice, t]);
+
   const submitCallback = useCallback(async (provider: OAuthProviderId) => {
     const current = states[provider];
     const callbackInput = (current?.callbackUrl || '').trim();
@@ -572,6 +589,7 @@ function useOAuthLogin({ onLoginComplete }: { onLoginComplete?: () => void }) {
     refreshLoginLink,
     openAuthUrl,
     copyAuthUrl,
+    copyUserCode,
     submitCallback,
   };
 }
@@ -612,6 +630,15 @@ function PendingLoginCard({
           </Button>
           <Button type="button" variant="outline" size="icon-sm" title={t('oauth.refreshLink')} aria-label={t('oauth.refreshLink')} disabled={state.refreshing} onClick={() => void oauthLogin.refreshLoginLink(provider.id)}>
             <RefreshCw size={14} className={state.refreshing ? 'animate-spin' : undefined} aria-hidden="true" />
+          </Button>
+        </div>
+      ) : null}
+
+      {state.userCode ? (
+        <div className="mt-2.5 flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs">
+          <span className="min-w-0 flex-1 font-mono font-semibold">{t('oauth.userCode', { code: state.userCode })}</span>
+          <Button type="button" variant="outline" size="icon-sm" title={t('oauth.copyUserCode')} aria-label={t('oauth.copyUserCode')} onClick={() => void oauthLogin.copyUserCode(state.userCode)}>
+            <Copy size={14} aria-hidden="true" />
           </Button>
         </div>
       ) : null}
@@ -776,7 +803,7 @@ function AccountRow({
   const priority = parseAuthFilePriority(file.priority) ?? 0;
   const icon = providerIcons[providerKey(file)] ?? providerIcons.gemini;
   const canFetchQuota = Boolean(quotaProviderForFile(file));
-  const rawPlan = quota.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan');
+  const rawPlan = quota.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan', 'subs_tier_name', 'subsTierName');
   const displayPlan = rawPlan ? (rawPlan.trim().charAt(0).toUpperCase() + rawPlan.trim().slice(1).toLowerCase()) : null;
 
   return (
@@ -1136,7 +1163,7 @@ export function AccountsPage() {
         </Alert>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {providerOrder.map((id) => {
           const meta = oauthProviders.find((item) => item.id === id);
           if (!meta) return null;

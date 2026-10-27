@@ -215,6 +215,20 @@ fn control_method(method: &str) -> bool {
             | "writeTrajectoryAcls"
             | "recordTrajectoryAnalytics"
             | "recordClientEvent"
+            | "battleModeAutoTrigger"
+            | "battleModeOverrides"
+            | "getBundleWriteMint"
+            | "listAgents"
+            | "listRemoteRepositories"
+            | "migrateDatabaseCode"
+            | "onboardUserBackgroundTasks"
+            | "provisionConversationBundleDir"
+            | "recordSmartchoicesFeedback"
+            | "registerInteraction"
+            | "rewriteUri"
+            | "setCodeAssistGlobalUserSetting"
+            | "setUserSettings"
+            | "uploadPerformanceProfile"
     )
 }
 
@@ -231,7 +245,10 @@ async fn handle(State(state): State<Arc<BridgeState>>, request: Request) -> Resp
     // Keep these read-only requests on Google's authenticated control plane.
     let collection = matches!(
         path,
-        "v1internal/agentPlugins" | "v1internal/buildWithGooglePlugins"
+        "v1internal/agentPlugins"
+            | "v1internal/buildWithGooglePlugins"
+            | "v1internal/cascadeNuxes"
+            | "v1internal/webDocsOptions"
     );
     let Some(method) = path
         .strip_prefix("v1internal:")

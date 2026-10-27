@@ -10,10 +10,11 @@ export type ModelOption = {
   contextWindow?: number;
   thinking?: Record<string, unknown>;
 };
-export type ModelProvider = 'gemini' | 'codex' | 'claude' | 'openai';
+export type ModelProvider = 'gemini' | 'codex' | 'claude' | 'meta' | 'openai';
 
 const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com';
 const DEFAULT_CLAUDE_BASE_URL = 'https://api.anthropic.com';
+const DEFAULT_META_BASE_URL = 'https://api.meta.ai/v1';
 
 export function normalizeBaseUrl(value: string): string {
   let raw = value.trim();
@@ -46,7 +47,9 @@ export const modelEndpointCandidates = (provider: ModelProvider, baseUrl: string
       ? DEFAULT_GEMINI_BASE_URL
       : provider === 'claude'
         ? DEFAULT_CLAUDE_BASE_URL
-        : '');
+        : provider === 'meta'
+          ? DEFAULT_META_BASE_URL
+          : '');
   const normalized = normalizeBaseUrl(resolvedBaseUrl);
   if (!normalized) return [];
   if (provider === 'openai') {
@@ -194,6 +197,15 @@ export async function fetchModels(
           // Keep the authenticated request error as the useful failure reason.
         }
       }
+    }
+  }
+  if (provider === 'meta') {
+    try {
+      const definitions = await managementApi.get<Record<string, unknown>>('/model-definitions/meta', { timeoutMs });
+      const models = normalizeModelList(definitions);
+      if (models.length) return models;
+    } catch {
+      // Keep the upstream error if model-definitions fallback also fails.
     }
   }
   throw new Error(lastError || modelText('model.error.noResponse'));

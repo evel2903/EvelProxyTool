@@ -14,6 +14,7 @@ const providers = [
   { id: 'antigravity', name: 'Antigravity' },
   { id: 'kimi', name: 'Kimi' },
   { id: 'xai', name: 'xAI' },
+  { id: 'meta', name: 'Muse (Meta)' },
   { id: 'gemini', name: 'Gemini' },
   { id: 'qwen', name: 'Qwen' },
   { id: 'vertex', name: 'Vertex AI' },

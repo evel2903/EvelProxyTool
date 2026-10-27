@@ -11,6 +11,7 @@ import codexIcon from '../assets/icons/codex.svg';
 import geminiIcon from '../assets/icons/gemini.svg';
 import grokIcon from '../assets/icons/grok.svg';
 import kimiIcon from '../assets/icons/kimi-light.svg';
+import metaIcon from '../assets/icons/meta.svg';
 import vertexIcon from '../assets/icons/vertex.svg';
 import {
   formatQuotaTimestamp,
@@ -79,6 +80,7 @@ export const providerIcons: Record<string, string> = {
   codex: codexIcon,
   gemini: geminiIcon,
   kimi: kimiIcon,
+  meta: metaIcon,
   vertex: vertexIcon,
   xai: grokIcon,
 };
@@ -88,12 +90,19 @@ export const providerName = (file: AuthFile) => {
   if (value === 'anthropic') return 'Claude';
   if (value === 'anti-gravity') return 'Antigravity';
   if (value === 'xai') return 'xAI';
+  if (value === 'meta' || value === 'muse') return 'Muse (Meta)';
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : translate(getCurrentLocale(), 'authFiles.unknownProvider');
 };
 
 export const providerKey = (file: AuthFile) => {
   const value = readString(file, 'provider', 'type', 'account_type').toLowerCase();
-  return value === 'anthropic' ? 'claude' : value === 'anti-gravity' ? 'antigravity' : value;
+  return value === 'anthropic'
+    ? 'claude'
+    : value === 'anti-gravity'
+      ? 'antigravity'
+      : value === 'muse'
+        ? 'meta'
+        : value;
 };
 
 export const fileName = authFileName;
@@ -361,7 +370,7 @@ export function useAuthFileManager() {
     const plans = new Set<string>(['Plus', 'Team', 'Pro', 'Free']);
     files.forEach((file) => {
       const q = quotas[quotaKey(file)];
-      const rawPlan = q?.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan');
+      const rawPlan = q?.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan', 'subs_tier_name', 'subsTierName');
       if (rawPlan && rawPlan.trim()) {
         const norm = rawPlan.trim().charAt(0).toUpperCase() + rawPlan.trim().slice(1).toLowerCase();
         plans.add(norm);
@@ -388,7 +397,7 @@ export function useAuthFileManager() {
           .includes(query);
 
       const q = quotas[quotaKey(file)];
-      const rawPlan = q?.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan');
+      const rawPlan = q?.plan || readString(file, 'plan_type', 'planType', 'chatgpt_plan_type', 'account_plan', 'subs_tier_name', 'subsTierName');
       const planName = rawPlan ? (rawPlan.trim().charAt(0).toUpperCase() + rawPlan.trim().slice(1).toLowerCase()) : '';
       const planMatch = planFilter === 'all' || planName.toLowerCase() === planFilter.toLowerCase();
 

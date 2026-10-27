@@ -34,14 +34,31 @@ pub(crate) async fn get_antigravity_desktop_status() -> AntigravityDesktopStatus
 }
 
 pub(crate) fn antigravity_desktop_version_supported(version: Option<&str>) -> bool {
-    // These are the Windows desktop builds whose native Cloud Code transport
-    // has been checked for the local bridge contract. Keep this allowlist
-    // explicit so a future desktop update cannot silently break proxying.
-    cfg!(target_os = "windows")
-        && matches!(
-            version,
-            Some("2.15.1" | "2.15.1.0" | "2.19.1" | "2.19.1.0" | "2.21.1" | "2.21.1.0")
-        )
+    if !cfg!(target_os = "windows") {
+        return false;
+    }
+    let Some(raw) = version.map(str::trim).filter(|value| !value.is_empty()) else {
+        return false;
+    };
+    let raw = raw.strip_prefix('v').or_else(|| raw.strip_prefix('V')).unwrap_or(raw);
+    let mut parts = Vec::with_capacity(4);
+    for segment in raw.split('.') {
+        let digits: String = segment.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if digits.is_empty() {
+            return false;
+        }
+        let Ok(number) = digits.parse::<u32>() else {
+            return false;
+        };
+        parts.push(number);
+    }
+    if parts.len() < 2 {
+        return false;
+    }
+    let major = parts[0];
+    let minor = parts[1];
+    let patch = parts.get(2).copied().unwrap_or(0);
+    (major, minor, patch) >= (2, 15, 1)
 }
 
 pub(super) fn close_desktop_connection() -> Result<(), String> {
@@ -61,7 +78,7 @@ pub(super) async fn launch_antigravity_desktop(
 ) -> Result<(), String> {
     if !antigravity_desktop_version_supported(read_antigravity_version(home).as_deref()) {
         return Err(
-            "The desktop bridge currently supports Antigravity 2.15.1, 2.19.1, and 2.21.1 on Windows"
+            "The desktop bridge requires Antigravity 2.15.1 or newer on Windows"
                 .to_owned(),
         );
     }
@@ -167,10 +184,10 @@ mod tests {
     fn unknown_desktop_versions_do_not_claim_compatibility() {
         for version in [
             None,
+            Some("1.99.0"),
             Some("2.14.0"),
-            Some("2.16.0"),
-            Some("2.19.2"),
-            Some("2.22.0"),
+            Some("2.15.0"),
+            Some("2.15.0.0"),
             Some("unknown"),
         ] {
             assert!(!antigravity_desktop_version_supported(version));
@@ -180,7 +197,7 @@ mod tests {
     #[test]
     fn checked_desktop_versions_are_supported() {
         for version in [
-            "2.15.1", "2.15.1.0", "2.19.1", "2.19.1.0", "2.21.1", "2.21.1.0",
+            "2.15.1", "2.15.1.0", "2.19.1", "2.19.1.0", "2.21.1", "2.21.1.0", "2.25.0", "2.25.0.0", "2.30.0",
         ] {
             if cfg!(target_os = "windows") {
                 assert!(antigravity_desktop_version_supported(Some(version)));

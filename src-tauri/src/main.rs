@@ -159,6 +159,7 @@ const DISABLE_AUTO_COMPACT_ENV: &str = "DISABLE_AUTO_COMPACT";
 const DEFAULT_CLAUDE_AUTO_COMPACT_PCT: u8 = 90;
 const MODEL_ALIAS_CONFIG_SECTIONS: &[&str] = &[
     "codex-api-key",
+    "meta-api-key",
     "openai-compatibility",
     "claude-api-key",
     "gemini-api-key",

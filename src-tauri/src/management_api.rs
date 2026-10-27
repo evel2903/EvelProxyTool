@@ -19,6 +19,8 @@ use std::{
 pub(crate) struct OAuthStartResult {
     url: String,
     state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_code: Option<String>,
     opened: bool,
     open_error: Option<String>,
 }
@@ -34,6 +36,8 @@ pub(crate) struct OAuthStatusResult {
 struct OAuthStartApiResponse {
     url: Option<String>,
     state: Option<String>,
+    #[serde(alias = "userCode")]
+    user_code: Option<String>,
     error: Option<String>,
     #[serde(rename = "error_message")]
     error_message: Option<String>,
@@ -256,6 +260,10 @@ pub(crate) async fn start_oauth_login(
         .state
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
+    let user_code = payload
+        .user_code
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
 
     let (opened, open_error) = match open_oauth_url_inner(&app, &url, browser.as_deref()) {
         Ok(()) => (true, None),
@@ -265,6 +273,7 @@ pub(crate) async fn start_oauth_login(
     Ok(OAuthStartResult {
         url,
         state,
+        user_code,
         opened,
         open_error,
     })
@@ -372,6 +381,7 @@ fn normalize_management_oauth_provider(provider: &str) -> Result<String, String>
         "claude" | "anthropic" => "anthropic".to_string(),
         "anti-gravity" => "antigravity".to_string(),
         "grok" | "x-ai" | "x.ai" => "xai".to_string(),
+        "muse" | "meta-ai" | "muse-ai" => "meta".to_string(),
         other => other.to_string(),
     };
     if key.is_empty()
@@ -466,9 +476,41 @@ fn format_management_error(status: u16, body: &str) -> String {
 
 #[cfg(test)]
 mod auth_file_upload_tests {
-    use super::{validate_auth_file_upload, MAX_AUTH_FILE_BYTES};
+    use super::{
+        normalize_management_oauth_provider, validate_auth_file_upload, OAuthStartApiResponse,
+        OAuthStartResult, MAX_AUTH_FILE_BYTES,
+    };
 
     const AUTH_JSON: &[u8] = br#"{"type":"codex","access_token":"example-secret"}"#;
+
+    #[test]
+    fn normalizes_meta_and_muse_oauth_providers_and_parses_user_code() {
+        for raw in ["meta", "muse", "meta-ai", "muse-ai", " META ", "Muse"] {
+            assert_eq!(normalize_management_oauth_provider(raw), Ok("meta".to_string()));
+        }
+
+        let response: OAuthStartApiResponse = serde_json::from_str(
+            r#"{"status":"ok","url":"https://www.meta.ai/activate?user_code=ABCD-EFGH","state":"meta-123","user_code":"ABCD-EFGH"}"#,
+        )
+        .unwrap();
+        assert_eq!(response.user_code.as_deref(), Some("ABCD-EFGH"));
+
+        let camel_response: OAuthStartApiResponse = serde_json::from_str(
+            r#"{"status":"ok","url":"https://www.meta.ai/activate","state":"meta-456","userCode":"WXYZ-1234"}"#,
+        )
+        .unwrap();
+        assert_eq!(camel_response.user_code.as_deref(), Some("WXYZ-1234"));
+
+        let result = OAuthStartResult {
+            url: response.url.unwrap(),
+            state: response.state,
+            user_code: response.user_code,
+            opened: true,
+            open_error: None,
+        };
+        let serialized = serde_json::to_value(&result).unwrap();
+        assert_eq!(serialized["userCode"], "ABCD-EFGH");
+    }
 
     #[test]
     fn accepts_safe_json_names_and_preserves_credentials() {

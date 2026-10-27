@@ -1,6 +1,6 @@
 export type AuthJsonImportMode = 'auth' | 'session' | 'sub2api';
 export type AuthJsonImportProvider =
-  | 'auto' | 'codex' | 'claude' | 'antigravity' | 'kimi' | 'xai' | 'gemini' | 'qwen' | 'vertex';
+  | 'auto' | 'codex' | 'claude' | 'antigravity' | 'kimi' | 'xai' | 'meta' | 'gemini' | 'qwen' | 'vertex';
 export type AuthJsonImportErrorCode =
   | 'empty' | 'too_large' | 'invalid_json' | 'invalid_shape' | 'missing_credentials'
   | 'multiple_sessions' | 'unsupported_accounts' | 'unsafe_content' | 'too_complex' | 'provider_mismatch';
@@ -31,6 +31,7 @@ const credentialKeys = new Set([
   'access_token', 'accesstoken', 'refresh_token', 'refreshtoken', 'id_token', 'idtoken',
   'session_token', 'sessiontoken', 'api_key', 'apikey', 'key', 'token', 'cookie', 'cookies',
   'authorization', 'bearer', 'client_secret', 'clientsecret', 'session_secret', 'sessionsecret',
+  'dca_token', 'dcatoken',
 ]);
 
 const inspect = (value: unknown): JsonObject[] => {
@@ -90,7 +91,8 @@ const timestamp = (...values: unknown[]): string | undefined => {
 
 const providerAliases: Record<string, string> = {
   anthropic: 'claude', openai: 'codex', 'anti-gravity': 'antigravity',
-  grok: 'xai', 'x-ai': 'xai', 'x.ai': 'xai', service_account: 'vertex',
+  grok: 'xai', 'x-ai': 'xai', 'x.ai': 'xai', muse: 'meta', 'meta-ai': 'meta', 'muse-ai': 'meta',
+  service_account: 'vertex',
 };
 
 const nativeAuth = (value: unknown, records: JsonObject[], selectedProvider: AuthJsonImportProvider): JsonObject => {
@@ -104,7 +106,12 @@ const nativeAuth = (value: unknown, records: JsonObject[], selectedProvider: Aut
       }
     }
   }
-  const auth = selectedProvider !== 'auto' && !string(value.type) ? { ...value, type: selectedProvider } : value;
+  const inferredProvider = selectedProvider !== 'auto'
+    ? selectedProvider
+    : !string(value.type, value.provider) && string(value.dca_token, value.dcaToken)
+      ? 'meta'
+      : undefined;
+  const auth = inferredProvider && !string(value.type) ? { ...value, type: inferredProvider } : value;
   const provider = string(auth.type, auth.provider)?.toLowerCase();
   if (!provider) throw new AuthJsonImportError('invalid_shape');
   const keys = string(value.type, value.provider)?.toLowerCase() === 'service_account'

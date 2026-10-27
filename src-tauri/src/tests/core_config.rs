@@ -1170,3 +1170,14 @@ fn startup_merge_can_shrink_template_api_key_sequence() {
         config.management_secret_key
     );
 }
+
+#[test]
+fn meta_provider_section_and_usage_mapping_are_supported() {
+    assert_eq!(
+        validate_api_access_provider_section("meta-api-key"),
+        Ok(())
+    );
+    assert_eq!(usage_provider_section("meta"), Some("meta-api-key"));
+    assert_eq!(usage_provider_section("muse"), Some("meta-api-key"));
+    assert!(MODEL_ALIAS_CONFIG_SECTIONS.contains(&"meta-api-key"));
+}

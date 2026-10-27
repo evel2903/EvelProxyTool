@@ -31,6 +31,7 @@ const normalizeOAuthProvider = (value: string) => {
   const provider = value.trim().toLowerCase();
   if (provider === 'anthropic') return 'claude';
   if (provider === 'openai') return 'codex';
+  if (provider === 'muse') return 'meta';
   return provider;
 };
 

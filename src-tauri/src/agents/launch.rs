@@ -598,11 +598,17 @@ mod tests {
             agent_launch_targets(AgentClient::Antigravity, Some(executable), Some("1.0.0"), true);
         assert!(targets.is_empty());
         let desktop = agent_launch_targets(AgentClient::Antigravity, None, Some("2.15.1"), true);
+        let desktop_new = agent_launch_targets(AgentClient::Antigravity, None, Some("2.25.0.0"), true);
         if cfg!(target_os = "windows") {
             assert_eq!(desktop.len(), 1);
             assert_eq!(desktop[0].id, "app");
-        } else { assert!(desktop.is_empty()); }
-        assert!(agent_launch_targets(AgentClient::Antigravity, None, Some("2.16.0"), true).is_empty());
+            assert_eq!(desktop_new.len(), 1);
+            assert_eq!(desktop_new[0].id, "app");
+        } else {
+            assert!(desktop.is_empty());
+            assert!(desktop_new.is_empty());
+        }
+        assert!(agent_launch_targets(AgentClient::Antigravity, None, Some("2.14.0"), true).is_empty());
     }
 
     #[cfg(target_os = "windows")]

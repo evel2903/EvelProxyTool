@@ -37,9 +37,13 @@ export type ProviderHealthCheckOptions = {
   timeoutMs?: number;
 };
 
+const DEFAULT_META_USER_AGENT = 'muse-build/1.3.0 (interactive; macos-aarch64; build ac7280f2aca67769d1455a8847bb502b617d50f6)';
+const DEFAULT_META_CLIENT_ID = 'tbh:tui';
+
 const defaultBaseUrl = (provider: ModelProvider) => {
   if (provider === 'claude') return 'https://api.anthropic.com';
   if (provider === 'gemini') return 'https://generativelanguage.googleapis.com';
+  if (provider === 'meta') return 'https://api.meta.ai/v1';
   return '';
 };
 
@@ -153,7 +157,11 @@ export function buildProviderHealthProbe(
   if (key) setHeaderIfMissing(headers, 'Authorization', `Bearer ${key}`);
   else if (authIndex) setHeaderIfMissing(headers, 'Authorization', 'Bearer $TOKEN$');
 
-  if (provider === 'codex') {
+  if (provider === 'codex' || provider === 'meta') {
+    if (provider === 'meta') {
+      setHeaderIfMissing(headers, 'User-Agent', DEFAULT_META_USER_AGENT);
+      setHeaderIfMissing(headers, 'X-Client-Id', DEFAULT_META_CLIENT_ID);
+    }
     return {
       ...metadata,
       url: `${root}/v1/responses`,

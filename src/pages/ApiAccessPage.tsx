@@ -41,6 +41,7 @@ import claudeIcon from '../assets/icons/claude.svg';
 import codexIcon from '../assets/icons/codex.svg';
 import deepseekIcon from '../assets/icons/deepseek.svg';
 import geminiIcon from '../assets/icons/gemini.svg';
+import metaIcon from '../assets/icons/meta.svg';
 import openaiIcon from '../assets/icons/openai-light.svg';
 import {
   isRecord,
@@ -77,11 +78,17 @@ export type ProviderSection =
   | 'gemini-api-key'
   | 'codex-api-key'
   | 'claude-api-key'
+  | 'meta-api-key'
   | 'openai-compatibility';
 
 export type ProviderCategory = ProviderSection | 'deepseek';
 
 export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+export const META_BASE_URL = 'https://api.meta.ai/v1';
+export const META_DEFAULT_HEADERS = [
+  'User-Agent: muse-build/1.3.0 (interactive; macos-aarch64; build ac7280f2aca67769d1455a8847bb502b617d50f6)',
+  'X-Client-Id: tbh:tui',
+].join('\n');
 export const OPENAI_THINKING_LEVELS = ['low', 'medium', 'high', 'xhigh'] as const;
 export const DEEPSEEK_THINKING_LEVELS = OPENAI_THINKING_LEVELS;
 
@@ -237,6 +244,7 @@ const providerDefinitions: ProviderDefinition[] = [
   },
   { id: 'claude-api-key', section: 'claude-api-key', responseKey: 'claude-api-key', label: 'Claude', icon: claudeIcon, openAi: false },
   { id: 'gemini-api-key', section: 'gemini-api-key', responseKey: 'gemini-api-key', label: 'Gemini', icon: geminiIcon, openAi: false },
+  { id: 'meta-api-key', section: 'meta-api-key', responseKey: 'meta-api-key', label: 'Meta', icon: metaIcon, openAi: false },
 ];
 
 export const providerSectionOrder = providerDefinitions.map((definition) => definition.id);
@@ -250,6 +258,7 @@ const emptyRecords = (): Record<ProviderSection, Record<string, unknown>[]> => (
   'gemini-api-key': [],
   'codex-api-key': [],
   'claude-api-key': [],
+  'meta-api-key': [],
   'openai-compatibility': [],
 });
 
@@ -332,6 +341,7 @@ const providerModelType = (section: ProviderSection): ModelProvider => {
   if (section === 'gemini-api-key') return 'gemini';
   if (section === 'claude-api-key') return 'claude';
   if (section === 'codex-api-key') return 'codex';
+  if (section === 'meta-api-key') return 'meta';
   return 'openai';
 };
 
@@ -538,6 +548,13 @@ const emptyProviderDraft = (): ProviderDraft => ({
 export const createProviderDraft = (category: ProviderCategory): ProviderDraft => {
   const draft = emptyProviderDraft();
   if (category === 'openai-compatibility') return { ...draft, thinkingLevels: [] };
+  if (category === 'meta-api-key') {
+    return {
+      ...draft,
+      baseUrl: META_BASE_URL,
+      headersText: META_DEFAULT_HEADERS,
+    };
+  }
   if (category !== 'deepseek') return draft;
   return {
     ...draft,
@@ -1698,13 +1715,7 @@ function ApiProviderDialog({
     setModelLoading(true);
     setModelError('');
     try {
-      const provider: ModelProvider = definition.section === 'gemini-api-key'
-        ? 'gemini'
-        : definition.section === 'claude-api-key'
-          ? 'claude'
-          : definition.section === 'codex-api-key'
-            ? 'codex'
-            : 'openai';
+      const provider: ModelProvider = providerModelType(definition.section);
       const modelApiKey = draft.apiKey.split(/\r?\n/).map((value) => value.trim()).find(Boolean) ?? '';
       const fetchedModels = await fetchModels(
         provider,

@@ -26,7 +26,11 @@ pub(crate) fn validate_api_key_remark(remark: &str) -> Result<(), String> {
 pub(crate) fn validate_api_access_provider_section(section: &str) -> Result<(), String> {
     if matches!(
         section,
-        "gemini-api-key" | "codex-api-key" | "claude-api-key" | "openai-compatibility"
+        "gemini-api-key"
+            | "codex-api-key"
+            | "claude-api-key"
+            | "meta-api-key"
+            | "openai-compatibility"
     ) {
         Ok(())
     } else {
@@ -44,6 +48,7 @@ pub(crate) fn usage_provider_section(provider: &str) -> Option<&'static str> {
         "codex" => Some("codex-api-key"),
         "claude" => Some("claude-api-key"),
         "gemini" | "aistudio" => Some("gemini-api-key"),
+        "meta" | "muse" => Some("meta-api-key"),
         "openai" | "openai-compatibility" => Some("openai-compatibility"),
         _ => None,
     }
